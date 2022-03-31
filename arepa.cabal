@@ -82,6 +82,9 @@ test-suite arepa-tests
   -- Directories containing test files.
   hs-source-dirs: test
   
+  -- Base language which the test suite is written in.
+  default-language: Haskell2010
+  
   -- Other test suite packages from which modules are imported.
   build-depends:
     base ^>=4.15.0.0
