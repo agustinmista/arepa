@@ -8,7 +8,7 @@ module Compiler
   , logCompilerMsg
   , CompilerError(..)
   , CompilerEnv(..)
-  , CompilerMsg(..)
+  , CompilerLog(..)
   ) where
 
 import Control.Monad.Except
@@ -20,25 +20,25 @@ import Control.Monad.RWS
 
 -- Monad transformer with global read-only environment and error throwing
 
-newtype CompilerT m a = CompilerT (ExceptT CompilerError (RWST CompilerEnv CompilerMsg CompilerState m) a)
+newtype CompilerT m a = CompilerT (ExceptT CompilerError (RWST CompilerEnv CompilerLog CompilerState m) a)
   deriving (
     Functor, Applicative, Monad, 
     MonadError CompilerError, 
     MonadReader CompilerEnv,
-    MonadWriter CompilerMsg,
+    MonadWriter CompilerLog,
     MonadState CompilerState
   )
 
-runCompilerT :: Monad m => CompilerEnv -> CompilerT m a -> m (Either CompilerError (a, CompilerMsg)) 
+runCompilerT :: Monad m => CompilerEnv -> CompilerT m a -> m (Either CompilerError a, CompilerLog) 
 runCompilerT env (CompilerT m) = do 
   (res, _, log) <- runRWST (runExceptT m) env initCompilerState
   case res of
-    Left ce -> return (Left ce)
-    Right a -> return (Right (a, log))
+    Left ce -> return (Left ce, log)
+    Right a -> return (Right a, log)
 
 -- Map the inner computation using a given function
-withCompilerT :: (m (Either CompilerError a, CompilerState, CompilerMsg) -> 
-                  n (Either CompilerError b, CompilerState, CompilerMsg)) 
+withCompilerT :: (m (Either CompilerError a, CompilerState, CompilerLog) -> 
+                  n (Either CompilerError b, CompilerState, CompilerLog)) 
              -> CompilerT m a 
              -> CompilerT n b
 withCompilerT f (CompilerT ex) = 
@@ -51,7 +51,7 @@ withCompilerT f (CompilerT ex) =
 
 type Compiler a = CompilerT IO a
 
-runCompiler :: CompilerEnv -> Compiler a -> IO (Either CompilerError (a, CompilerMsg))
+runCompiler :: CompilerEnv -> Compiler a -> IO (Either CompilerError a, CompilerLog)
 runCompiler = runCompilerT
 
 -- Compiler manipulation
@@ -62,7 +62,7 @@ throwCompilerError = throwError
 lookupCompilerEnv :: Monad m => (CompilerEnv -> a) -> CompilerT m a
 lookupCompilerEnv = asks 
 
-logCompilerMsg :: Monad m => CompilerMsg -> CompilerT m ()
+logCompilerMsg :: Monad m => CompilerLog -> CompilerT m ()
 logCompilerMsg = tell 
 
 ----------------------------------------
@@ -84,10 +84,13 @@ initCompilerState = CompilerState
 -- Compilation log (write-only)
 ----------------------------------------
 
+newtype CompilerLog = CompilerLog [CompilerMsg]
+  deriving Show
+  deriving Semigroup via [CompilerMsg]
+  deriving Monoid via [CompilerMsg]
+
 newtype CompilerMsg = CompilerMsg ()
   deriving Show
-  deriving Semigroup via ()
-  deriving Monoid via ()
 
 ----------------------------------------
 -- Compilation errors
