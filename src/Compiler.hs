@@ -3,14 +3,16 @@ module Compiler
   , runCompilerT
   , Compiler
   , runCompiler
-  , compilerEnv
-  , compilerError
-  , CompilerEnv(..)
+  , lookupCompilerEnv
+  , throwCompilerError
+  , logCompilerMsg
   , CompilerError(..)
+  , CompilerEnv(..)
+  , CompilerMsg(..)
   ) where
 
-import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Monad.RWS
 
 ----------------------------------------
 -- Compiler monad
@@ -18,42 +20,87 @@ import Control.Monad.Except
 
 -- Monad transformer with global read-only environment and error throwing
 
-newtype CompilerT m a = CompilerT (ReaderT CompilerEnv (ExceptT CompilerError m) a)
-  deriving (Functor, Applicative, Monad, MonadReader CompilerEnv, MonadError CompilerError)
+newtype CompilerT m a = CompilerT (ExceptT CompilerError (RWST CompilerEnv CompilerMsg CompilerState m) a)
+  deriving (
+    Functor, Applicative, Monad, 
+    MonadError CompilerError, 
+    MonadReader CompilerEnv,
+    MonadWriter CompilerMsg,
+    MonadState CompilerState
+  )
 
-runCompilerT :: Monad m => CompilerEnv -> CompilerT m a -> m (Either CompilerError a) 
-runCompilerT env (CompilerT m) = runExceptT (runReaderT m env)
+runCompilerT :: Monad m => CompilerEnv -> CompilerT m a -> m (Either CompilerError (a, CompilerMsg)) 
+runCompilerT env (CompilerT m) = do 
+  (res, _, log) <- runRWST (runExceptT m) env initCompilerState
+  case res of
+    Left ce -> return (Left ce)
+    Right a -> return (Right (a, log))
+
+-- Map the inner computation using a given function
+withCompilerT :: (m (Either CompilerError a, CompilerState, CompilerMsg) -> 
+                  n (Either CompilerError b, CompilerState, CompilerMsg)) 
+             -> CompilerT m a 
+             -> CompilerT n b
+withCompilerT f (CompilerT ex) = 
+  CompilerT $ 
+    flip mapExceptT ex $ \rwst -> 
+    flip mapRWST rwst $ \m ->
+      f m
 
 -- Non-transformer synomym
 
 type Compiler a = CompilerT IO a
 
-runCompiler :: CompilerEnv -> Compiler a -> IO (Either CompilerError a)
+runCompiler :: CompilerEnv -> Compiler a -> IO (Either CompilerError (a, CompilerMsg))
 runCompiler = runCompilerT
 
 -- Compiler manipulation
 
-compilerEnv :: Monad m => CompilerT m CompilerEnv
-compilerEnv = ask  
+throwCompilerError :: Monad m => CompilerError -> CompilerT m a
+throwCompilerError = throwError 
 
-compilerError :: Monad m => CompilerError -> CompilerT m a
-compilerError = throwError 
+lookupCompilerEnv :: Monad m => (CompilerEnv -> a) -> CompilerT m a
+lookupCompilerEnv = asks 
+
+logCompilerMsg :: Monad m => CompilerMsg -> CompilerT m ()
+logCompilerMsg = tell 
 
 ----------------------------------------
--- Compilation environment
+-- Compilation environment (read-only)
 ----------------------------------------
 
-data CompilerEnv where
-  CompilerEnv :: {} -> CompilerEnv
-  deriving (Show, Read, Eq, Ord)
+data CompilerEnv = CompilerEnv
+
+----------------------------------------
+-- Compilation state (read-write)
+----------------------------------------
+
+data CompilerState = CompilerState
+
+initCompilerState :: CompilerState
+initCompilerState = CompilerState
+
+----------------------------------------
+-- Compilation log (write-only)
+----------------------------------------
+
+newtype CompilerMsg = CompilerMsg ()
+  deriving Show
+  deriving Semigroup via ()
+  deriving Monoid via ()
 
 ----------------------------------------
 -- Compilation errors
 ----------------------------------------
 
-data CompilerError where 
-  ParseError     :: {} -> CompilerError
-  DesugarError   :: {} -> CompilerError
-  TypeCheckError :: {} -> CompilerError
-  CodeGenError   :: {} -> CompilerError
-  deriving (Show, Read, Eq, Ord)
+data CompilerError = 
+    PsError 
+  | DsError 
+  | TcError 
+  | CgError 
+  deriving Show
+
+data PsError = SomePsError
+data DsError = SomeDsError
+data TcError = SomeTcError
+data CgError = SomeCgError

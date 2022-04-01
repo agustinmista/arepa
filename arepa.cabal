@@ -62,6 +62,7 @@ executable arepa
   default-extensions:
     GADTs
     GeneralizedNewtypeDeriving
+    DerivingVia
     StandaloneDeriving
     ScopedTypeVariables
 
