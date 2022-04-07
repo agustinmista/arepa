@@ -66,6 +66,8 @@ executable arepa
     DerivingVia
     StandaloneDeriving
     ScopedTypeVariables
+    OverloadedStrings
+    ImportQualifiedPost
 
   -- Directories containing source files.
   hs-source-dirs: src
