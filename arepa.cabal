@@ -11,9 +11,9 @@ name: arepa
 -- See the Haskell package versioning policy (PVP) for standards
 -- guiding when and how versions should be incremented.
 -- https://pvp.haskell.org
--- PVP summary:      +-+------- breaking API changes
---                   | | +----- non-breaking API additions
---                   | | | +--- code changes with no API change
+--       +-+------- breaking API changes
+--       | | +----- non-breaking API additions
+--       | | | +--- code changes with no API change
 version: 0.1.0.0
 
 -- A short (one-line) description of the package.
@@ -57,12 +57,16 @@ executable arepa
   -- Modules included in this executable, other than Main.
   other-modules:
     Var
+    Compiler
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
-    OverloadedStrings
-    ImportQualifiedPost
-  
+    GADTs
+    GeneralizedNewtypeDeriving
+    DerivingVia
+    StandaloneDeriving
+    ScopedTypeVariables
+
   -- Directories containing source files.
   hs-source-dirs: src
 
@@ -72,6 +76,7 @@ executable arepa
   -- Other library packages from which modules are imported.
   build-depends:
       base ^>=4.15.0.0
+    , mtl
     , text
 
 ----------------------------------------
