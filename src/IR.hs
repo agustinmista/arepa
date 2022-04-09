@@ -2,7 +2,6 @@ module IR where
 
 import Data.Foldable
 
-import Var
 import Lit
 import Con
 
