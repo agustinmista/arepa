@@ -59,7 +59,7 @@ executable arepa
     Var
     Lit
     Con
-    IR
+    IR.Syntax
     Compiler
 
   -- LANGUAGE extensions used by modules in this package.
