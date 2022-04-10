@@ -30,10 +30,10 @@ varName :: Var -> Text
 varName (Var t) = t
 
 -- This instance let us write variables directly as strings:
--- >>> "foo" :: Var) 
--- "Var \"foo\""
+-- >>> "foo" :: Var 
+-- Var "foo"
 instance IsString Var where
-  fromString s = Var (Text.pack s)
+  fromString s = mkVar (Text.pack s)
 
 instance Pretty Var where
   pretty v = pretty (varName v) 
