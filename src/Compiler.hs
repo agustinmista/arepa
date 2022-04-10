@@ -62,8 +62,8 @@ throwCompilerError = throwError
 lookupCompilerEnv :: Monad m => (CompilerEnv -> a) -> CompilerT m a
 lookupCompilerEnv = asks 
 
-logCompilerMsg :: Monad m => CompilerLog -> CompilerT m ()
-logCompilerMsg = tell 
+logCompilerMsg :: Monad m => CompilerMsg -> CompilerT m ()
+logCompilerMsg msg = tell (CompilerLog [msg]) 
 
 ----------------------------------------
 -- Compilation environment (read-only)
@@ -97,13 +97,13 @@ newtype CompilerMsg = CompilerMsg ()
 ----------------------------------------
 
 data CompilerError = 
-    PsError 
-  | DsError 
-  | TcError 
-  | CgError 
+    PsError PsError 
+  | DsError DsError 
+  | TcError TcError 
+  | CgError CgError 
   deriving Show
 
-data PsError = SomePsError
-data DsError = SomeDsError
-data TcError = SomeTcError
-data CgError = SomeCgError
+data PsError = SomePsError deriving Show 
+data DsError = SomeDsError deriving Show
+data TcError = SomeTcError deriving Show
+data CgError = SomeCgError deriving Show
