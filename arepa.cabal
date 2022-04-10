@@ -56,10 +56,15 @@ executable arepa
 
   -- Modules included in this executable, other than Main.
   other-modules:
+    -- Common
     Var
     Lit
     Con
+    -- IR
+    IR
+    IR.Pretty
     IR.Syntax
+    -- Utils
     Compiler
 
   -- LANGUAGE extensions used by modules in this package.
@@ -84,6 +89,7 @@ executable arepa
       base ^>=4.15.0.0
     , mtl
     , text
+    , prettyprinter
 
 ----------------------------------------
 

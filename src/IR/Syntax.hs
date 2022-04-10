@@ -32,7 +32,7 @@ data Expr a =
   | AppE (Expr a) (Expr a)  -- ^ Function application
   | LamE a (Expr a)         -- ^ Lambda expressions
   | LetE (Bind a) (Expr a)  -- ^ Let expressions
-  | CaseE [Alt a]           -- ^ Case expressions
+  | CaseE (Expr a) [Alt a]  -- ^ Case expressions
   deriving (Show, Read, Eq, Ord, Functor)
 
 ----------------------------------------

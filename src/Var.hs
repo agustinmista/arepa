@@ -9,6 +9,8 @@ import Data.String
 import Data.Text (Text)
 import Data.Text qualified as Text
 
+import Prettyprinter
+
 ----------------------------------------
 -- Variables
 ----------------------------------------
@@ -32,3 +34,6 @@ varName (Var t) = t
 -- "Var \"foo\""
 instance IsString Var where
   fromString s = Var (Text.pack s)
+
+instance Pretty Var where
+  pretty v = pretty (varName v) 
