@@ -1,30 +1,66 @@
-enum node_type {FUN,PAP,THUNK,LIT,NULL};
+typedef enum {
+  APP,
+  OP,
+  FUN,
+  PAP,
+  THUNK,
+  LIT,
+  NULL
+} node_type;
 
-struct fun {
+// Top-level function node
+typedef struct {
   int arity;
+  int ap_args;
   void* location;
   struct node* args;
-};
+} fun;
 
-struct thunk {
-  struct node* refs;
-};
+// Thunk (indirection) node
+typedef struct {
+  node* refs;
+} thunk;
 
-struct lit {
+// Number literal
+typedef struct {
   int num;
-};
+} lit_num;
 
-union node_const {
-  struct fun   fun;
-  struct fun   pap;
-  struct thunk thunk;
-  struct lit   lit;
-  int    null;
-};
+// Application node
+typedef struct {
+  node*  lhs;
+  node*  rhs;
+} app;
 
-struct node {
-  enum node_type type;
-  union node_const;
-};
+// Primitive operations
+typedef enum {ADD,SUB,DIV} prim_ops;
 
+// Primitive operation node
+typedef struct {
+  prim_ops op;
+  int arity;
+} prim_op;
+
+typedef union {
+  fun       fun;
+  fun       pap;
+  thunk     thunk;
+  lit_num   lit_num;
+  app       app;
+  int       null;
+} node_const;
+
+// Nodes
+typedef struct {
+  node_type type;
+  node_const node;
+} node;
+
+node mk_fun(int arity, void* location) {
+  // TODO
+}
+
+node mk_pap(int arity, void* location, int ap_args, node* args) {
+  // TODO
+}
 

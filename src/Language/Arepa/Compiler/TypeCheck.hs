@@ -1,9 +1,9 @@
-module TypeCheck 
+module Language.Arepa.Compiler.TypeCheck 
   ( typeCheckModule
   ) where
 
-import Syntax
-import Compiler
+import Language.Arepa.Compiler.Monad
+import Language.Arepa.Syntax
 
 ----------------------------------------
 -- Type checking

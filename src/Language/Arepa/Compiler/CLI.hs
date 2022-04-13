@@ -1,4 +1,4 @@
-module CLI 
+module Language.Arepa.Compiler.CLI 
   ( CliOpts(..)
   , defaultCliOpts
   , parseCliOpts

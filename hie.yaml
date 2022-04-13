@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "arepa:lib:arepa-lib"
+
+    - path: "app/Main.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "test"
+      component: "arepa:test:arepa-tests"
