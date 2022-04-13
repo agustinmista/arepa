@@ -3,7 +3,6 @@ module Parser
   , parseModule
   , parseDecl
   , parseExpr
-  , parseTest
   ) where
 
 
@@ -89,10 +88,13 @@ expr = label "expression" $ do
   choice [parenE, atomE]
 
 atomE :: Parser CoreExpr
-atomE = try litE <|> varE <|> conE
+atomE = label "atomic expression" $ do
+  choice [try litE, varE, conE]
 
 parenE :: Parser CoreExpr
-parenE = parens $ lamE <|> letE <|> caseE <|> appE
+parenE = label "s-expression" $ do
+  parens $ do
+    choice [try lamE, try letE, try caseE, appE]
 
 appE :: Parser CoreExpr
 appE = do
@@ -118,7 +120,7 @@ lamE = do
 
 letE :: Parser CoreExpr
 letE = do
-  isRec <- choice [ try (symbol "letrec" $> True), symbol "let" $> False ] 
+  isRec <- choice [try (symbol "letrec" $> True), symbol "let" $> False] 
   binds <- parens $ many $ parens $ (,) <$> var <*> expr
   body <- expr 
   return (LetE isRec binds body)
@@ -207,7 +209,9 @@ var = mkVar <$> identifier
 whitespace :: Parser ()
 whitespace = Lexer.space space1 (Lexer.skipLineComment ";") empty
 
+----------------------------------------
 -- Parsing identifiers (roughly the same rules as in Scheme)
+
 identInitial :: Parser Char
 identInitial = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^_~" :: [Char]))
 
@@ -226,12 +230,22 @@ identifier = Lexer.lexeme whitespace $ do
   let peculiarIdent = 
         choice [string "+", string "-"] <* 
         notFollowedBy identSubsequent
-  normalIdent <|> peculiarIdent
+  let check i | i `notElem` reserved = return i
+              | otherwise  = fail ("keyword " <> show i <> "cannot be used as an identifier")
+  check =<< normalIdent <|> peculiarIdent
 
--- Parse a keyword not followed by an identifier char
+----------------------------------------
+-- Parsing keywords
+
+reserved :: [Text]
+reserved = ["module", "lambda", "let", "letrec", "case"]
+
 keyword :: Text -> Parser ()
 keyword kw = void $ Lexer.lexeme whitespace $ do
   string kw <* notFollowedBy identInitial
+
+----------------------------------------
+-- Low-level lexemes
 
 symbol :: Text -> Parser ()
 symbol s = void (Lexer.symbol whitespace s)
