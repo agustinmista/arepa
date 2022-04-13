@@ -8,6 +8,7 @@ import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
 import Prettyprinter
+import Prettyprinter.Render.Text
 
 ----------------------------------------
 -- Modules
@@ -16,7 +17,7 @@ import Prettyprinter
 data Module a =
   Module {
     mod_name :: a,
-    mod_binds :: [Decl a]
+    mod_decls :: [Decl a]
   } deriving (Show, Read, Eq, Ord, Functor)
 
 type CoreModule = Module Var
@@ -120,7 +121,7 @@ mkCharLitE :: Char -> Expr a
 mkCharLitE c = LitE (CharL c)
 
 -- Create a string literal expression
-mkStringLitE :: String -> Expr a
+mkStringLitE :: Text -> Expr a
 mkStringLitE s = LitE (StringL s)
 
 -- Create a constructor expression, applying a data constructor to a list of
@@ -143,10 +144,10 @@ mkLamsE vars body = foldr LamE body vars
 
 -- Is this expression atomic?
 isAtomicExpr :: Expr a -> Bool
-isAtomicExpr (VarE {}) = True
-isAtomicExpr (LitE {}) = True
-isAtomicExpr (ConE {}) = True
-isAtomicExpr _         = False
+isAtomicExpr VarE {} = True
+isAtomicExpr LitE {} = True
+isAtomicExpr ConE {} = True
+isAtomicExpr _       = False
 
 -- Collect all the leading lambdas from an expression
 collectBinders :: Expr a -> ([a], Expr a)
@@ -198,7 +199,7 @@ data Lit =
     IntL Int
   | DoubleL Double
   | CharL Char
-  | StringL String
+  | StringL Text
   deriving (Show, Eq, Read, Ord)
 
 instance Pretty Lit where
@@ -237,8 +238,8 @@ newtype Var = Var Text
 mkVar :: Text -> Var
 mkVar = Var
 
-varString :: Var -> String
-varString (Var t) = Text.unpack t
+fromVar :: IsString a => Var -> a
+fromVar (Var t) = fromString (Text.unpack t)
 
 -- This instance let us write variables directly as strings
 instance IsString Var where
@@ -247,3 +248,9 @@ instance IsString Var where
 instance Pretty Var where
   pretty (Var v) = pretty v
 
+----------------------------------------
+-- Pretty printing utilities
+----------------------------------------
+
+ppr :: Pretty a => a -> Text
+ppr a = renderLazy (layoutPretty defaultLayoutOptions (pretty a))

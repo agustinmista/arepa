@@ -17,6 +17,7 @@ import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as Lexer
 
+import CLI
 import Compiler
 import Syntax
 
@@ -25,24 +26,24 @@ import Syntax
 ----------------------------------------
 
 -- The monadic parser stack
-type Parser = ParsecT Void Text Identity
+type Parser = ParsecT Void Text (CompilerT IO)
 
 parse :: Parser a -> Text -> Compiler a
-parse p t = do
-  mbfile <- getCurrentFile
-  let file = fromMaybe "<interactive>" mbfile
-  case runParser (whitespace *> p <* eof) file t of
+parse parser text = do
+  path <- fromMaybe "<interactive>" <$> lookupCliOpt optInput
+  res <- runParserT parser path text
+  case res of
     Right a -> return a
     Left errs -> throwParserError errs
 
 parseModule :: Text -> Compiler CoreModule
-parseModule = parse module'
+parseModule = parse (contents module')
 
 parseDecl :: Text -> Compiler CoreDecl
-parseDecl = parse decl
+parseDecl = parse (contents decl)
 
 parseExpr :: Text -> Compiler CoreExpr
-parseExpr = parse expr
+parseExpr = parse (contents expr)
 
 ----------------------------------------
 -- Syntax parsers
@@ -208,6 +209,9 @@ var = mkVar <$> identifier
 whitespace :: Parser ()
 whitespace = Lexer.space space1 (Lexer.skipLineComment ";") empty
 
+contents :: Parser a -> Parser a
+contents p = whitespace *> p <* eof
+
 ----------------------------------------
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
@@ -270,8 +274,8 @@ brackets = between (symbol "[") (symbol "]")
 charLiteral :: Parser Char
 charLiteral = between (char '\'') (char '\'') Lexer.charLiteral
 
-stringLiteral :: Parser String
-stringLiteral = char '\"' *> manyTill Lexer.charLiteral (char '\"')
+stringLiteral :: Parser Text
+stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"'))
 
 comma :: Parser ()
 comma = symbol ","

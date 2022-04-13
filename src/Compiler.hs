@@ -1,38 +1,44 @@
-module Compiler 
+module Compiler
   ( CompilerT
   , runCompilerT
   , Compiler
   , runCompiler
   , withCompilerT
+  -- Compilation errors
+  , MonadError
+  , CompilerError
+  , throwCompilerError
+  , ParserError
+  , throwParserError
+  , CodegenError
+  , throwCodegenError
   -- Read-only environment
+  , MonadReader
   , CompilerEnv
   , emptyCompilerEnv
   , mkCompilerEnv
   , lookupCliOpt
   -- Write-only log
+  , MonadWriter
   , CompilerLog
-  , logCompilerMsg
-  -- Internal state
-  , CompilerState
-  , getCurrentFile
-  , setCurrentFile
-  -- Compilation errors
-  , CompilerError
-  , throwCompilerError
-  , ParserError
-  , throwParserError
+  , renderCompilerLog
+  , logWarningMsg
+  , logDebugMsg
   -- Other utilities
   , liftIO
   ) where
 
 
 import Control.Monad.Except
-import Control.Monad.RWS
+import Control.Monad.Reader
+import Control.Monad.Writer
 
 -- Pass specific imports
 import Text.Megaparsec (ParseErrorBundle)
 import Data.Void
+
 import Data.Text.Lazy (Text)
+import Data.Text.Lazy qualified as Text
 
 import CLI
 
@@ -42,21 +48,20 @@ import CLI
 
 -- Monad transformer with global read-only environment and error throwing
 
-newtype CompilerT m a = CompilerT (ExceptT CompilerError (RWST CompilerEnv CompilerLog CompilerState m) a)
+newtype CompilerT m a = CompilerT (ExceptT CompilerError (ReaderT CompilerEnv (WriterT CompilerLog m)) a)
   deriving (
-    Functor, Applicative, Monad, MonadIO, 
-    MonadError CompilerError, 
+    Functor, Applicative, Monad, MonadIO,
+    MonadError CompilerError,
     MonadReader CompilerEnv,
-    MonadWriter CompilerLog,
-    MonadState CompilerState
+    MonadWriter CompilerLog
   )
 
 instance MonadTrans CompilerT where
-  lift = CompilerT . lift . lift
+  lift = CompilerT . lift . lift . lift
 
-runCompilerT :: Monad m => CompilerEnv -> CompilerT m a -> m (Either CompilerError a, CompilerLog) 
-runCompilerT env (CompilerT m) = do 
-  (res, _, msgs) <- runRWST (runExceptT m) env initCompilerState
+runCompilerT :: Monad m => CompilerEnv -> CompilerT m a -> m (Either CompilerError a, CompilerLog)
+runCompilerT env (CompilerT m) = do
+  (res, msgs) <- runWriterT (runReaderT (runExceptT m) env)
   case res of
     Left ce -> return (Left ce, msgs)
     Right a -> return (Right a, msgs)
@@ -69,14 +74,15 @@ runCompiler :: CompilerEnv -> Compiler a -> IO (Either CompilerError a, Compiler
 runCompiler = runCompilerT
 
 -- Map the inner computation using a given function
-withCompilerT :: (m (Either CompilerError a, CompilerState, CompilerLog) -> 
-                  n (Either CompilerError b, CompilerState, CompilerLog)) 
-             -> CompilerT m a 
+withCompilerT :: (m (Either CompilerError a, CompilerLog) ->
+                  n (Either CompilerError b, CompilerLog))
+             -> CompilerT m a
              -> CompilerT n b
-withCompilerT f (CompilerT ex) = 
-  CompilerT $ 
-    flip mapExceptT ex $ \rwst -> 
-    flip mapRWST rwst $ \m ->
+withCompilerT f (CompilerT ex) =
+  CompilerT $
+    flip mapExceptT ex $ \rdr ->
+    flip mapReaderT rdr $ \wtr ->
+    flip mapWriterT wtr $ \m ->
       f m
 
 ----------------------------------------
@@ -84,12 +90,12 @@ withCompilerT f (CompilerT ex) =
 ----------------------------------------
 
 data CompilerEnv = CompilerEnv {
-  ce_cli_opts :: CliOpts 
+  ce_cli_opts :: CliOpts
 }
 
 emptyCompilerEnv :: CompilerEnv
 emptyCompilerEnv = CompilerEnv {
-  ce_cli_opts = defaultCliOpts 
+  ce_cli_opts = defaultCliOpts
 }
 
 mkCompilerEnv :: CliOpts -> CompilerEnv
@@ -99,30 +105,8 @@ mkCompilerEnv opts = CompilerEnv {
 
 -- Compiler utilities
 
-lookupCliOpt :: Monad m => (CliOpts -> a) -> CompilerT m a
-lookupCliOpt f = f <$> asks ce_cli_opts 
-
-----------------------------------------
--- Compilation state (read-write)
-----------------------------------------
-
-data CompilerState = CompilerState { 
-  cs_curr_file :: Maybe FilePath 
-}
-
-initCompilerState :: CompilerState
-initCompilerState = CompilerState { 
-  cs_curr_file = Nothing 
-}
-
--- Compiler utilities
-
-getCurrentFile :: Monad m => CompilerT m (Maybe FilePath)
-getCurrentFile = cs_curr_file <$> get
-
-setCurrentFile :: Monad m => FilePath -> CompilerT m ()
-setCurrentFile path = modify' $ \cs ->
-   cs { cs_curr_file = Just path } 
+lookupCliOpt :: MonadReader CompilerEnv m => (CliOpts -> a) -> m a
+lookupCliOpt f = asks (f . ce_cli_opts)
 
 ----------------------------------------
 -- Compilation log (write-only)
@@ -131,35 +115,56 @@ setCurrentFile path = modify' $ \cs ->
 newtype CompilerLog = CompilerLog [CompilerMsg]
   deriving Show
   deriving Semigroup via [CompilerMsg]
-  deriving Monoid via [CompilerMsg]
+  deriving Monoid    via [CompilerMsg]
 
-newtype CompilerMsg = CompilerMsg ()
+renderCompilerLog :: CompilerLog -> Text
+renderCompilerLog (CompilerLog msgs) =
+  Text.unlines (renderCompilerMsg <$> msgs)
+
+data CompilerMsg =
+    WarningMsg Text
+  | DebugMsg Text
   deriving Show
+
+renderCompilerMsg :: CompilerMsg -> Text
+renderCompilerMsg (WarningMsg msg) =
+  "[WARNING] " <> msg
+renderCompilerMsg (DebugMsg msg) =
+  "[DEBUG] " <> msg
 
 -- Compiler utilities
 
-logCompilerMsg :: Monad m => CompilerMsg -> CompilerT m ()
-logCompilerMsg msg = tell (CompilerLog [msg]) 
+logCompilerMsg :: MonadWriter CompilerLog m => CompilerMsg -> m ()
+logCompilerMsg msg = tell (CompilerLog [msg])
+
+logWarningMsg :: MonadWriter CompilerLog m => Text -> m ()
+logWarningMsg = logCompilerMsg . WarningMsg
+
+logDebugMsg :: MonadWriter CompilerLog m => Text -> m ()
+logDebugMsg = logCompilerMsg . DebugMsg
 
 ----------------------------------------
 -- Compilation errors
 ----------------------------------------
 
-data CompilerError = 
-    ParserError ParserError 
-  | OtherError OtherError
+data CompilerError =
+    ParserError ParserError
+  | CodegenError CodegenError
   deriving Show
 
 -- Compiler utilities
 
-throwCompilerError :: Monad m => CompilerError -> CompilerT m a
-throwCompilerError = throwError 
+throwCompilerError :: MonadError CompilerError m => CompilerError -> m a
+throwCompilerError = throwError
 
 -- Parse errors
-type ParserError = ParseErrorBundle Text Void 
+type ParserError = ParseErrorBundle Text Void
 
-throwParserError :: Monad m => ParserError -> CompilerT m a
+throwParserError :: MonadError CompilerError m => ParserError -> m a
 throwParserError err = throwCompilerError (ParserError err)
 
 -- Other errors (to be completed)
-type OtherError = Void
+type CodegenError = Text
+
+throwCodegenError :: MonadError CompilerError m => CodegenError -> m a
+throwCodegenError err = throwCompilerError (CodegenError err)

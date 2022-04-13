@@ -1,0 +1,28 @@
+cradle:
+  cabal:
+    - path: "src/Main.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "src/CLI.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "src/Compiler.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "src/IO.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "src/Syntax.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "src/Parser.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "src/TypeCheck.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "src/CodeGen.hs"
+      component: "arepa:exe:arepa"
+
+    - path: "test"
+      component: "arepa:test:arepa-tests"
