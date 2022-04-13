@@ -56,15 +56,8 @@ executable arepa
 
   -- Modules included in this executable, other than Main.
   other-modules:
-    -- Common
-    Var
-    Lit
-    Con
-    -- IR
-    IR
-    IR.Pretty
-    IR.Syntax
-    -- Utils
+    Syntax
+    Parser
     Compiler
 
   -- LANGUAGE extensions used by modules in this package.
@@ -77,6 +70,10 @@ executable arepa
     ScopedTypeVariables
     OverloadedStrings
     ImportQualifiedPost
+    FlexibleInstances
+    FlexibleContexts
+    MultiParamTypeClasses
+    TypeApplications
 
   -- Directories containing source files.
   hs-source-dirs: src
@@ -84,12 +81,16 @@ executable arepa
   -- Base language which the package is written in.
   default-language: Haskell2010
 
+  -- Compiler options
+  ghc-options: -Wall
+
   -- Other library packages from which modules are imported.
   build-depends:
       base ^>=4.15.0.0
     , mtl
     , text
     , prettyprinter
+    , megaparsec
 
 ----------------------------------------
 
@@ -106,6 +107,9 @@ test-suite arepa-tests
   -- Base language which the test suite is written in.
   default-language: Haskell2010
   
+  -- Compiler options
+  ghc-options: -Wall
+
   -- Other test suite packages from which modules are imported.
   build-depends:
     base ^>=4.15.0.0

@@ -1,0 +1,6 @@
+(module foo
+  ;; bad identifiers
+  (val +x 42) 
+  (val -x 42)
+  (val .x 42)
+)
