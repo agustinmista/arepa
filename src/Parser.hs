@@ -5,12 +5,11 @@ module Parser
   , parseExpr
   ) where
 
-
 import Control.Monad.Identity
 
 import Data.Functor
-import Data.Text (Text)
-import Data.Text qualified as Text
+import Data.Text.Lazy (Text)
+import Data.Text.Lazy qualified as Text
 
 import Data.Void
 import Data.Maybe
@@ -30,11 +29,11 @@ type Parser = ParsecT Void Text Identity
 
 parse :: Parser a -> Text -> Compiler a
 parse p t = do
-  st <- getCompilerState
-  let file = fromMaybe "<interactive>" (cs_curr_file st)
+  mbfile <- getCurrentFile
+  let file = fromMaybe "<interactive>" mbfile
   case runParser (whitespace *> p <* eof) file t of
     Right a -> return a
-    Left errs -> throwCompilerError (PsError errs)
+    Left errs -> throwParserError errs
 
 parseModule :: Text -> Compiler CoreModule
 parseModule = parse module'
