@@ -4,8 +4,8 @@ import Data.Foldable
 import Data.String
 import Data.List
 
-import Data.Text (Text)
-import Data.Text qualified as Text
+import Data.Text.Lazy (Text)
+import Data.Text.Lazy qualified as Text
 
 import Prettyprinter
 
@@ -13,17 +13,17 @@ import Prettyprinter
 -- Modules
 ----------------------------------------
 
-data Module a = 
+data Module a =
   Module {
     mod_name :: a,
-    mod_binds :: [Decl a] 
+    mod_binds :: [Decl a]
   } deriving (Show, Read, Eq, Ord, Functor)
 
 type CoreModule = Module Var
 
 instance Pretty CoreModule where
-  pretty (Module name decls) = 
-    parens $ vsep $ 
+  pretty (Module name decls) =
+    parens $ vsep $
       [ "module" <+> pretty name ] <>
       [ indent 2 (pretty decl) | decl <- decls ]
 
@@ -31,32 +31,32 @@ instance Pretty CoreModule where
 -- Top-level declarations
 ----------------------------------------
 
-data Decl a = 
+data Decl a =
     ValD a (Expr a)
-  | FunD a [a] (Expr a) 
+  | FunD a [a] (Expr a)
   deriving (Show, Read, Eq, Ord, Functor)
 
 type CoreDecl = Decl Var
 
 instance Pretty CoreDecl where
   pretty (ValD name body)
-    | isAtomicExpr body = 
-        parens $ 
+    | isAtomicExpr body =
+        parens $
           "val" <+> pretty name <+> pretty body
     | otherwise =
-        parens $ vsep  
-          [ "val" <+> pretty name 
+        parens $ vsep
+          [ "val" <+> pretty name
           , indent 2 (pretty body)
-          ] 
-  pretty (FunD name args body) 
-    | isAtomicExpr body = 
-        parens $ 
+          ]
+  pretty (FunD name args body)
+    | isAtomicExpr body =
+        parens $
           "fun" <+> pretty name <+> parens (hsep (pretty <$> args)) <+> pretty body
     | otherwise =
-      parens $ vsep  
+      parens $ vsep
         [ "fun" <+> pretty name <+> parens (hsep (pretty <$> args))
         , indent 2 (pretty body)
-        ] 
+        ]
 
 ----------------------------------------
 -- Expressions
@@ -75,26 +75,26 @@ data Expr a =
 type CoreExpr = Expr Var
 
 instance Pretty CoreExpr where
-  pretty (VarE var) = 
+  pretty (VarE var) =
     pretty var
-  pretty (LitE lit) = 
+  pretty (LitE lit) =
     pretty lit
-  pretty (ConE con) = 
+  pretty (ConE con) =
     pretty con
-  pretty expr@(AppE {}) =
+  pretty expr@AppE {} =
     let (fun, args) = collectArgs expr in
-    parens $ 
+    parens $
       pretty fun <+> hsep (pretty <$> args)
-  pretty (LamE var expr) = 
+  pretty (LamE var expr) =
     parens $
       "lambda" <+> pretty var <+> pretty expr
-  pretty (LetE isRec binds expr) = 
-    parens $ vsep 
-      [ (if isRec then "letrec" else "let") <+> 
+  pretty (LetE isRec binds expr) =
+    parens $ vsep
+      [ (if isRec then "letrec" else "let") <+>
           parens (align $ vsep $ [ parens (pretty v <+> pretty e) | (v, e) <- binds ])
       , indent 2 (pretty expr)
       ]
-  pretty (CaseE expr alts) = 
+  pretty (CaseE expr alts) =
     parens $ vsep
       [ "case" <+> pretty expr
       , indent 2 $ parens $ align $ vsep $ pretty <$> alts
@@ -153,7 +153,7 @@ collectBinders :: Expr a -> ([a], Expr a)
 collectBinders = go []
   where
     go bs (LamE b e) = go (b:bs) e
-    go bs e          = (reverse bs, e) 
+    go bs e          = (reverse bs, e)
 
 -- Collect all the arguments from a function application
 collectArgs :: Expr a -> (Expr a, [Expr a])
@@ -179,15 +179,15 @@ data Alt a =
 type CoreAlt = Alt Var
 
 instance Pretty CoreAlt where
-  pretty (LitA lit expr) = 
+  pretty (LitA lit expr) =
     parens $
       pretty lit <+> pretty expr
   pretty (ConA con vars expr) =
     parens $
       parens (pretty con <> cat (intersperse space (pretty <$> vars))) <+>
       pretty expr
-  pretty (DefA expr) = 
-    parens $ 
+  pretty (DefA expr) =
+    parens $
       "_" <+> pretty expr
 
 ----------------------------------------
@@ -211,15 +211,15 @@ instance Pretty Lit where
 -- Data constructors
 ----------------------------------------
 
-data Con = 
+data Con =
     BoxedC   Int Int    -- ^ Boxed constructor:  { tag, arity }   
   | UnboxedC Int [Int]  -- ^ Unboxed constructor { tag, [size] }
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty Con where
-  pretty (BoxedC tag arity) = 
+  pretty (BoxedC tag arity) =
     braces (pretty tag <> comma <> pretty arity)
-  pretty (UnboxedC tag sizes) = 
+  pretty (UnboxedC tag sizes) =
     braces (pretty tag <> comma <> brackets (cat (intersperse comma (pretty <$> sizes))))
 
 ----------------------------------------
@@ -229,21 +229,21 @@ instance Pretty Con where
 -- A simple variable opaque type for now. 
 -- We will likely need to expand it in the future.
 
-newtype Var = Var Text 
-  deriving (Show, Read, Eq, Ord) 
+newtype Var = Var Text
+  deriving (Show, Read, Eq, Ord)
 
 -- Constructors/destructors
 
 mkVar :: Text -> Var
 mkVar = Var
 
-varName :: Var -> Text 
-varName (Var t) = t
+varString :: Var -> String
+varString (Var t) = Text.unpack t
 
 -- This instance let us write variables directly as strings
 instance IsString Var where
   fromString s = mkVar (Text.pack s)
 
 instance Pretty Var where
-  pretty v = pretty (varName v)
+  pretty (Var v) = pretty v
 

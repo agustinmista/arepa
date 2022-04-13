@@ -56,9 +56,12 @@ executable arepa
 
   -- Modules included in this executable, other than Main.
   other-modules:
+    CLI
+    Compiler
     Syntax
     Parser
-    Compiler
+    TypeCheck
+    CodeGen
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
@@ -86,11 +89,14 @@ executable arepa
 
   -- Other library packages from which modules are imported.
   build-depends:
-      base ^>=4.15.0.0
+      base >=4.14 && <4.15
     , mtl
     , text
     , prettyprinter
     , megaparsec
+    , optparse-applicative
+    , llvm-hs-pure
+    , llvm-hs-pretty
 
 ----------------------------------------
 
@@ -112,4 +118,4 @@ test-suite arepa-tests
 
   -- Other test suite packages from which modules are imported.
   build-depends:
-    base ^>=4.15.0.0
+    base >=4.14 && <4.15
