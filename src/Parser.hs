@@ -183,9 +183,9 @@ con = label "data constructor" $ do
 boxedC :: Parser Con
 boxedC = do
   braces $ do
-    tag <- decimal <* whitespace
+    tag <- decimal
     comma
-    arity <- decimal <* whitespace
+    arity <- decimal
     return (BoxedC tag arity)
 
 unboxedC :: Parser Con
