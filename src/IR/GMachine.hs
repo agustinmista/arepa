@@ -1,13 +1,16 @@
 module IR.GMachine where
 
-import           Data.Map (Map)
-import qualified Data.Map as Map
+import Syntax
+
+import Data.Map (Map)
+import Data.List (mapAccumL)
+import Data.Map qualified as Map
 
 ------------------
 -- Instructions --
 ------------------
 data GmInst = Unwind
-            | PushGlobal String
+            | PushGlobal Var
             | PushInt Int
             | Push Int
             | MkApp
@@ -32,7 +35,11 @@ type GmStack = [Addr]
 
 type GmHeap = Map Addr GmNode
 
-type GmGlobals = Map String Addr
+type GmGlobals = Map Var Addr
+
+type Offset = Int
+
+type GmEnv = Map Var Offset
 
 -- | A G-Machine is composed of the `code` running,
 --   a `stack` on which the machine operates,
@@ -80,7 +87,10 @@ hLookupGm h addr =
 hAllocGm :: GmNode -> GmHeap -> (Addr,GmHeap)
 hAllocGm node h = (free,Map.insert free node h)
   where
-    free = head $ filter (flip Map.notMember h) [1..]
+    free = head $ filter (`Map.notMember` h) [1..]
+
+addOffset :: Offset -> GmEnv -> GmEnv
+addOffset i = Map.map (+i)
 
 ---------------------------
 -- G-Machine interpreter --
@@ -100,7 +110,7 @@ evalGm state = state : restState
 
 -- | A single instruction transition from the current state to the next one
 stepGm :: GmState -> GmState
-stepGm state = doInst i (state { code = is})
+stepGm state = doInst i (state {code = is})
   where
     i:is = code state
     doInst  Unwind        = doUnwindGm
@@ -112,10 +122,10 @@ stepGm state = doInst i (state { code = is})
 
 -- | Fetch the address of the given function from `globals` and
 --   place it at the top of the stack
-doPushGlobalGm :: String  -> GmState -> GmState
+doPushGlobalGm :: Var  -> GmState -> GmState
 doPushGlobalGm s state =
   case Map.lookup s (globals state) of
-    Nothing  -> error $ "ERROR: Function " ++ s ++ " does not exists"
+    Nothing  -> error $ "ERROR: Function " ++ show s ++ " does not exists"
     Just n   -> state { stack = n : stack state }
 
 -- | Allocate some heap space for an integer an
@@ -178,3 +188,48 @@ doUnwindGm state = newState (hLookupGm h a)
     newState (NGlobal d fCode)
       | length  as < d = error "ERROR: Not enough arguments"
       | otherwise      = state { code = fCode }
+
+------------------------
+-- G-Machine compiler --
+------------------------
+
+type GmCompDefs = (Var,Int,GmCode)
+
+compiler :: CoreModule -> GmState
+compiler m = GmState {code=initialCode,
+                      stack=[],
+                      heap=startHeap,
+                      globals=Map.fromAscList startGlobals}
+  where
+    initialCode              = [PushGlobal"main",Unwind]
+    (startHeap,startGlobals) = mapAccumL allocateSC Map.empty compiled
+    compiled                 = map compilerSC (mod_binds m)
+
+allocateSC :: GmHeap -> GmCompDefs -> (GmHeap,(Var,Addr))
+allocateSC aHeap (fName,nArgs,fCode) = (updatedHeap, (fName,addr))
+  where
+    (addr,updatedHeap) = hAllocGm (NGlobal nArgs fCode) aHeap
+
+compilerSC :: CoreDecl -> GmCompDefs
+compilerSC (FunD fName args body) = (fName,length args,compilerR body env)
+  where
+    env = Map.fromList $ zip args [1..]
+compilerSC (ValD _ _) =
+  error "TODO: value definitions are not supported"
+
+compilerR :: CoreExpr -> GmEnv -> GmCode
+compilerR e env = compilerC e env ++ [Slide $ length  env + 1, Unwind]
+
+compilerC :: CoreExpr -> GmEnv -> GmCode
+compilerC (VarE v) env =
+  case Map.lookup v env of
+    Nothing -> [PushGlobal v]
+    Just n  -> [Push n]
+compilerC (LitE lit) _ =
+  case lit of
+    IntL n -> [PushInt n]
+    _      -> error $ "TODO: " ++ show lit ++ " not implemented yet"
+compilerC (AppE e1 e2) env = compilerC e1 env ++
+                             compilerC e2 (addOffset 1 env) ++
+                             [MkApp]
+compilerC _ _ = error "TODO: This expression is not supported yet"
