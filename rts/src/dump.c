@@ -9,7 +9,7 @@
 
 dump_t dump_new() {
     // Allocate memory for a new dump
-    dump_t dump = rts_malloc(sizeof(dump_t)); 
+    dump_t dump = rts_malloc(sizeof(struct dump_t)); 
 
     // Initialize the fields
     dump->current = NULL;
@@ -61,7 +61,7 @@ void dump_push(dump_t dump, void *data) {
     assert(dump);
 
     // Allocate memory for a new stack node
-    stack_t node = rts_malloc(sizeof(stack_t));
+    stack_t node = rts_malloc(sizeof(struct stack_t));
     assert(node);
 
     // Initialize the new node
@@ -101,7 +101,7 @@ void dump_freeze(dump_t dump) {
     assert(dump);
 
     // Allocate memory for a new dump
-    dump_t new_dump = rts_malloc(sizeof(dump_t));
+    dump_t new_dump = rts_malloc(sizeof(struct dump_t));
     assert(new_dump);
 
     // Copy the current dump onto the new one 
