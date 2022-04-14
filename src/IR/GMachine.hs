@@ -25,6 +25,7 @@ type GmCode = [GmInst]
 data GmNode = NNum Int
             | NApp Addr Addr
             | NGlobal Int GmCode
+  deriving Show
 
 ------------------
 -- Type aliases --
@@ -51,7 +52,7 @@ data GmState = GmState {
   stack   :: GmStack,
   heap    :: GmHeap,
   globals :: GmGlobals
-}
+} deriving Show
 -----------------------
 -- Utility functions --
 -----------------------
@@ -213,12 +214,12 @@ allocateSC aHeap (fName,nArgs,fCode) = (updatedHeap, (fName,addr))
 compilerSC :: CoreDecl -> GmCompDefs
 compilerSC (FunD fName args body) = (fName,length args,compilerR body env)
   where
-    env = Map.fromList $ zip args [1..]
+    env = Map.fromList $ zip args [0..]
 compilerSC (ValD _ _) =
   error "TODO: value definitions are not supported"
 
 compilerR :: CoreExpr -> GmEnv -> GmCode
-compilerR e env = compilerC e env ++ [Slide $ length  env + 1, Unwind]
+compilerR e env = compilerC e env ++ [Slide $ length env + 1, Unwind]
 
 compilerC :: CoreExpr -> GmEnv -> GmCode
 compilerC (VarE v) env =
@@ -233,3 +234,13 @@ compilerC (AppE e1 e2) env = compilerC e1 env ++
                              compilerC e2 (addOffset 1 env) ++
                              [MkApp]
 compilerC _ _ = error "TODO: This expression is not supported yet"
+
+-- K x y = x
+kExample :: CoreDecl
+kExample = FunD "K" ["x","y"] (VarE "x")
+
+-- S f g x = f x (g x)
+sExample :: CoreDecl
+sExample = FunD "S" ["f","g","x"] (AppE
+                             (AppE (VarE "f") (VarE "x"))
+                             (AppE (VarE "g") (VarE "x")))
