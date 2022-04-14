@@ -45,3 +45,40 @@ data GmState = GmState {
   heap    :: GmHeap,
   globals :: GmGlobals
 }
+-----------------------
+-- Utility functions --
+-----------------------
+
+--TODO: Can this be improved?
+updateHeap :: GmState -> (GmHeap -> GmHeap) -> GmState
+updateHeap state f = state {heap = f $ heap state}
+
+-- | Pop the stack inside the G-Machine state
+popGm :: GmState -> (GmState,Addr)
+popGm state = (state { stack = rest }, addr)
+  where addr:rest =
+          case stack state of
+            [] -> error "ERROR: The stack is empty!"
+            l  -> l
+
+-- | Drop the firs element in the stack inside the G-Machine state
+dropGm :: GmState -> GmState
+dropGm = fst . popGm
+
+-- | Add an element at the top of the stack inside the G-Machine state
+pushGm :: GmState -> Addr -> GmState
+pushGm state addr = state { stack = addr : stack state }
+
+-- | Looks for a address in the heap and fails if it can not find it
+hLookupGm :: GmHeap -> Addr -> GmNode
+hLookupGm h addr =
+  case Map.lookup addr h of
+    Nothing   -> error $ "ERROR: Address " ++ show addr ++ " does not exists"
+    Just node -> node
+
+-- | Allocates a new node in the heap on a fresh address
+hAllocGm :: GmNode -> GmHeap -> GmHeap
+hAllocGm node h = Map.insert free node h
+  where
+    free = head $ filter (flip Map.notMember h) [1..]
+
