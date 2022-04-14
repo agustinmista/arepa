@@ -12,6 +12,6 @@ void *rts_malloc(size_t size) {
 
 
 void rts_free(void *ptr) {
-    debug_msg("freeing pointer at %p", ptr);
+    debug_msg("freed pointer at %p", ptr);
     free(ptr);
 }
