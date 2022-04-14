@@ -77,8 +77,8 @@ hLookupGm h addr =
     Just node -> node
 
 -- | Allocates a new node in the heap on a fresh address
-hAllocGm :: GmNode -> GmHeap -> GmHeap
-hAllocGm node h = Map.insert free node h
+hAllocGm :: GmNode -> GmHeap -> (Addr,GmHeap)
+hAllocGm node h = (free,Map.insert free node h)
   where
     free = head $ filter (flip Map.notMember h) [1..]
 
@@ -121,7 +121,10 @@ doPushGlobalGm s state =
 -- | Allocate some heap space for an integer an
 --   place it at the top of the stack
 doPushIntGm :: Int -> GmState -> GmState
-doPushIntGm i state = updateHeap state $ hAllocGm (NNum i)
+doPushIntGm i state = pushGm newState addr
+  where (addr,h) = hAllocGm (NNum i) (heap state)
+        newState = state { heap = h }
+
 
 -- | Place the argument at the given offset
 --   (starting  from 0 before the top of the stack)
@@ -141,12 +144,13 @@ doPushGm n state =
            else error "ERROR: There are not enough argument in the stack"
 
 -- | Creates a application from the two topmost elements of the stack
---   as a operator (1st element) applied to an operant (2nd element).
+--   as a operator (1st element) applied to an operant (2nd element)
+--   removing them from the stack
 doAppGm :: GmState -> GmState
-doAppGm state = updateHeap state' $ hAllocGm (NApp a1 a2)
+doAppGm state = state { stack = a:rest, heap = h}
   where
     a1:a2:rest = stack state
-    state'     = state { stack = rest }
+    (a,h)      = hAllocGm (NApp a1 a2) $ heap state
 
 -- | Takes the top of the stack and slides it a given offset.
 --   This occurs when we must replace a function application in the stack
