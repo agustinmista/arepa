@@ -13,7 +13,7 @@ import Language.Arepa.Compiler.Monad
 ----------------------------------------
 
 readInput :: Compiler Text
-readInput = do 
+readInput = do
   infile <- lookupCliOpt optInput
   case infile of
     Nothing -> readStdin
@@ -25,7 +25,7 @@ writeOutput text = do
   case outfile of
     Nothing -> writeStdout text
     Just path -> writeToFile path text
-  
+
 
 ----------------------------------------
 -- IO primitives

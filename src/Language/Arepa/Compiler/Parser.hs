@@ -7,12 +7,13 @@ module Language.Arepa.Compiler.Parser
 
 import Control.Monad.Identity
 
+import Data.Void
+import Data.Maybe
 import Data.Functor
+
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
-import Data.Void
-import Data.Maybe
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as Lexer
@@ -59,7 +60,7 @@ module' = label "module" $ do
     decls <- many decl
     return (Module name decls)
 
--- Top-level declarations 
+-- Top-level declarations
 
 decl :: Parser CoreDecl
 decl = label "decl" $ do
@@ -120,15 +121,15 @@ lamE = do
 
 letE :: Parser CoreExpr
 letE = do
-  isRec <- choice [try (symbol "letrec" $> True), symbol "let" $> False] 
+  isRec <- choice [try (symbol "letrec" $> True), symbol "let" $> False]
   binds <- parens $ many $ parens $ (,) <$> var <*> expr
-  body <- expr 
+  body <- expr
   return (LetE isRec binds body)
 
 caseE :: Parser CoreExpr
 caseE = do
   keyword "case"
-  scrut <- expr  
+  scrut <- expr
   alts <- parens $ many alt
   return (CaseE scrut alts)
 
@@ -148,7 +149,7 @@ conA :: Parser CoreAlt
 conA = do
   (c, vars) <- parens $ (,) <$> con <*> many var
   e <- expr
-  return (ConA c vars e)  
+  return (ConA c vars e)
 
 defA :: Parser CoreAlt
 defA = do
@@ -230,8 +231,8 @@ identifier = Lexer.lexeme whitespace $ do
         x <- identInitial
         xs <- many identSubsequent
         return (Text.pack (x:xs))
-  let peculiarIdent = 
-        choice [string "+", string "-"] <* 
+  let peculiarIdent =
+        choice [string "+", string "-"] <*
         notFollowedBy identSubsequent
   let check i | i `notElem` reserved = return i
               | otherwise  = fail ("keyword " <> show i <> "cannot be used as an identifier")
