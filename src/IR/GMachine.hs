@@ -25,7 +25,7 @@ type GmCode = [GmInst]
 data GmNode = NNum Int
             | NApp Addr Addr
             | NGlobal Int GmCode
-  deriving Show
+  deriving (Show , Eq)
 
 ------------------
 -- Type aliases --
@@ -53,6 +53,7 @@ data GmState = GmState {
   heap    :: GmHeap,
   globals :: GmGlobals
 } deriving Show
+
 -----------------------
 -- Utility functions --
 -----------------------
@@ -100,14 +101,21 @@ addOffset i = Map.map (+i)
 -- | Given a state returns runs the G-Machine and returns a list with
 --   each intermediate state with `last . evalGm` being the final result
 --   (if any)
-evalGm :: GmState -> [GmState]
-evalGm state = state : restState
+evalGmStates :: GmState -> [GmState]
+evalGmStates state = state : restState
   where
     restState | gmFinal (code state) = []
-              | otherwise            = evalGm nextState
+              | otherwise            = evalGmStates nextState
     nextState  = stepGm state
     gmFinal [] = True
     gmFinal _  = False
+
+-- | Run a terminating G-Machine and return the single remaining
+--   node in the stack
+evalGm :: GmState -> GmNode
+evalGm state = hLookupGm (heap lastState) . head . stack $ lastState
+  where
+    lastState = last $ evalGmStates state
 
 -- | A single instruction transition from the current state to the next one
 stepGm :: GmState -> GmState
@@ -200,7 +208,7 @@ compiler :: CoreModule -> GmState
 compiler m = GmState {code=initialCode,
                       stack=[],
                       heap=startHeap,
-                      globals=Map.fromAscList startGlobals}
+                      globals=Map.fromList startGlobals}
   where
     initialCode              = [PushGlobal"main",Unwind]
     (startHeap,startGlobals) = mapAccumL allocateSC Map.empty compiled
@@ -234,13 +242,3 @@ compilerC (AppE e1 e2) env = compilerC e1 env ++
                              compilerC e2 (addOffset 1 env) ++
                              [MkApp]
 compilerC _ _ = error "TODO: This expression is not supported yet"
-
--- K x y = x
-kExample :: CoreDecl
-kExample = FunD "K" ["x","y"] (VarE "x")
-
--- S f g x = f x (g x)
-sExample :: CoreDecl
-sExample = FunD "S" ["f","g","x"] (AppE
-                             (AppE (VarE "f") (VarE "x"))
-                             (AppE (VarE "g") (VarE "x")))
