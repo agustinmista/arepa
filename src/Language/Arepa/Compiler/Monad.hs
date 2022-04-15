@@ -45,7 +45,7 @@ import Language.Arepa.Compiler.CLI
 -- Compiler monad
 ----------------------------------------
 
--- Monad transformer with global read-only environment and error throwing
+-- Monad transformer with exceptions, global read-only environment and write-only log
 
 newtype CompilerT m a = CompilerT (ExceptT CompilerError (ReaderT CompilerEnv (WriterT CompilerLog m)) a)
   deriving (

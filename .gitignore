@@ -1,3 +1,9 @@
+# These three rules work together to ignore any file
+# without extension (used for test binaries)
+*
+!*/
+!*.*
+# Haskell stuff
 dist
 dist-*
 cabal-dev
