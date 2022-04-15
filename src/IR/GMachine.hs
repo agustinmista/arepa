@@ -24,7 +24,7 @@ type GmCode = [GmInst]
 --   the following nodes in a stack
 data GmNode = NNum Int
             | NApp Addr Addr
-            | NGlobal Int GmCode
+            | NGlobal Var Int GmCode
   deriving (Show , Eq)
 
 ------------------
@@ -89,7 +89,9 @@ hLookupGm h addr =
 hAllocGm :: GmNode -> GmHeap -> (Addr,GmHeap)
 hAllocGm node h = (free,Map.insert free node h)
   where
-    free = head $ filter (`Map.notMember` h) [1..]
+    free = if Map.size h == 0
+           then 1
+           else (+1) . fst . Map.findMax $ h
 
 addOffset :: Offset -> GmEnv -> GmEnv
 addOffset i = Map.map (+i)
@@ -159,7 +161,7 @@ doPushGm n state =
     h  = heap state
     s  = stack state
     addr = if n + 1 < length s
-           then  s !! n + 1
+           then  s !! (n + 1)
            else error "ERROR: There are not enough argument in the stack"
 
 -- | Creates a application from the two topmost elements of the stack
@@ -192,10 +194,10 @@ doUnwindGm state = newState (hLookupGm h a)
     a:as = stack state
     h    = heap state
     -- What to do depending on what is in the top of the stack
-    newState (NNum _)         = state { code = [] }
-    newState (NApp a1 _)     = pushGm state a1
-    newState (NGlobal d fCode)
-      | length  as < d = error "ERROR: Not enough arguments"
+    newState (NNum _)        = state { code = [] }
+    newState (NApp a1 _)     = (pushGm state a1) {code = [Unwind]}
+    newState (NGlobal f d fCode)
+      | length  as < d = error $ "ERROR: Not enough arguments for: " ++ show f
       | otherwise      = state { code = fCode }
 
 ------------------------
@@ -217,7 +219,7 @@ compiler m = GmState {code=initialCode,
 allocateSC :: GmHeap -> GmCompDefs -> (GmHeap,(Var,Addr))
 allocateSC aHeap (fName,nArgs,fCode) = (updatedHeap, (fName,addr))
   where
-    (addr,updatedHeap) = hAllocGm (NGlobal nArgs fCode) aHeap
+    (addr,updatedHeap) = hAllocGm (NGlobal fName nArgs fCode) aHeap
 
 compilerSC :: CoreDecl -> GmCompDefs
 compilerSC (FunD fName args body) = (fName,length args,compilerR body env)
@@ -238,7 +240,22 @@ compilerC (LitE lit) _ =
   case lit of
     IntL n -> [PushInt n]
     _      -> error $ "TODO: " ++ show lit ++ " not implemented yet"
-compilerC (AppE e1 e2) env = compilerC e1 env ++
-                             compilerC e2 (addOffset 1 env) ++
+compilerC (AppE e1 e2) env = compilerC e2 env ++
+                             compilerC e1 (addOffset 1 env) ++
                              [MkApp]
 compilerC _ _ = error "TODO: This expression is not supported yet"
+
+ppGmState :: GmState -> IO ()
+ppGmState state = do
+  putStrLn "\nStack:"
+  mapM_ ppNode (stack state)
+  putStrLn "\nInstructions:"
+  mapM_ print (code state)
+  where
+    ppNode addr =
+      case hLookupGm (heap state) addr of
+        NNum i     -> print i
+        NApp a1 a2 -> putStrLn $ "@ " ++
+                                 show a1 ++ " " ++
+                                 show (hLookupGm (heap state) a2)
+        NGlobal f _ _ -> print f
