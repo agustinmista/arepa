@@ -1,5 +1,8 @@
 module Parser
   ( Parser
+  , parseFileModule
+  , parseFileDecl
+  , parseFileExpr
   , parseModule
   , parseDecl
   , parseExpr
@@ -27,22 +30,31 @@ import Syntax
 -- The monadic parser stack
 type Parser = ParsecT Void Text Identity
 
-parse :: Parser a -> Text -> Compiler a
-parse p t = do
+parseFile :: Parser a -> Text -> Compiler a
+parseFile p t = do
   mbfile <- getCurrentFile
   let file = fromMaybe "<interactive>" mbfile
   case runParser (whitespace *> p <* eof) file t of
     Right a -> return a
     Left errs -> throwParserError errs
 
-parseModule :: Text -> Compiler CoreModule
-parseModule = parse module'
+parseFileModule :: Text -> Compiler CoreModule
+parseFileModule = parseFile module'
 
-parseDecl :: Text -> Compiler CoreDecl
-parseDecl = parse decl
+parseFileDecl :: Text -> Compiler CoreDecl
+parseFileDecl = parseFile decl
 
-parseExpr :: Text -> Compiler CoreExpr
-parseExpr = parse expr
+parseFileExpr :: Text -> Compiler CoreExpr
+parseFileExpr = parseFile expr
+
+parseModule :: Text -> Either ParserError CoreModule
+parseModule = runParser module' "inline"
+
+parseDecl :: Text -> Either ParserError CoreDecl
+parseDecl = runParser decl "inline"
+
+parseExpr :: Text -> Either ParserError CoreExpr
+parseExpr = runParser expr "inline"
 
 ----------------------------------------
 -- Syntax parsers
@@ -58,7 +70,7 @@ module' = label "module" $ do
     decls <- many decl
     return (Module name decls)
 
--- Top-level declarations 
+-- Top-level declarations
 
 decl :: Parser CoreDecl
 decl = label "decl" $ do
@@ -119,15 +131,15 @@ lamE = do
 
 letE :: Parser CoreExpr
 letE = do
-  isRec <- choice [try (symbol "letrec" $> True), symbol "let" $> False] 
+  isRec <- choice [try (symbol "letrec" $> True), symbol "let" $> False]
   binds <- parens $ many $ parens $ (,) <$> var <*> expr
-  body <- expr 
+  body <- expr
   return (LetE isRec binds body)
 
 caseE :: Parser CoreExpr
 caseE = do
   keyword "case"
-  scrut <- expr  
+  scrut <- expr
   alts <- parens $ many alt
   return (CaseE scrut alts)
 
@@ -147,7 +159,7 @@ conA :: Parser CoreAlt
 conA = do
   (c, vars) <- parens $ (,) <$> con <*> many var
   e <- expr
-  return (ConA c vars e)  
+  return (ConA c vars e)
 
 defA :: Parser CoreAlt
 defA = do
@@ -226,8 +238,8 @@ identifier = Lexer.lexeme whitespace $ do
         x <- identInitial
         xs <- many identSubsequent
         return (Text.pack (x:xs))
-  let peculiarIdent = 
-        choice [string "+", string "-"] <* 
+  let peculiarIdent =
+        choice [string "+", string "-"] <*
         notFollowedBy identSubsequent
   let check i | i `notElem` reserved = return i
               | otherwise  = fail ("keyword " <> show i <> "cannot be used as an identifier")

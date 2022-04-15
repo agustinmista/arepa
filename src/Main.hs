@@ -30,16 +30,16 @@ main = do
 -- The compilation pipeline
 
 compile :: Compiler ()
-compile = readInput 
-      >>= parseModule
+compile = readInput
+      >>= parseFileModule
       >>= typeCheckModule
       >>= emitLLVM
       >>= renderLLVM
       >>= writeOutput
 
 readInput :: Compiler Text
-readInput = do 
-  return undefined 
+readInput = do
+  return undefined
 
 writeOutput :: Text -> Compiler ()
 writeOutput _ = return ()
