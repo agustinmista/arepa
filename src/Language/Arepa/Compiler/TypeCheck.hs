@@ -1,13 +1,13 @@
-module Language.Arepa.Compiler.TypeCheck 
+module Language.Arepa.Compiler.TypeCheck
   ( typeCheckModule
   ) where
 
-import Language.Arepa.Compiler.Monad
 import Language.Arepa.Syntax
+import Language.Arepa.Compiler.Monad
 
 ----------------------------------------
 -- Type checking
 ----------------------------------------
 
-typeCheckModule :: CoreModule -> Compiler CoreModule 
+typeCheckModule :: MonadArepa m => CoreModule -> m CoreModule
 typeCheckModule = return -- no type-checking at the moment

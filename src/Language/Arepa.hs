@@ -1,7 +1,7 @@
-module Language.Arepa 
+module Language.Arepa
   ( module Language.Arepa.Syntax
-  , module Language.Arepa.Compiler 
+  , module Language.Arepa.Compiler
   ) where
 
 import Language.Arepa.Syntax
-import Language.Arepa.Compiler 
+import Language.Arepa.Compiler

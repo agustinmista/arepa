@@ -1,8 +1,9 @@
 module Main where
 
-import System.Exit
+import Control.Monad.Extra
 
 import Language.Arepa.Compiler
+import CLI
 
 ----------------------------------------
 -- Entry point
@@ -11,20 +12,14 @@ import Language.Arepa.Compiler
 main :: IO ()
 main = do
   opts <- parseCliOpts
-  let env = mkCompilerEnv opts
-  (res, msgs) <- runCompiler env compile
-
-  print msgs
-  case res of
-    Left  ce -> print ce
-    Right () -> exitSuccess
-
--- The compilation pipeline
-
-compile :: Compiler ()
-compile = readInput
-      >>= parseModule
-      >>= typeCheckModule
-      >>= emitLLVM
-      >>= renderLLVM
-      >>= writeOutput
+  runArepa' opts $
+    handleCompilerError printCompilerError $ do
+      text <- readInput
+      psMod <- parseModule text
+      whenM (hasDumpEnabled AST) $ do
+        debugMsg "Parsed AST" (Just (show psMod))
+      whenM (hasDumpEnabled PPR) $ do
+        debugMsg "Pretty-printed AST" (Just psMod)
+      tcMod <- typeCheckModule psMod
+      llvmMod <- renderLLVM =<< emitLLVM tcMod
+      writeOutput llvmMod

@@ -8,7 +8,6 @@ import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
 import Prettyprinter
-import Prettyprinter.Render.Text
 
 ----------------------------------------
 -- Modules
@@ -64,7 +63,7 @@ instance Pretty CoreDecl where
 ----------------------------------------
 
 data Expr a =
-    VarE a                           -- ^ Variables                
+    VarE a                           -- ^ Variables
   | LitE Lit                         -- ^ Literals
   | ConE Con                         -- ^ Data constructors
   | AppE (Expr a) (Expr a)           -- ^ Function application
@@ -130,12 +129,12 @@ mkConAppE :: Con -> [Expr a] -> Expr a
 mkConAppE con = mkAppsE (ConE con)
 
 -- Create a function application, applying an (function) expression to a list of
--- argument expressions 
+-- argument expressions
 mkAppsE :: Expr a -> [Expr a] -> Expr a
 mkAppsE = foldl' AppE
 
 -- Create a lambda expression by abstracting a list of variables from a body
--- expression 
+-- expression
 mkLamsE :: [a] -> Expr a -> Expr a
 mkLamsE vars body = foldr LamE body vars
 
@@ -172,7 +171,7 @@ collectArgs = go []
 -- in charge of desugaring nested patterns into flat ones.
 
 data Alt a =
-    LitA Lit (Expr a)     -- ^ Literal alternative: 'case e of { 1 -> ... }' 
+    LitA Lit (Expr a)     -- ^ Literal alternative: 'case e of { 1 -> ... }'
   | ConA Con [a] (Expr a) -- ^ Constructor alternative: 'case e of { C x y -> ... }'
   | DefA (Expr a)         -- ^ Default alternative: 'case e of { _ -> ... }'
   deriving (Show, Read, Eq, Ord, Functor)
@@ -213,7 +212,7 @@ instance Pretty Lit where
 ----------------------------------------
 
 data Con =
-    BoxedC   Int Int    -- ^ Boxed constructor:  { tag, arity }   
+    BoxedC   Int Int    -- ^ Boxed constructor:  { tag, arity }
   | UnboxedC Int [Int]  -- ^ Unboxed constructor { tag, [size] }
   deriving (Show, Read, Eq, Ord)
 
@@ -227,7 +226,7 @@ instance Pretty Con where
 -- Variables
 ----------------------------------------
 
--- A simple variable opaque type for now. 
+-- A simple variable opaque type for now.
 -- We will likely need to expand it in the future.
 
 newtype Var = Var Text
@@ -248,9 +247,3 @@ instance IsString Var where
 instance Pretty Var where
   pretty (Var v) = pretty v
 
-----------------------------------------
--- Pretty printing utilities
-----------------------------------------
-
-ppr :: Pretty a => a -> Text
-ppr a = renderLazy (layoutPretty defaultLayoutOptions (pretty a))

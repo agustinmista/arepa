@@ -1,169 +1,88 @@
 module Language.Arepa.Compiler.Monad
-  ( CompilerT
-  , runCompilerT
-  , Compiler
-  , runCompiler
-  , withCompilerT
-  -- Compilation errors
-  , MonadError
-  , CompilerError
-  , throwCompilerError
-  , ParserError
-  , throwParserError
-  , CodegenError
-  , throwCodegenError
-  -- Read-only environment
-  , MonadReader
-  , CompilerEnv
-  , emptyCompilerEnv
-  , mkCompilerEnv
-  , lookupCliOpt
-  -- Write-only log
-  , MonadWriter
-  , CompilerLog
-  , renderCompilerLog
-  , logWarningMsg
-  , logDebugMsg
-  -- Other utilities
-  , liftIO
+  ( module Language.Arepa.Compiler.Monad
+  , module Control.Monad.Compiler
+  , Text
   ) where
 
-import Control.Monad.Except
-import Control.Monad.Reader
-import Control.Monad.Writer
-
--- Pass specific imports
-import Text.Megaparsec (ParseErrorBundle)
 import Data.Void
 
-import Data.Text.Lazy (Text)
-import Data.Text.Lazy qualified as Text
+import Text.Megaparsec
 
-import Language.Arepa.Compiler.CLI
+import Data.Text.Lazy (Text)
+
+import Prettyprinter
+
+import Control.Monad.Compiler
+
 
 ----------------------------------------
 -- Compiler monad
 ----------------------------------------
 
--- Monad transformer with exceptions, global read-only environment and write-only log
+-- A concrete instance of `Compiler` with tasty errors and options.
+type Arepa a = Compiler ArepaError ArepaOpts a
 
-newtype CompilerT m a = CompilerT (ExceptT CompilerError (ReaderT CompilerEnv (WriterT CompilerLog m)) a)
-  deriving (
-    Functor, Applicative, Monad, MonadIO,
-    MonadError CompilerError,
-    MonadReader CompilerEnv,
-    MonadWriter CompilerLog
-  )
+-- Specialized versions of `runCompiler` and `runCompiler'`
 
-instance MonadTrans CompilerT where
-  lift = CompilerT . lift . lift . lift
+runArepa :: ArepaOpts -> Arepa a -> IO (Either ArepaError a)
+runArepa = runCompiler
 
-runCompilerT :: Monad m => CompilerEnv -> CompilerT m a -> m (Either CompilerError a, CompilerLog)
-runCompilerT env (CompilerT m) = do
-  (res, msgs) <- runWriterT (runReaderT (runExceptT m) env)
-  case res of
-    Left ce -> return (Left ce, msgs)
-    Right a -> return (Right a, msgs)
+runArepa' :: ArepaOpts -> Arepa a -> IO a
+runArepa' = runCompiler'
 
--- Non-transformer synomym
+-- Test a computation with default options
+testArepa :: Arepa a -> IO a
+testArepa = runCompiler' defaultOpts
 
-type Compiler a = CompilerT IO a
-
-runCompiler :: CompilerEnv -> Compiler a -> IO (Either CompilerError a, CompilerLog)
-runCompiler = runCompilerT
-
--- Map the inner computation using a given function
-withCompilerT :: (m (Either CompilerError a, CompilerLog) ->
-                  n (Either CompilerError b, CompilerLog))
-             -> CompilerT m a
-             -> CompilerT n b
-withCompilerT f (CompilerT ex) =
-  CompilerT $
-    flip mapExceptT ex $ \rdr ->
-    flip mapReaderT rdr $ \wtr ->
-    flip mapWriterT wtr $ \m ->
-      f m
-
-----------------------------------------
--- Compilation environment (read-only)
-----------------------------------------
-
-data CompilerEnv = CompilerEnv {
-  ce_cli_opts :: CliOpts
-}
-
-emptyCompilerEnv :: CompilerEnv
-emptyCompilerEnv = CompilerEnv {
-  ce_cli_opts = defaultCliOpts
-}
-
-mkCompilerEnv :: CliOpts -> CompilerEnv
-mkCompilerEnv opts = CompilerEnv {
-  ce_cli_opts = opts
-}
-
--- Compiler utilities
-
-lookupCliOpt :: MonadReader CompilerEnv m => (CliOpts -> a) -> m a
-lookupCliOpt f = asks (f . ce_cli_opts)
-
-----------------------------------------
--- Compilation log (write-only)
-----------------------------------------
-
-newtype CompilerLog = CompilerLog [CompilerMsg]
-  deriving Show
-  deriving Semigroup via [CompilerMsg]
-  deriving Monoid    via [CompilerMsg]
-
-renderCompilerLog :: CompilerLog -> Text
-renderCompilerLog (CompilerLog msgs) =
-  Text.unlines (renderCompilerMsg <$> msgs)
-
-data CompilerMsg =
-    WarningMsg Text
-  | DebugMsg Text
-  deriving Show
-
-renderCompilerMsg :: CompilerMsg -> Text
-renderCompilerMsg (WarningMsg msg) =
-  "[WARNING] " <> msg
-renderCompilerMsg (DebugMsg msg) =
-  "[DEBUG] " <> msg
-
--- Compiler utilities
-
-logCompilerMsg :: MonadWriter CompilerLog m => CompilerMsg -> m ()
-logCompilerMsg msg = tell (CompilerLog [msg])
-
-logWarningMsg :: MonadWriter CompilerLog m => Text -> m ()
-logWarningMsg = logCompilerMsg . WarningMsg
-
-logDebugMsg :: MonadWriter CompilerLog m => Text -> m ()
-logDebugMsg = logCompilerMsg . DebugMsg
+-- A concete instantiation of `MonadCompiler` with tasty errors and options.
+type MonadArepa m = MonadCompiler ArepaError ArepaOpts m
 
 ----------------------------------------
 -- Compilation errors
-----------------------------------------
 
-data CompilerError =
+data ArepaError =
     ParserError ParserError
   | CodegenError CodegenError
   deriving Show
 
--- Compiler utilities
-
-throwCompilerError :: MonadError CompilerError m => CompilerError -> m a
-throwCompilerError = throwError
+instance Pretty ArepaError where
+  pretty (ParserError err) = viaShow (errorBundlePretty err)
+  pretty (CodegenError err) = viaShow err
 
 -- Parse errors
 type ParserError = ParseErrorBundle Text Void
 
-throwParserError :: MonadError CompilerError m => ParserError -> m a
+throwParserError :: MonadArepa m => ParserError -> m a
 throwParserError err = throwCompilerError (ParserError err)
 
 -- Other errors (to be completed)
-type CodegenError = Text
+type CodegenError = Doc ()
 
-throwCodegenError :: MonadError CompilerError m => CodegenError -> m a
+throwCodegenError :: MonadArepa m => CodegenError -> m a
 throwCodegenError err = throwCompilerError (CodegenError err)
+
+
+----------------------------------------
+-- Compiler options
+
+data ArepaOpts = ArepaOpts {
+  optInput :: Maybe FilePath,    -- Nothing means stdin
+  optOutput :: Maybe FilePath,   -- Nothing means stdout
+  optDump :: [DumpOpt],
+  optVerbose :: Bool
+} deriving (Show, Read, Eq, Ord)
+
+defaultOpts :: ArepaOpts
+defaultOpts :: ArepaOpts = ArepaOpts {
+  optInput = Nothing,
+  optOutput = Nothing,
+  optDump = [],
+  optVerbose = False
+}
+
+-- Dump options
+data DumpOpt = AST | PPR
+  deriving (Show, Read, Eq, Ord)
+
+hasDumpEnabled :: MonadArepa m => DumpOpt -> m Bool
+hasDumpEnabled opt = (opt `elem`) <$> lookupCompilerOption optDump

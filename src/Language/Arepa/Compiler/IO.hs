@@ -1,49 +1,22 @@
 module Language.Arepa.Compiler.IO where
 
-import System.IO
-
-import Data.Text.Lazy (Text)
-import Data.Text.Lazy.IO qualified as Text
-
-import Language.Arepa.Compiler.CLI
 import Language.Arepa.Compiler.Monad
 
+
 ----------------------------------------
--- Input output utilities
+-- Input/output utilities
 ----------------------------------------
 
-readInput :: Compiler Text
+readInput :: MonadArepa m => m Text
 readInput = do
-  infile <- lookupCliOpt optInput
+  infile <- lookupCompilerOption optInput
   case infile of
     Nothing -> readStdin
     Just path -> readFromFile path
 
-writeOutput :: Text -> Compiler ()
+writeOutput :: MonadArepa m => Text -> m ()
 writeOutput text = do
-  outfile <- lookupCliOpt optOutput
+  outfile <- lookupCompilerOption optOutput
   case outfile of
     Nothing -> writeStdout text
     Just path -> writeToFile path text
-
-
-----------------------------------------
--- IO primitives
-
-readStdin :: Compiler Text
-readStdin = liftIO Text.getContents
-
-readFromFile :: FilePath -> Compiler Text
-readFromFile path = liftIO (Text.readFile path)
-
-writeHandle :: Handle -> Text -> Compiler ()
-writeHandle h text = liftIO (Text.hPutStrLn h text >> hFlush h)
-
-writeStderr :: Text -> Compiler ()
-writeStderr = writeHandle stderr
-
-writeStdout :: Text -> Compiler ()
-writeStdout = writeHandle stdout
-
-writeToFile :: FilePath -> Text -> Compiler ()
-writeToFile path = liftIO . Text.writeFile path

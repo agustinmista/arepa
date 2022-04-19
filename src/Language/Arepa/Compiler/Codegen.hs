@@ -11,8 +11,9 @@ import Data.String
 import Data.Map (Map)
 import Data.Map qualified as Map
 
-import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
+
+import Prettyprinter
 
 import LLVM.AST                        qualified as LLVM
 import LLVM.AST.Type                   qualified as LLVM
@@ -27,21 +28,22 @@ import LLVM.Pretty
 import Language.Arepa.Syntax
 import Language.Arepa.Compiler.Monad
 
+
 ----------------------------------------
 -- Code generation
 ----------------------------------------
 
 type LLVMModule = LLVM.Module
 
-emitLLVM :: CoreModule -> Compiler LLVMModule
+emitLLVM :: MonadArepa m => CoreModule -> m LLVMModule
 emitLLVM m = do
   let name = fromVar (mod_name m)
   runLLVM name $ do
     initCodegen m
-    emitRTS 
+    emitRTS
     emitModule m
 
-renderLLVM :: LLVMModule -> Compiler Text
+renderLLVM :: MonadArepa m => LLVMModule -> m Text
 renderLLVM m = return (ppllvm m)
 
 ----------------------------------------
@@ -66,16 +68,16 @@ emptyCodegenState = CodegenState {
 ----------------------------------------
 
 -- The LLVM module builder monad
-type LLVM = ModuleBuilderT (StateT CodegenState (CompilerT IO))
+type LLVM m a = ModuleBuilderT (StateT CodegenState m) a
 
 -- The constraints needed to write functions
 type MonadLLVM m = (
-    MonadError CompilerError m,
+    MonadArepa m,
     MonadState CodegenState m,
     MonadModuleBuilder m
   )
 
-runLLVM :: String -> LLVM a -> Compiler LLVMModule
+runLLVM :: MonadArepa m => String -> LLVM m a -> m LLVMModule
 runLLVM name mb = evalStateT (buildModuleT (fromString name) mb) emptyCodegenState
 
 ----------------------------------------
@@ -93,7 +95,7 @@ lookupGlobalOperand :: MonadLLVM m => Var -> m LLVM.Operand
 lookupGlobalOperand name = do
   globals <- gets cg_globals
   case Map.lookup name globals of
-    Nothing -> throwCodegenError ("operand for global " <> ppr name <> " does not exist")
+    Nothing -> throwCodegenError ("operand for global" <+> pretty name <+> "does not exist")
     Just op -> return op
 
 ----------------------------------------
@@ -112,7 +114,7 @@ lookupVarOperand :: MonadLLVM m => Var -> m LLVM.Operand
 lookupVarOperand name = do
   gets cg_context >>= search
   where
-    search []     = throwCodegenError ("operand for variable " <> ppr name <> " does not exist")
+    search []     = throwCodegenError ("operand for variable" <+> pretty name <+> "does not exist")
     search (c:cs) = maybe (search cs) return (Map.lookup name c)
 
 -- Run the code inside of a new local context
@@ -145,7 +147,7 @@ registerString str = do
 -- Initializing code generator
 ----------------------------------------
 
-initCodegen :: CoreModule -> LLVM ()
+initCodegen :: MonadLLVM m => CoreModule -> m ()
 initCodegen m = do
   registerGlobals m
 
@@ -154,13 +156,13 @@ initCodegen m = do
 --
 -- VERY IMPORTANT: this only works because the operand name used by `extern` and
 -- `function` is the same as the name of the global, no fresh name is generated.
-registerGlobals :: CoreModule -> LLVM ()
+registerGlobals :: MonadLLVM m => CoreModule -> m ()
 registerGlobals m = do
   forM_ (mod_decls m) $ \decl -> do
     case decl of
       ValD name _ -> do
         let ty = undefined
-        let op = mkGlobalOperand name ty 
+        let op = mkGlobalOperand name ty
         registerGlobalOperand name op
       FunD name _ _ -> do
         let ty = undefined
@@ -171,7 +173,7 @@ registerGlobals m = do
 -- Emitting RTS code
 ----------------------------------------
 
-emitRTS :: LLVM ()
+emitRTS :: MonadLLVM m => m ()
 emitRTS = return ()
 
 ----------------------------------------
@@ -180,13 +182,13 @@ emitRTS = return ()
 
 -- Modules
 
-emitModule :: CoreModule -> LLVM ()
+emitModule :: MonadLLVM m => CoreModule -> m ()
 emitModule m = do
   mapM_ emitDecl (mod_decls m)
 
 -- Declarations
 
-emitDecl :: CoreDecl -> LLVM ()
+emitDecl :: MonadLLVM m => CoreDecl -> m ()
 emitDecl (ValD name body) = do
   undefined
 emitDecl (FunD name args body) = void $ do
@@ -203,17 +205,17 @@ emitDecl (FunD name args body) = void $ do
 
 -- Expressions
 
-emitExpr :: CoreExpr -> LLVM LLVM.Operand
+emitExpr :: MonadLLVM m => CoreExpr -> m LLVM.Operand
 emitExpr = do
   undefined
 
 -- Case alternatives
 
-emitAlt :: CoreAlt -> LLVM LLVM.Operand
+emitAlt :: MonadLLVM m => CoreAlt -> m LLVM.Operand
 emitAlt = do
   undefined
 
--- Literals 
+-- Literals
 
 emitLit :: MonadLLVM m => Lit -> m LLVM.Operand
 emitLit (IntL n)      = return (IR.int64 (fromIntegral n))
@@ -232,4 +234,4 @@ mkGlobalOperand :: Var -> LLVM.Type -> LLVM.Operand
 mkGlobalOperand name ty = LLVM.ConstantOperand (Constant.GlobalReference ty (fromVar name))
 
 mkArg :: Var -> (LLVM.Type, IR.ParameterName)
-mkArg name = (undefined, fromVar name) 
+mkArg name = (undefined, fromVar name)

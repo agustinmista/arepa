@@ -6,5 +6,8 @@ cradle:
     - path: "app/Main.hs"
       component: "arepa:exe:arepa"
 
+    - path: "app/CLI.hs"
+      component: "arepa:exe:arepa"
+
     - path: "test"
       component: "arepa:test:arepa-tests"

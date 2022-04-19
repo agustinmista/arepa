@@ -19,9 +19,7 @@ common common-arepa
   ghc-options: -Wall -Wno-unused-do-bind
   build-depends:
       base >=4.14 && <4.15
-    , mtl
-    , text
-    , containers
+    , extra
   default-extensions:
     GADTs
     DeriveFunctor
@@ -42,19 +40,25 @@ library arepa-lib
   import: common-arepa
   hs-source-dirs: src
   exposed-modules:
+    Control.Monad.Compiler
     Language.Arepa
     Language.Arepa.Compiler
-    Language.Arepa.Compiler.CLI
     Language.Arepa.Compiler.Codegen
     Language.Arepa.Compiler.IO
-    Language.Arepa.Compiler.Monad
     Language.Arepa.Compiler.Parser
+    Language.Arepa.Compiler.Monad
+    Language.Arepa.Compiler.Translate
     Language.Arepa.Compiler.TypeCheck
     Language.Arepa.Syntax
+    Language.TIM
+    Language.TIM.Interpreter
+    Language.TIM.Syntax
   build-depends:
-      prettyprinter
+      mtl
+    , text
+    , containers
+    , prettyprinter
     , megaparsec
-    , optparse-applicative
     , llvm-hs-pure
     , llvm-hs-pretty
 
@@ -62,8 +66,11 @@ executable arepa
   import: common-arepa
   hs-source-dirs: app
   main-is: Main.hs
+  other-modules:
+    CLI
   build-depends:
-    arepa-lib
+      arepa-lib
+    , optparse-applicative
 
 test-suite arepa-tests
   import: common-arepa
