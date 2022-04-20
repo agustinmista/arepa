@@ -144,5 +144,7 @@ prettyPrint a = renderLazy (layoutPretty defaultLayoutOptions (pretty a))
 prettyShow :: Show a => a -> Text
 prettyShow = pShowOpt defaultOutputOptionsDarkBg {
    outputOptionsCompact = True,
-   outputOptionsCompactParens = True
+   outputOptionsCompactParens = True,
+   outputOptionsIndentAmount = 2,
+   outputOptionsPageWidth = 120
  }

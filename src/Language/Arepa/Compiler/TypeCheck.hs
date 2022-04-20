@@ -11,3 +11,8 @@ import Language.Arepa.Compiler.Monad
 
 typeCheckModule :: MonadArepa m => CoreModule -> m CoreModule
 typeCheckModule = return -- no type-checking at the moment
+
+----------------------------------------
+-- The type checking monad
+
+-- TODO

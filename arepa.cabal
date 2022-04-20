@@ -27,12 +27,14 @@ common common-arepa
     DerivingVia
     StandaloneDeriving
     ScopedTypeVariables
+    OverloadedLists
     OverloadedStrings
     ImportQualifiedPost
     FlexibleInstances
     FlexibleContexts
     MultiParamTypeClasses
     TypeApplications
+    TypeFamilies
     ConstraintKinds
     RecursiveDo
 
@@ -41,6 +43,8 @@ library arepa-lib
   hs-source-dirs: src
   exposed-modules:
     Control.Monad.Compiler
+    Data.Stack
+    Data.Heap
     Language.Arepa
     Language.Arepa.Compiler
     Language.Arepa.Compiler.Codegen
@@ -52,6 +56,8 @@ library arepa-lib
     Language.Arepa.Syntax
     Language.TIM
     Language.TIM.Interpreter
+    Language.TIM.Interpreter.Monad
+    Language.TIM.Interpreter.Types
     Language.TIM.Syntax
   build-depends:
       mtl

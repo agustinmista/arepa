@@ -42,12 +42,12 @@ type MonadArepa m = MonadCompiler ArepaError ArepaOpts m
 
 data ArepaError =
     ParserError ParserError
-  | CodegenError CodegenError
+  | InternalError InternalError
   deriving Show
 
 instance Pretty ArepaError where
-  pretty (ParserError err) = viaShow (errorBundlePretty err)
-  pretty (CodegenError err) = viaShow err
+  pretty (ParserError   err) = vsep ["Parser error:",   viaShow (errorBundlePretty err)]
+  pretty (InternalError err) = vsep ["Internal error:", viaShow err]
 
 -- Parse errors
 type ParserError = ParseErrorBundle Text Void
@@ -55,12 +55,14 @@ type ParserError = ParseErrorBundle Text Void
 throwParserError :: MonadArepa m => ParserError -> m a
 throwParserError err = throwCompilerError (ParserError err)
 
--- Other errors (to be completed)
-type CodegenError = Doc ()
+-- Internal errors
+type InternalError = Doc ()
 
-throwCodegenError :: MonadArepa m => CodegenError -> m a
-throwCodegenError err = throwCompilerError (CodegenError err)
+throwInternalError :: MonadArepa m => InternalError -> m a
+throwInternalError err = throwCompilerError (InternalError err)
 
+notImplemented :: MonadArepa m => InternalError -> m a
+notImplemented desc = throwInternalError (desc <> ": not yet implemented")
 
 ----------------------------------------
 -- Compiler options
