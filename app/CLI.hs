@@ -27,5 +27,6 @@ dump = eitherReader $ \s -> do
   case s of
     "ast"  -> Right AST
     "ppr"  -> Right PPR
+    "tim"  -> Right TIM
     "llvm" -> Right LLVM
     _      -> Left ("invalid dump option " <> s)
