@@ -33,7 +33,7 @@ import Prettyprinter.Render.Text
 -- Compiler monad
 ----------------------------------------
 
--- Monad transformer with exceptions, global read-only environment and write-only log
+-- Monad with exceptions and global read-only environment
 
 newtype Compiler err opt a = Compiler (ExceptT err (ReaderT opt IO) a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadError err, MonadReader opt)
