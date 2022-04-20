@@ -81,7 +81,7 @@ defaultOpts :: ArepaOpts = ArepaOpts {
 }
 
 -- Dump options
-data DumpOpt = AST | PPR
+data DumpOpt = AST | PPR | TIM | LLVM
   deriving (Show, Read, Eq, Ord)
 
 hasDumpEnabled :: MonadArepa m => DumpOpt -> m Bool

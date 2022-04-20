@@ -1,7 +1,5 @@
 module Main where
-
 import Control.Monad.Extra
-
 import Language.Arepa.Compiler
 import CLI
 
@@ -17,9 +15,11 @@ main = do
       text <- readInput
       psMod <- parseModule text
       whenM (hasDumpEnabled AST) $ do
-        debugMsg "Parsed AST" (Just (show psMod))
+        debugMsg "Parsed AST" (Just (prettyShow psMod))
       whenM (hasDumpEnabled PPR) $ do
-        debugMsg "Pretty-printed AST" (Just psMod)
+        debugMsg "Pretty-printed AST" (Just (prettyPrint psMod))
       tcMod <- typeCheckModule psMod
       llvmMod <- renderLLVM =<< emitLLVM tcMod
+      whenM (hasDumpEnabled PPR) $ do
+        debugMsg "Emitted LLVM" (Just llvmMod)
       writeOutput llvmMod

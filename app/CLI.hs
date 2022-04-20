@@ -25,6 +25,7 @@ parseCliOpts = do
 dump :: ReadM DumpOpt
 dump = eitherReader $ \s -> do
   case s of
-    "ast" -> Right AST
-    "ppr" -> Right PPR
-    _     -> Left ("invalid dump option " <> s)
+    "ast"  -> Right AST
+    "ppr"  -> Right PPR
+    "llvm" -> Right LLVM
+    _      -> Left ("invalid dump option " <> s)

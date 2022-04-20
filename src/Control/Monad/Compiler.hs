@@ -15,6 +15,8 @@ module Control.Monad.Compiler
   , warningMsg
   , debugMsg
   , compilerIO
+  , prettyPrint
+  , prettyShow
   ) where
 
 import System.IO
@@ -27,6 +29,7 @@ import Data.Text.Lazy.IO qualified as Text
 
 import Prettyprinter
 import Prettyprinter.Render.Text
+import Text.Pretty.Simple
 
 
 ----------------------------------------
@@ -47,7 +50,7 @@ runCompiler' opt ma = do
   res <- runCompiler opt ma
   case res of
     Left err -> do
-      Text.hPutStrLn stderr (renderPpr err)
+      Text.hPutStrLn stderr (prettyPrint err)
       hFlush stderr
       error "Unhandled exception"
     Right a -> return a
@@ -75,7 +78,7 @@ handleCompilerError :: MonadCompiler err opt m => (err -> m a) -> m a -> m a
 handleCompilerError = flip catchError
 
 printCompilerError :: (MonadCompiler err opt m, Pretty err) => err -> m ()
-printCompilerError err = writeStderr (renderPpr err)
+printCompilerError err = writeStderr (prettyPrint err)
 
 ----------------------------------------
 -- Option lookup
@@ -111,29 +114,35 @@ writeToFile path = compilerIO . Text.writeFile path
 -- Compiler messages (written to stderr)
 
 data CompilerMsg where
-  WarningMsg :: Pretty a => Text -> Maybe a -> CompilerMsg
-  DebugMsg   :: Pretty a => Text -> Maybe a -> CompilerMsg
+  WarningMsg :: Text -> Maybe Text -> CompilerMsg
+  DebugMsg   :: Text -> Maybe Text -> CompilerMsg
 
 
 renderCompilerMsg :: CompilerMsg -> Text
 renderCompilerMsg (WarningMsg msg obj) =
-  "[WARNING] " <> msg <> maybe mempty (\x -> ":\n" <> renderPpr x) obj
+  "[WARNING] " <> msg <> maybe mempty (":\n" <>) obj
 renderCompilerMsg (DebugMsg   msg obj) =
-  "[DEBUG] "   <> msg <> maybe mempty (\x -> ":\n" <> renderPpr x) obj
+  "[DEBUG] "   <> msg <> maybe mempty (":\n" <>) obj
 
 logCompilerMsg :: MonadCompiler err opt m => CompilerMsg -> m ()
 logCompilerMsg msg = writeStderr (renderCompilerMsg msg)
 
 
-warningMsg :: (MonadCompiler err opt m, Pretty a) => Text -> Maybe a -> m ()
+warningMsg :: (MonadCompiler err opt m) => Text -> Maybe Text -> m ()
 warningMsg msg obj = logCompilerMsg (WarningMsg msg obj)
 
-debugMsg :: (MonadCompiler err opt m, Pretty a) => Text -> Maybe a -> m ()
+debugMsg :: (MonadCompiler err opt m) => Text -> Maybe Text -> m ()
 debugMsg msg obj = logCompilerMsg (DebugMsg msg obj)
 
 ----------------------------------------
 -- Other utilities
 ----------------------------------------
 
-renderPpr :: Pretty a => a -> Text
-renderPpr a = renderLazy (layoutPretty defaultLayoutOptions (pretty a))
+prettyPrint :: Pretty a => a -> Text
+prettyPrint a = renderLazy (layoutPretty defaultLayoutOptions (pretty a))
+
+prettyShow :: Show a => a -> Text
+prettyShow = pShowOpt defaultOutputOptionsDarkBg {
+   outputOptionsCompact = True,
+   outputOptionsCompactParens = True
+ }

@@ -56,6 +56,7 @@ library arepa-lib
   build-depends:
       mtl
     , text
+    , pretty-simple
     , containers
     , prettyprinter
     , megaparsec
