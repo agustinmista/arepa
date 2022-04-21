@@ -179,32 +179,43 @@ emitRTS = return ()
 ----------------------------------------
 
 -- Code stores
-
 emitCodeStore :: MonadLLVM m => CodeStore -> m ()
 emitCodeStore store = do
   forM_ (Map.toList (store_blocks store)) $ \(name, code) -> do
     emitCodeBlock name code
 
 -- Code blocks
-
 emitCodeBlock :: MonadLLVM m => Name -> CodeBlock -> m ()
 emitCodeBlock name code = void $ do
   IR.function (fromName name) [] LLVM.VoidType $ \_ -> do
     ----------------------------------------
     IR.block `named` (fromName name <> ".entry")
-    -- Do something for the body of the function
     mapM_ emitInstr (toList code)
 
 -- Instructions
-emitInstr :: MonadLLVM m => Instr -> m ()
-emitInstr instr =
+emitInstr :: (MonadIRBuilder m, MonadLLVM m) => Instr -> m ()
+emitInstr instr = do
   case instr of
-    TakeI n -> notImplemented "emitInstr/TakeI"
-    EnterI mode -> notImplemented "emitInstr/EnterI"
-    PushI mode -> notImplemented "emitInstr/PushI"
+    TakeI n -> do
+      notImplemented "emitInstr/TakeI"
+    EnterI mode -> do
+      am <- emitAddressMode mode
+      case mode of
+        ArgM {} -> notImplemented "emitInstr/EnterI/ArgM"
+        LabelM {} -> notImplemented "emitInstr/EnterI/LabelM"
+        LitM {} -> notImplemented "emitInstr/EnterI/LitM"
+    PushI mode -> do
+      notImplemented "emitInstr/PushI"
+
+-- Addressing modes
+emitAddressMode :: MonadLLVM m => AddressMode -> m LLVM.Operand
+emitAddressMode mode = do
+  case mode of
+    ArgM offset -> return (IR.int64 (fromIntegral offset))
+    LabelM name -> lookupGlobalOperand name
+    LitM lit -> emitLit lit
 
 -- Literals
-
 emitLit :: MonadLLVM m => Lit -> m LLVM.Operand
 emitLit (IntL n)      = return (IR.int64 (fromIntegral n))
 emitLit (DoubleL n)   = return (IR.double n)

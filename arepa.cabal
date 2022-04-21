@@ -37,6 +37,7 @@ common common-arepa
     TypeFamilies
     ConstraintKinds
     RecursiveDo
+    EmptyCase
 
 library arepa-lib
   import: common-arepa
