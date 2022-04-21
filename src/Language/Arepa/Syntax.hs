@@ -19,7 +19,7 @@ data Module a =
     mod_decls :: [Decl a]
   } deriving (Show, Read, Eq, Ord, Functor)
 
-type CoreModule = Module Var
+type CoreModule = Module Name
 
 instance Pretty CoreModule where
   pretty (Module name decls) =
@@ -36,7 +36,7 @@ data Decl a =
   | FunD a [a] (Expr a)
   deriving (Show, Read, Eq, Ord, Functor)
 
-type CoreDecl = Decl Var
+type CoreDecl = Decl Name
 
 instance Pretty CoreDecl where
   pretty (ValD name body)
@@ -58,6 +58,18 @@ instance Pretty CoreDecl where
         , indent 2 (pretty body)
         ]
 
+declName :: CoreDecl -> Name
+declName (ValD nm _) = nm
+declName (FunD nm _ _) = nm
+
+declArgs :: CoreDecl -> [Name]
+declArgs (ValD _ _) = []
+declArgs (FunD _ as _) = as
+
+declBody :: CoreDecl -> CoreExpr
+declBody (ValD _ body) = body
+declBody (FunD _ _ body) = body
+
 ----------------------------------------
 -- Expressions
 ----------------------------------------
@@ -72,7 +84,7 @@ data Expr a =
   | CaseE (Expr a) [Alt a]           -- ^ Case expressions
   deriving (Show, Read, Eq, Ord, Functor)
 
-type CoreExpr = Expr Var
+type CoreExpr = Expr Name
 
 instance Pretty CoreExpr where
   pretty (VarE var) =
@@ -176,7 +188,7 @@ data Alt a =
   | DefA (Expr a)         -- ^ Default alternative: 'case e of { _ -> ... }'
   deriving (Show, Read, Eq, Ord, Functor)
 
-type CoreAlt = Alt Var
+type CoreAlt = Alt Name
 
 instance Pretty CoreAlt where
   pretty (LitA lit expr) =
@@ -229,21 +241,24 @@ instance Pretty Con where
 -- A simple variable opaque type for now.
 -- We will likely need to expand it in the future.
 
-newtype Var = Var Text
+newtype Name = Name Text
   deriving (Show, Read, Eq, Ord)
 
 -- Constructors/destructors
 
-mkVar :: Text -> Var
-mkVar = Var
+mkName :: Text -> Name
+mkName = Name
 
-fromVar :: IsString a => Var -> a
-fromVar (Var t) = fromString (Text.unpack t)
+mkNameWithNum :: Text -> Int -> Name
+mkNameWithNum prefix n = Name (prefix <> Text.pack (show n))
+
+fromName :: IsString a => Name -> a
+fromName (Name t) = fromString (Text.unpack t)
 
 -- This instance let us write variables directly as strings
-instance IsString Var where
-  fromString s = mkVar (Text.pack s)
+instance IsString Name where
+  fromString s = mkName (Text.pack s)
 
-instance Pretty Var where
-  pretty (Var v) = pretty v
+instance Pretty Name where
+  pretty (Name v) = pretty v
 

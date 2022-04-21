@@ -26,6 +26,18 @@ import Language.Arepa.Compiler.Monad
 -- Language parser
 ----------------------------------------
 
+parseModule :: MonadArepa m => Text -> m CoreModule
+parseModule = runParser (contents module')
+
+parseDecl :: MonadArepa m => Text -> m CoreDecl
+parseDecl = runParser (contents decl)
+
+parseExpr :: MonadArepa m => Text -> m CoreExpr
+parseExpr = runParser (contents expr)
+
+----------------------------------------
+-- The parser monad
+
 -- A parsing transformer that runs on top of the compiler monad
 type Parser m a = ParsecT Void Text m a
 
@@ -37,19 +49,8 @@ runParser parser text = do
     Left errs -> throwParserError errs
     Right a   -> return a
 
-parseModule :: MonadArepa m => Text -> m CoreModule
-parseModule = runParser (contents module')
-
-parseDecl :: MonadArepa m => Text -> m CoreDecl
-parseDecl = runParser (contents decl)
-
-parseExpr :: MonadArepa m => Text -> m CoreExpr
-parseExpr = runParser (contents expr)
-
-
 ----------------------------------------
 -- Syntax parsers
-----------------------------------------
 
 -- Modules
 
@@ -57,46 +58,46 @@ module' :: MonadArepa m => Parser m CoreModule
 module' = label "module" $ do
   parens $ do
     keyword "module"
-    name <- var
+    nm <- name
     decls <- many decl
-    return (Module name decls)
+    return (Module nm decls)
 
 -- Top-level declarations
 
 decl :: MonadArepa m => Parser m CoreDecl
 decl = label "decl" $ do
   parens $ do
-    choice [valD, funD]
+    valD <|> funD
 
 valD :: MonadArepa m => Parser m CoreDecl
 valD = do
   keyword "val"
-  name <- var
+  nm <- name
   body <- expr
-  return (ValD name body)
+  return (ValD nm body)
 
 funD :: MonadArepa m => Parser m CoreDecl
 funD = do
   keyword "fun"
-  name <- var
-  args <- parens $ many var
+  nm <- name
+  args <- parens $ many name
   body <- expr
-  return (FunD name args body)
+  return (FunD nm args body)
 
 -- Expressions
 
 expr :: MonadArepa m => Parser m CoreExpr
 expr = label "expression" $ do
-  choice [parenE, atomE]
+  parenE <|> atomE
 
 atomE :: MonadArepa m => Parser m CoreExpr
 atomE = label "atomic expression" $ do
-  choice [try litE, varE, conE]
+  try litE <|> varE <|> conE
 
 parenE :: MonadArepa m => Parser m CoreExpr
 parenE = label "s-expression" $ do
   parens $ do
-    choice [try lamE, try letE, try caseE, appE]
+    try lamE <|> try letE <|> try caseE <|> appE
 
 appE :: MonadArepa m => Parser m CoreExpr
 appE = do
@@ -105,7 +106,7 @@ appE = do
   return (foldl AppE fun args)
 
 varE :: MonadArepa m => Parser m CoreExpr
-varE = VarE <$> var
+varE = VarE <$> name
 
 litE :: MonadArepa m => Parser m CoreExpr
 litE = LitE <$> lit
@@ -116,14 +117,15 @@ conE = ConE <$> con
 lamE :: MonadArepa m => Parser m CoreExpr
 lamE = do
   keyword "lambda"
-  v <- var
+  v <- name
   b <- expr
   return (LamE v b)
 
 letE :: MonadArepa m => Parser m CoreExpr
 letE = do
-  isRec <- choice [try (symbol "letrec" $> True), symbol "let" $> False]
-  binds <- parens $ many $ parens $ (,) <$> var <*> expr
+  isRec <- try (symbol "letrec" $> True)
+           <|> symbol "let" $> False
+  binds <- parens $ many $ parens $ (,) <$> name <*> expr
   body <- expr
   return (LetE isRec binds body)
 
@@ -138,7 +140,8 @@ caseE = do
 
 alt :: MonadArepa m => Parser m CoreAlt
 alt = label "case alternative" $ do
-  parens $ choice [try litA, conA, defA]
+  parens $ do
+    try litA <|> conA <|> defA
 
 litA :: MonadArepa m => Parser m CoreAlt
 litA = do
@@ -148,7 +151,7 @@ litA = do
 
 conA :: MonadArepa m => Parser m CoreAlt
 conA = do
-  (c, vars) <- parens $ (,) <$> con <*> many var
+  (c, vars) <- parens $ (,) <$> con <*> many name
   e <- expr
   return (ConA c vars e)
 
@@ -162,7 +165,7 @@ defA = do
 
 lit :: MonadArepa m => Parser m Lit
 lit = label "literal" $ do
-  choice [try doubleL, intL, charL, stringL]
+  try doubleL <|> intL <|> charL <|> stringL
 
 intL :: MonadArepa m => Parser m Lit
 intL = IntL <$> signed decimal
@@ -180,7 +183,7 @@ stringL = StringL <$> stringLiteral
 
 con :: MonadArepa m => Parser m Con
 con = label "data constructor" $ do
-  choice [try unboxedC, boxedC]
+  try unboxedC <|> boxedC
 
 boxedC :: MonadArepa m => Parser m Con
 boxedC = do
@@ -200,8 +203,8 @@ unboxedC = do
 
 -- Variables
 
-var :: MonadArepa m => Parser m Var
-var = mkVar <$> identifier
+name :: MonadArepa m => Parser m Name
+name = mkName <$> identifier
 
 ----------------------------------------
 -- Lexer
@@ -233,8 +236,7 @@ identifier = Lexer.lexeme whitespace $ do
         xs <- many identSubsequent
         return (Text.pack (x:xs))
   let peculiarIdent =
-        choice [string "+", string "-"] <*
-        notFollowedBy identSubsequent
+        (string "+" <|> string "-") <* notFollowedBy identSubsequent
   let check i | i `notElem` reserved = return i
               | otherwise  = fail ("keyword " <> show i <> "cannot be used as an identifier")
   check =<< normalIdent <|> peculiarIdent
