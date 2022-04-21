@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "mem.h"
 #include "debug.h"
@@ -16,6 +17,6 @@ void rts_free(void *ptr) {
 }
 
 void rts_memcpy(void *dest, const void *src, size_t size){
-    debug_msg("copied %zu from %p to %p", src, dest, size);
+    debug_msg("copied %zu from %p to %p", size, src, dest);
     memcpy(dest,src,size);
 }
