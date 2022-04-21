@@ -10,8 +10,12 @@ void *rts_malloc(size_t size) {
     return ptr;
 }
 
-
 void rts_free(void *ptr) {
     debug_msg("freed pointer at %p", ptr);
     free(ptr);
+}
+
+void rts_memcpy(void *dest, const void *src, size_t size){
+    debug_msg("copied %zu from %p to %p", src, dest, size);
+    memcpy(dest,src,size);
 }
