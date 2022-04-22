@@ -14,7 +14,9 @@ frame_t new_frame(long size){
   debug_msg("New frame at %p with size %li", frame, size);
   frame->length    = size;
   frame->arguments = NULL;
-  debug_msg("New frame has %li arguments at %p", frame->length, frame->arguments);
+  debug_msg("New frame has %li arguments at %p"
+           , frame->length
+           , frame->arguments);
   return frame;
 }
 
@@ -30,7 +32,9 @@ closure_t* take_n_closures_from_stack(long n){
              , n
              , current_frame);
 
-    closure_t* closures = rts_malloc(sizeof(n*sizeof(closure_t)));
+    if (n == 0) { return NULL; }
+
+    closure_t* closures = rts_malloc(n*sizeof(closure_t));
 
     for (int i = 0; i < n; i++){
         closure_t* argument = (closure_t*) dump_peek(current_stack);
@@ -48,6 +52,10 @@ void tim_take (long range){
     assert(range <= current_stack->current_size);
     frame_t frame = new_frame(range);
     frame->arguments = take_n_closures_from_stack(range);
+    debug_msg("New frame created at %p with %li argument and closure array %p"
+             , frame
+             , frame->length
+             , frame->arguments);
     current_frame = frame;
 }
 
