@@ -60,7 +60,9 @@ library arepa-lib
     Language.Arepa
     Language.Arepa.Compiler
     Language.Arepa.Compiler.Codegen
+    Language.Arepa.Compiler.Error
     Language.Arepa.Compiler.IO
+    Language.Arepa.Compiler.Options
     Language.Arepa.Compiler.Parser
     Language.Arepa.Compiler.Monad
     Language.Arepa.Compiler.Translate

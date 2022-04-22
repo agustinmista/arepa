@@ -9,6 +9,7 @@ import Control.Monad.State
 import Data.Char
 import Data.String
 
+import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
 import Data.Map (Map)

@@ -12,6 +12,7 @@ import Data.Maybe
 import Data.Void
 import Data.Functor
 
+import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
 import Text.Megaparsec hiding (runParser)
@@ -225,7 +226,7 @@ contents p = whitespace *> p <* eof
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
 identInitial :: MonadArepa m => Parser m Char
-identInitial = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#|_\\" :: [Char]))
+identInitial = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#_\\" :: [Char]))
 
 identSubsequent :: MonadArepa m => Parser m Char
 identSubsequent = identInitial <|> digitChar <|> identPeculiar

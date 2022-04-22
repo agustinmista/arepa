@@ -17,9 +17,12 @@ import Language.TIM.Interpreter.Monad
 -- TIM interpreter
 ----------------------------------------
 
-evalTIM :: CodeStore -> IO (Either TIMError [Value], [TIMState])
+evalTIM :: CodeStore -> IO (Either TIMError [Value], TIMTrace)
 evalTIM store = runTIM store $ do
   invokeFunction "main"
+
+----------------------------------------
+-- Abstract machine
 
 invokeFunction :: Name -> TIM [Value]
 invokeFunction entry = do

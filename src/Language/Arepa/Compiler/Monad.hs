@@ -1,19 +1,14 @@
 module Language.Arepa.Compiler.Monad
   ( module Language.Arepa.Compiler.Monad
   , module Control.Monad.Compiler
-  , Text
+  , module Language.Arepa.Compiler.Error
+  , module Language.Arepa.Compiler.Options
   ) where
-
-import Data.Void
-
-import Text.Megaparsec
-
-import Data.Text.Lazy (Text)
-
-import Prettyprinter
 
 import Control.Monad.Compiler
 
+import Language.Arepa.Compiler.Error
+import Language.Arepa.Compiler.Options
 
 ----------------------------------------
 -- Compiler monad
@@ -40,23 +35,11 @@ type MonadArepa m = MonadCompiler ArepaError ArepaOpts m
 ----------------------------------------
 -- Compilation errors
 
-data ArepaError =
-    ParserError ParserError
-  | InternalError InternalError
-  deriving Show
-
-instance Pretty ArepaError where
-  pretty (ParserError   err) = vsep ["Parser error:",   viaShow (errorBundlePretty err)]
-  pretty (InternalError err) = vsep ["Internal error:", viaShow err]
-
--- Parse errors
-type ParserError = ParseErrorBundle Text Void
-
 throwParserError :: MonadArepa m => ParserError -> m a
 throwParserError err = throwCompilerError (ParserError err)
 
--- Internal errors
-type InternalError = Doc ()
+throwInterpreterError :: MonadArepa m => InterpreterError -> m a
+throwInterpreterError err = throwCompilerError (InterpreterError err)
 
 throwInternalError :: MonadArepa m => InternalError -> m a
 throwInternalError err = throwCompilerError (InternalError err)
@@ -67,24 +50,11 @@ notImplemented desc = throwInternalError (desc <> ": not yet implemented")
 ----------------------------------------
 -- Compiler options
 
-data ArepaOpts = ArepaOpts {
-  optInput :: Maybe FilePath,    -- Nothing means stdin
-  optOutput :: Maybe FilePath,   -- Nothing means stdout
-  optDump :: [DumpOpt],
-  optVerbose :: Bool
-} deriving (Show, Read, Eq, Ord)
-
-defaultOpts :: ArepaOpts
-defaultOpts :: ArepaOpts = ArepaOpts {
-  optInput = Nothing,
-  optOutput = Nothing,
-  optDump = [],
-  optVerbose = False
-}
-
--- Dump options
-data DumpOpt = AST | PPR | TIM | LLVM
-  deriving (Show, Read, Eq, Ord)
-
 hasDumpEnabled :: MonadArepa m => DumpOpt -> m Bool
 hasDumpEnabled opt = (opt `elem`) <$> lookupCompilerOption optDump
+
+hasVerboseEnabled :: MonadArepa m => m Bool
+hasVerboseEnabled = lookupCompilerOption optVerbose
+
+hasInterpretEnabled :: MonadArepa m => m Bool
+hasInterpretEnabled = lookupCompilerOption optInterpret

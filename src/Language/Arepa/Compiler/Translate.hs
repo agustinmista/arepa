@@ -1,19 +1,22 @@
 module Language.Arepa.Compiler.Translate
   ( translateModule
+  , interpretCodeStore
   ) where
 
+import Control.Monad.Extra
 import Control.Monad.State
 
 import Data.Map (Map)
 import Data.Map qualified as Map
+
+import Data.Text.Lazy (Text)
 
 import Prettyprinter
 
 import Language.Arepa.Syntax
 import Language.Arepa.Compiler.Monad
 
-import Language.TIM.Syntax
-import Language.TIM.Prim
+import Language.TIM
 
 ----------------------------------------
 -- Arepa to TIM translation
@@ -27,6 +30,15 @@ translateModule m = do
   let globals = prims <> decls
   runTranslate name globals $ do
     mapM_ translateDecl (mod_decls m)
+
+interpretCodeStore :: MonadArepa m => CodeStore -> m [Value]
+interpretCodeStore store = do
+  (res, trace) <- liftIO $ evalTIM store
+  whenM hasVerboseEnabled $ do
+    debugMsg "interpreter intermediate states" (Just (prettyPrint trace))
+  case res of
+    Left err -> throwInterpreterError err
+    Right vals -> return vals
 
 ----------------------------------------
 -- Internal translation state

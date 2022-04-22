@@ -3,6 +3,7 @@ module CLI
   ) where
 
 import Options.Applicative
+import Options.Applicative qualified as OptParse
 
 import Language.Arepa.Compiler
 
@@ -17,16 +18,22 @@ parseCliOpts = do
   customExecParser cliPrefs (info (helper <*> cliOpts) desc)
   where
     cliOpts = ArepaOpts <$>
-      optional (strOption   (long "input"   <> short 'i' <> metavar "PATH" <> help "input file")) <*>
-      optional (strOption   (long "output"  <> short 'o' <> metavar "PATH" <> help "output binary")) <*>
-      many     (option dump (long "dump"    <> short 'd' <> metavar "DUMP" <> help "dump an internal structure")) <*>
-      switch                (long "verbose" <> short 'v'                   <> help "show extra debug information")
+      optionalStr (long "input"     <> short 'i' <> metavar "PATH" <> help "input file") <*>
+      optionalStr (long "output"    <> short 'o' <> metavar "PATH" <> help "output binary") <*>
+      dumpOpts    (long "dump"      <> short 'd' <> metavar "DUMP" <> help "dump an internal structure") <*>
+      switch      (long "verbose"   <> short 'v'                   <> help "show extra debug information") <*>
+      switch      (long "interpret" <> short 'x'                   <> help "interpret the input instead of compiling it")
 
-dump :: ReadM DumpOpt
-dump = eitherReader $ \s -> do
-  case s of
-    "ast"  -> Right AST
-    "ppr"  -> Right PPR
-    "tim"  -> Right TIM
-    "llvm" -> Right LLVM
-    _      -> Left ("invalid dump option " <> s)
+optionalStr :: Mod OptionFields String -> OptParse.Parser (Maybe String)
+optionalStr = optional . strOption
+
+dumpOpts :: Mod OptionFields DumpOpt -> OptParse.Parser [DumpOpt]
+dumpOpts desc = many (option dumpReader desc)
+  where
+    dumpReader = eitherReader $ \s -> do
+      case s of
+        "ast"  -> Right AST
+        "ppr"  -> Right PPR
+        "tim"  -> Right TIM
+        "llvm" -> Right LLVM
+        _      -> Left ("invalid dumpOpts option " <> s)

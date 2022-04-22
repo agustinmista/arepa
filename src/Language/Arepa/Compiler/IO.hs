@@ -1,7 +1,8 @@
 module Language.Arepa.Compiler.IO where
 
-import Language.Arepa.Compiler.Monad
+import Data.Text.Lazy (Text)
 
+import Language.Arepa.Compiler.Monad
 
 ----------------------------------------
 -- Input/output utilities

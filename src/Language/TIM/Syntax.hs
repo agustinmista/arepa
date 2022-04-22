@@ -125,6 +125,7 @@ data Value =
   | DoubleV Double
   | CharV Char
   | StringV Text
+  | VoidV
   deriving (Show, Eq, Read, Ord)
 
 instance Pretty Value where
@@ -132,6 +133,7 @@ instance Pretty Value where
   pretty (DoubleV n) = angles (pretty n)
   pretty (CharV c)   = angles (pretty (show c))
   pretty (StringV s) = angles (pretty (show s))
+  pretty VoidV       = angles "void"
 
 -- Values addressing modes
 

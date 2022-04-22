@@ -27,14 +27,14 @@ import Language.TIM.Interpreter.Types
 
 -- TIM monad
 
-newtype TIM a = TIM (ExceptT TIMError (StateT TIMState (WriterT [TIMState] IO)) a)
+newtype TIM a = TIM (ExceptT TIMError (StateT TIMState (WriterT TIMTrace IO)) a)
   deriving ( Functor, Applicative, Monad, MonadIO
            , MonadError TIMError
            , MonadState TIMState
-           , MonadWriter [TIMState]
+           , MonadWriter TIMTrace
            , MonadFail )
 
-runTIM :: CodeStore -> TIM a -> IO (Either TIMError a, [TIMState])
+runTIM :: CodeStore -> TIM a -> IO (Either TIMError a, TIMTrace)
 runTIM code (TIM ma) = runWriterT (evalStateT (runExceptT ma) (initialTIMState code))
 
 -- Machine exceptions
@@ -44,6 +44,15 @@ newtype TIMError = TIMError Text
 
 instance Pretty TIMError where
   pretty (TIMError err) = pretty err
+
+-- Machine traces
+
+newtype TIMTrace = TIMTrace [TIMState]
+  deriving Semigroup via [TIMState]
+  deriving Monoid    via [TIMState]
+
+instance Pretty TIMTrace where
+  pretty (TIMTrace states) = vsep (pretty <$> states)
 
 -- Machine state
 
@@ -121,7 +130,7 @@ throwTIMError msg = throwError (TIMError msg)
 
 -- Log the current TIM state
 logTIMState :: TIM ()
-logTIMState = get >>= tell . pure
+logTIMState = get >>= tell . TIMTrace . pure
 
 -- Lookup the code of a compiled label
 lookupCodeBlock :: Name -> TIM CodeBlock
