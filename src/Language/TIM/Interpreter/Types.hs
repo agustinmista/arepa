@@ -13,16 +13,13 @@ import Language.TIM.Syntax
 ----------------------------------------
 -- Frames and frame pointers
 
-data FramePtr = NullP | AddrP Addr | LitP Lit
+data FramePtr = NullP | AddrP Addr | ValueP Value
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty FramePtr where
   pretty NullP = "null"
   pretty (AddrP addr) = viaShow addr
-  pretty (LitP lit) = angles (pretty lit)
-
-litCode :: CodeBlock
-litCode = []
+  pretty (ValueP value) = pretty value
 
 data Frame = Frame {
   frame_size :: Int,
@@ -34,7 +31,9 @@ instance Pretty Frame where
     [ "Frame:" ] <>
     if null (frame_closures frame)
       then [ indent 2 "empty" ]
-      else [ indent 2 (pretty closure) | closure <- reverse (frame_closures frame) ]
+      else [ indent 2 ("$" <> pretty i <> ":" <+> pretty closure)
+           | (closure, i) <- reverse (zip (frame_closures frame) ([0..] :: [Int]))
+           ]
 
 mkFrame :: [Closure] -> Frame
 mkFrame closures = Frame {

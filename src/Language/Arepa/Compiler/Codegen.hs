@@ -19,12 +19,8 @@ import Prettyprinter
 import GHC.Exts
 
 import LLVM.AST                        qualified as LLVM
-import LLVM.AST.Type                   qualified as LLVM
-import LLVM.AST.Typed                  qualified as LLVM
-import LLVM.AST.IntegerPredicate       qualified as LLVM
-import LLVM.AST.FloatingPointPredicate qualified as LLVM
 import LLVM.AST.Constant               qualified as Constant
-import LLVM.IRBuilder(MonadModuleBuilder, MonadIRBuilder, ModuleBuilderT, IRBuilderT, buildModuleT, named)
+import LLVM.IRBuilder(MonadModuleBuilder, MonadIRBuilder, ModuleBuilderT, buildModuleT, named)
 import LLVM.IRBuilder qualified as IR
 import LLVM.Pretty
 
@@ -196,31 +192,38 @@ emitCodeBlock name code = void $ do
 emitInstr :: (MonadIRBuilder m, MonadLLVM m) => Instr -> m ()
 emitInstr instr = do
   case instr of
-    TakeI n -> do
+    TakeArgI _n -> do
       notImplemented "emitInstr/TakeI"
     EnterI mode -> do
-      am <- emitAddressMode mode
+      _am <- emitArgMode mode
       case mode of
         ArgM {} -> notImplemented "emitInstr/EnterI/ArgM"
         LabelM {} -> notImplemented "emitInstr/EnterI/LabelM"
-        LitM {} -> notImplemented "emitInstr/EnterI/LitM"
-    PushI mode -> do
-      notImplemented "emitInstr/PushI"
+        ValueM {} -> notImplemented "emitInstr/EnterI/ValueM"
+    PushArgI _mode -> do
+      notImplemented "emitInstr/PushArgI"
+    PushValueI _mode -> do
+      notImplemented "emitInstr/PushValueI"
+    CallI _prim -> do
+      notImplemented "emitInstr/CallI"
+    ReturnI -> do
+      notImplemented "emitInstr/ReturnI"
+
 
 -- Addressing modes
-emitAddressMode :: MonadLLVM m => AddressMode -> m LLVM.Operand
-emitAddressMode mode = do
+emitArgMode :: MonadLLVM m => ArgMode -> m LLVM.Operand
+emitArgMode mode = do
   case mode of
     ArgM offset -> return (IR.int64 (fromIntegral offset))
     LabelM name -> lookupGlobalOperand name
-    LitM lit -> emitLit lit
+    ValueM value -> emitValue value
 
 -- Literals
-emitLit :: MonadLLVM m => Lit -> m LLVM.Operand
-emitLit (IntL n)      = return (IR.int64 (fromIntegral n))
-emitLit (DoubleL n)   = return (IR.double n)
-emitLit (CharL c)     = return (IR.int32 (fromIntegral (ord c)))
-emitLit (StringL str) = registerString str
+emitValue :: MonadLLVM m => Value -> m LLVM.Operand
+emitValue (IntV n) = return (IR.int64 (fromIntegral n))
+emitValue (DoubleV n) = return (IR.double n)
+emitValue (CharV c) = return (IR.int32 (fromIntegral (ord c)))
+emitValue (StringV str) = registerString str
 
 ----------------------------------------
 -- Low-level utilities
@@ -231,9 +234,6 @@ mkGlobalStringName n = LLVM.mkName ("__string__." <> show n)
 
 mkGlobalOperand :: Name -> LLVM.Type -> LLVM.Operand
 mkGlobalOperand name ty = LLVM.ConstantOperand (Constant.GlobalReference ty (fromName name))
-
-mkArg :: Name -> (LLVM.Type, IR.ParameterName)
-mkArg name = (undefined, fromName name)
 
 mkVoidFunType :: LLVM.Type
 mkVoidFunType = LLVM.FunctionType LLVM.VoidType [] False

@@ -10,6 +10,7 @@ license-file: LICENSE
 author: Agustin Mista, Alejandro Gómez Londoño
 maintainer: mista@chalmers.se
 category: Language
+
 extra-source-files: CHANGELOG.md
 
 ----------------------------------------
@@ -21,23 +22,33 @@ common common-arepa
       base >=4.14 && <4.15
     , extra
   default-extensions:
-    GADTs
+    ConstraintKinds
     DeriveFunctor
-    GeneralizedNewtypeDeriving
     DerivingVia
-    StandaloneDeriving
-    ScopedTypeVariables
+    EmptyCase
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    LambdaCase
+    MultiParamTypeClasses
     OverloadedLists
     OverloadedStrings
-    ImportQualifiedPost
-    FlexibleInstances
-    FlexibleContexts
-    MultiParamTypeClasses
+    PatternSynonyms
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
     TypeApplications
     TypeFamilies
-    ConstraintKinds
-    RecursiveDo
-    EmptyCase
+    ViewPatterns
+  include-dirs:
+    rts/include
+  includes:
+    rts/include/prim.h
+  c-sources:
+    rts/src/prim.c
 
 library arepa-lib
   import: common-arepa
@@ -59,16 +70,19 @@ library arepa-lib
     Language.TIM.Interpreter
     Language.TIM.Interpreter.Monad
     Language.TIM.Interpreter.Types
+    Language.TIM.Prim
     Language.TIM.Syntax
   build-depends:
       mtl
     , text
     , pretty-simple
+    , filepath
     , containers
     , prettyprinter
     , megaparsec
     , llvm-hs-pure
     , llvm-hs-pretty
+
 
 executable arepa
   import: common-arepa

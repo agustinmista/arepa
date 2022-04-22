@@ -168,10 +168,14 @@ lit = label "literal" $ do
   try doubleL <|> intL <|> charL <|> stringL
 
 intL :: MonadArepa m => Parser m Lit
-intL = IntL <$> signed decimal
+intL = do
+  n <- signed decimal
+  return (IntL n)
 
 doubleL :: MonadArepa m => Parser m Lit
-doubleL = DoubleL <$> signed float
+doubleL = do
+  n <- signed float
+  return (DoubleL n)
 
 charL :: MonadArepa m => Parser m Lit
 charL = CharL <$> charLiteral
@@ -221,7 +225,7 @@ contents p = whitespace *> p <* eof
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
 identInitial :: MonadArepa m => Parser m Char
-identInitial = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^_~" :: [Char]))
+identInitial = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#|_\\" :: [Char]))
 
 identSubsequent :: MonadArepa m => Parser m Char
 identSubsequent = identInitial <|> digitChar <|> identPeculiar
@@ -254,11 +258,11 @@ keyword kw = void $ Lexer.lexeme whitespace $ do
 ----------------------------------------
 -- Low-level lexemes
 
-symbol :: MonadArepa m => Text -> Parser m ()
-symbol s = void (Lexer.symbol whitespace s)
+symbol :: MonadArepa m => Text -> Parser m Text
+symbol = Lexer.symbol whitespace
 
 signed :: (MonadArepa m, Num a) => Parser m a -> Parser m a
-signed = Lexer.signed whitespace
+signed = Lexer.signed (pure ())
 
 float :: MonadArepa m => Parser m Double
 float = Lexer.float <* whitespace
@@ -282,4 +286,4 @@ stringLiteral :: MonadArepa m => Parser m Text
 stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"'))
 
 comma :: MonadArepa m => Parser m ()
-comma = symbol ","
+comma = void $ symbol ","
