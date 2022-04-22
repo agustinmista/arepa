@@ -30,18 +30,24 @@ ppCodeStore code = TIO.putStrLn (prettyPrint code)
 intLiteral :: Int -> FramePtr
 intLiteral = LitP . IntL
 
-ex1, ex2, ex3, ex4 :: IO (Text,FramePtr,CoreDecl)
-ex1 = (,,) "ex1" (intLiteral 5) <$> testArepa (parseDecl "(fun main () (i 5))")
-ex2 = (,,) "ex2" (intLiteral 5) <$> testArepa (parseDecl "(fun main () (k 5 0))")
-ex3 = (,,) "ex3" (intLiteral 5) <$> testArepa (parseDecl "(fun main () (s k 0 5))")
-ex4 = (,,) "ex4" (intLiteral 5) <$> testArepa (parseDecl "(fun main () (s k s k 5 0))")
+compileTestFromMain :: Text -> IO CodeStore
+compileTestFromMain main = do
+  mainCode <- testArepa $ parseDecl main
+  fullCode <- addMainToSKIModule mainCode
+  testArepa $ translateModule fullCode
 
 
-runTimTest :: (Text,FramePtr,CoreDecl) -> IO ()
-runTimTest (testName,res,main)= do
-  code <- addMainToSKIModule main
-  timCode <- testArepa $ translateModule code
-  timResult <- evalTIM timCode
+
+
+ex1, ex2, ex3, ex4 :: IO (Text,FramePtr,CodeStore)
+ex1 = (,,) "ex1" (intLiteral 5) <$> compileTestFromMain "(fun main () (i 5))"
+ex2 = (,,) "ex2" (intLiteral 5) <$> compileTestFromMain "(fun main () (k 5 0))"
+ex3 = (,,) "ex3" (intLiteral 5) <$> compileTestFromMain "(fun main () (s k 0 5))"
+ex4 = (,,) "ex4" (intLiteral 5) <$> compileTestFromMain "(fun main () (s k s k 5 0))"
+
+runTimTest :: (Text,FramePtr,CodeStore) -> IO ()
+runTimTest (testName,res,code)= do
+  timResult <- evalTIM code
   case timResult of
     (Just e, _)       -> error . unpack $ prettyPrint e
     (Nothing, states) ->
@@ -57,7 +63,7 @@ runTimTest (testName,res,main)= do
 
 runTimTests :: IO ()
 runTimTests = do
-  tests <- sequence ([ex1,ex2,ex3,ex4] :: [IO (Text,FramePtr,CoreDecl)])
+  tests <- sequence ([ex1,ex2,ex3,ex4] :: [IO (Text,FramePtr,CodeStore)])
   mapM_ runTimTest tests
 
 
