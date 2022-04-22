@@ -1,5 +1,5 @@
 ifeq ($(DEBUG),1)
-   EXTRA_OPTS = -g -DDEBUG
+   EXTRA_OPTS = -g -DDEBUG -O0
 endif
 
 CC ?= clang
@@ -18,7 +18,7 @@ $(LIB_SRCS:.c=.d):%.d:%.c
 	$(CC) $(CFLAGS) -MM $< >$@
 
 %: %.c ${LIB_OBJS}
-	$(CC) $(CFLAGS) -o $@ $< ${LIB_OBJS} $(LDFLAGS) 
+	$(CC) $(CFLAGS) -o $@ $< ${LIB_OBJS} $(LDFLAGS)
 
 .PHONY: clean
 clean:
