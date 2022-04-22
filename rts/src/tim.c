@@ -45,7 +45,7 @@ closure_t* take_n_closures_from_stack(long n){
 
 void tim_take (long range){
     debug_msg("Taking %li arguments from frame %p",range,current_frame);
-    assert(range <= current_frame->length);
+    assert(range <= current_stack->current_size);
     frame_t frame = new_frame(range);
     frame->arguments = take_n_closures_from_stack(range);
     current_frame = frame;
