@@ -86,4 +86,5 @@ test-suite arepa-tests
   hs-source-dirs: test
   main-is: Main.hs
   build-depends:
-    arepa-lib
+      arepa-lib
+    , text
