@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 #include "tim.h"
 
 void i(){
@@ -11,5 +12,8 @@ int main(){
   tim_take(0);
   tim_push_literal_int(5);
   tim_enter_label(*i);
-  printf("result %i", get_result());
+
+  int result = get_result();
+  printf("The result is: %i\n", result);
+  assert(result == 5);
 }
