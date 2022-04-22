@@ -26,7 +26,7 @@ translateModule :: MonadArepa m => CoreModule -> m CodeStore
 translateModule m = do
   let name = mod_name m
   let decls = declName <$> mod_decls m
-  let prims = Map.keys timPrimitives
+  let prims = Map.keys primitives
   let globals = prims <> decls
   runTranslate name globals $ do
     mapM_ translateDecl (mod_decls m)
@@ -99,7 +99,7 @@ freshName prefix = state $ \st ->
 -- Lookup a primitive operation by its name
 lookupPrimOp :: MonadArepa m => Name -> Translate m PrimOp
 lookupPrimOp name = do
-  case Map.lookup name timPrimitives of
+  case Map.lookup name primitives of
     Nothing -> throwInternalError ("lookupPrimOp: primitive " <> fromName name <> " is missing")
     Just prim -> return prim
 
@@ -160,7 +160,7 @@ pattern CallE name args <- (isCallE -> Just (name, args))
 isCallE :: CoreExpr -> Maybe (Name, [CoreExpr])
 isCallE expr =
   case collectArgs expr of
-    (VarE name, args) | isPrimOp name -> Just (name, args)
+    (VarE name, args) | name `isPrimOp` primitives -> Just (name, args)
     _ -> Nothing
 
 -- Primitive function calls

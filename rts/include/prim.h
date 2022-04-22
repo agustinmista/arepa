@@ -7,15 +7,23 @@
 /* Primitive operations              */
 /* --------------------------------- */
 
-typedef long   IntV;
-typedef double DoubleV;
-typedef char   CharV;
-typedef char*  StringV;
-typedef void   VoidV;
+typedef long   Int;
+typedef double Double;
+typedef char   Char;
+typedef char*  String;
+typedef void   Void;
 
-IntV __arepa_rts_add_int__(IntV x, IntV y);
-IntV __arepa_rts_sub_int__(IntV x, IntV y);
-VoidV __arepa_rts_print_int__(IntV x);
-DoubleV __arepa_rts_pi__();
+/*
+ * Do not modify the BEGIN and END comments below since they are used to mine
+ * primitive operations by the compiler. Put the prototype of any new primitive
+ * operation declaration between these two comments.
+ */
+
+// BEGIN PROTOTYPES
+Int __arepa_rts_add_int__(Int, Int);
+Int __arepa_rts_sub_int__(Int, Int);
+Void __arepa_rts_print_int__(Int);
+Double __arepa_rts_pi__();
+// END PROTOTYPES
 
 #endif

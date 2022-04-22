@@ -1,6 +1,7 @@
 module Language.TIM.Syntax
   ( module Language.TIM.Syntax
   , Name
+  , mkName
   , fromName
   ) where
 
@@ -14,7 +15,7 @@ import Data.Text.Lazy (Text)
 
 import Prettyprinter
 
-import Language.Arepa.Syntax (Name, fromName)
+import Language.Arepa.Syntax (Name, mkName, fromName)
 
 ----------------------------------------
 -- TIM: Three instruction machine
@@ -125,7 +126,7 @@ data Value =
   | DoubleV Double
   | CharV Char
   | StringV Text
-  | VoidV
+  | VoidV ()
   deriving (Show, Eq, Read, Ord)
 
 instance Pretty Value where
@@ -133,7 +134,7 @@ instance Pretty Value where
   pretty (DoubleV n) = angles (pretty n)
   pretty (CharV c)   = angles (pretty (show c))
   pretty (StringV s) = angles (pretty (show s))
-  pretty VoidV       = angles "void"
+  pretty (VoidV _)   = angles "void"
 
 -- Values addressing modes
 
@@ -147,3 +148,20 @@ instance Pretty ValueMode where
     "fp"
   pretty (InlineM value) =
     "inline" <+> pretty value
+
+-- Value types
+
+data Type =
+    IntT
+  | DoubleT
+  | CharT
+  | StringT
+  | VoidT
+  deriving (Show, Eq, Read, Ord)
+
+instance Pretty Type where
+  pretty IntT    = "Int"
+  pretty DoubleT = "Double"
+  pretty CharT   = "Char"
+  pretty StringT = "String"
+  pretty VoidT   = "Void"
