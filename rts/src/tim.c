@@ -7,6 +7,7 @@
 
 frame_t current_frame;
 dump_t current_stack;
+int current_value;
 
 frame_t new_frame(long size){
   frame_t frame = rts_malloc(sizeof(struct frame_t));
@@ -46,13 +47,13 @@ void tim_push_argument(long argument){
 }
 
 void tim_int_code(){
-    //long literal = *((int*) current_frame);
-    // Do something
+    int literal = *((int*) current_frame);
+    current_value = literal;
 }
 
 void tim_float_code(){
-    //float literal = *((float*) current_frame);
-    // Do something
+    float literal = *((float*) current_frame);
+    current_value = (int) literal;
 }
 
 closure_t* make_closure(void (*code)(),void* frame){
@@ -68,7 +69,7 @@ closure_t* int_closure(int literal){
     return make_closure(*tim_int_code,int_ptr_as_frame);
 }
 
-void time_push_literal_int(int literal){
+void tim_push_literal_int(int literal){
     return dump_push(current_stack,int_closure(literal));
 }
 
@@ -77,7 +78,7 @@ closure_t* float_closure(float literal){
     *float_ptr_as_frame = literal;
     return make_closure(*tim_float_code,float_ptr_as_frame);
 }
-void time_push_literal_float(float literal){
+void tim_push_literal_float(float literal){
     return dump_push(current_stack,float_closure(literal));
 }
 
@@ -99,10 +100,14 @@ void tim_enter_literal_int(int literal){
     return tim_enter_closure(*int_closure(literal));
 }
 
-void tim_enter_literal_long(long literal){
+void tim_enter_literal_float(float literal){
     return tim_enter_closure(*float_closure(literal));
 }
 
-void time_enter_label(void (*code)()){
+void tim_enter_label(void (*code)()){
     return tim_enter_closure(*make_closure(code,current_frame));
+}
+
+int get_result(){
+    return current_value;
 }

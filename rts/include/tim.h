@@ -19,18 +19,24 @@ void tim_take(long range);
 
 void tim_push_argument(long argument);
 
-void tim_push_literal_long(long literal);
+void tim_push_literal_int(int literal);
+
+void tim_push_literal_float(float literal);
 
 void tim_push_label(void (*code)());
 
 void tim_enter_argument(long argument);
 
-void tim_enter_literal(int literal);
+void tim_enter_literal_int(int literal);
+
+void tim_enter_literal_float(float literal);
 
 void tim_enter_label(void (*code)());
 
-void tim_long_code();
+void tim_int_code();
 
 void tim_float_code();
+
+int get_result();
 
 #endif
