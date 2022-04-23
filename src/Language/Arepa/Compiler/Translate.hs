@@ -48,9 +48,9 @@ interpretCodeStore store = do
 -- Internal translation state
 
 data TranslateState = TranslateState {
-  ts_store :: CodeStore,              -- ^ The code store we build under the hood
+  ts_store :: CodeStore,          -- ^ The code store we build under the hood
   ts_env   :: Map Name ArgMode,   -- ^ The current stuff in scope
-  ts_fresh :: Int                     -- ^ A source of fresh names
+  ts_fresh :: Int                 -- ^ A source of fresh names
 }
 
 initialTranslateState :: Name -> [Name] -> TranslateState
