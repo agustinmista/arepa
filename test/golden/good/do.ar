@@ -1,0 +1,9 @@
+(module test_do
+  (val main (foo 10))
+  (fun foo (x)
+    (bind read_int
+      (lambda x
+        (bind read_int
+          (lambda y
+            (print_int (+ x y)))))))
+)

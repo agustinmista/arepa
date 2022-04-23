@@ -225,7 +225,7 @@ emitValue (IntV n) = return (IR.int64 (fromIntegral n))
 emitValue (DoubleV n) = return (IR.double n)
 emitValue (CharV c) = return (IR.int32 (fromIntegral (ord c)))
 emitValue (StringV str) = registerString str
-emitValue (VoidV _) = undefined
+emitValue (VoidV _) = throwInternalError "emitValue: cannot emit void values"
 
 ----------------------------------------
 -- Low-level utilities
