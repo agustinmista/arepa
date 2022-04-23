@@ -169,4 +169,8 @@ instance Pretty Type where
 -- Map values to types
 
 valueType :: Value -> Type
-valueType
+valueType IntV    {} = IntT
+valueType DoubleV {} = DoubleT
+valueType CharV   {} = CharT
+valueType StringV {} = StringT
+valueType VoidV   {} = VoidT
