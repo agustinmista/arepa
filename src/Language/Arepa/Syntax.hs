@@ -1,13 +1,16 @@
-module Language.Arepa.Syntax where
+module Language.Arepa.Syntax
+  ( module Language.Arepa.Syntax
+  , module Data.Name
+  ) where
 
 import Data.Foldable
-import Data.String
 import Data.List
 
 import Data.Text.Lazy (Text)
-import Data.Text.Lazy qualified as Text
 
 import Prettyprinter
+
+import Data.Name
 
 ----------------------------------------
 -- Modules
@@ -233,32 +236,3 @@ instance Pretty Con where
     braces (pretty tag <> comma <> pretty arity)
   pretty (UnboxedC tag sizes) =
     braces (pretty tag <> comma <> brackets (cat (intersperse comma (pretty <$> sizes))))
-
-----------------------------------------
--- Variables
-----------------------------------------
-
--- A simple variable opaque type for now.
--- We will likely need to expand it in the future.
-
-newtype Name = Name Text
-  deriving (Show, Read, Eq, Ord)
-
--- Constructors/destructors
-
-mkName :: Text -> Name
-mkName = Name
-
-mkNameWithNum :: Text -> Int -> Name
-mkNameWithNum prefix n = Name (prefix <> Text.pack (show n))
-
-fromName :: IsString a => Name -> a
-fromName (Name t) = fromString (Text.unpack t)
-
--- This instance let us write variables directly as strings
-instance IsString Name where
-  fromString s = mkName (Text.pack s)
-
-instance Pretty Name where
-  pretty (Name v) = pretty v
-

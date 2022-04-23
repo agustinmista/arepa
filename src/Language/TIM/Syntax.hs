@@ -1,8 +1,6 @@
 module Language.TIM.Syntax
   ( module Language.TIM.Syntax
-  , Name
-  , mkName
-  , fromName
+  , module Data.Name
   ) where
 
 import GHC.Exts
@@ -15,7 +13,7 @@ import Data.Text.Lazy (Text)
 
 import Prettyprinter
 
-import Language.Arepa.Syntax (Name, mkName, fromName)
+import Data.Name
 
 ----------------------------------------
 -- TIM: Three instruction machine
