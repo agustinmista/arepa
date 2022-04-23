@@ -18,10 +18,11 @@ import Language.TIM.Interpreter.Monad
 -- TIM interpreter
 ----------------------------------------
 
-invokeFunction :: Name -> TIM [Value]
-invokeFunction entry = do
-  -- Set the program entry point
-  setCode [ EnterI (LabelM entry) ]
+invokeFunction :: Name -> [Value] -> TIM [Value]
+invokeFunction fun args = do
+  -- Set the program code, which pushes (inline) the input arguments to the
+  -- argument stack and proceeds to jumps to the entry point
+  setCode $ foldMap (\arg -> [ PushArgI (ValueM arg) ] ) args <> [ EnterI (LabelM fun) ]
   -- Prepare the stack with a continuation for main to land to
   pushArgStack (mkClosure [] NullP)
   -- Start running instructions
