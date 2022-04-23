@@ -18,15 +18,15 @@ data ArepaError =
   deriving Show
 
 instance Pretty ArepaError where
-  pretty (ParserError      err) = vsep ["Parser error:",      viaShow (errorBundlePretty err)]
-  pretty (InterpreterError err) = vsep ["Interpreter error:", viaShow err]
-  pretty (InternalError    err) = vsep ["Internal error:",    viaShow err]
+  pretty (ParserError      err) = vsep ["Parser error:",      pretty (errorBundlePretty err)]
+  pretty (InterpreterError err) = vsep ["Interpreter error:", pretty err]
+  pretty (InternalError    err) = vsep ["Internal error:",    unAnnotate err]
 
 -- Parse errors
 type ParserError = ParseErrorBundle Text Void
 
--- Internal errors
-type InternalError = Doc ()
-
 -- Interpreter errors
 type InterpreterError = TIMError
+
+-- Internal errors
+type InternalError = Doc ()

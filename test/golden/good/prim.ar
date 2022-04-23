@@ -2,6 +2,9 @@
   (val main
     (print_int (twice (+ 3) (- 30 5))))
 
+  (val mymain
+    (print_int (twice (+ 5) (- 10 3))))
+
   (fun twice (f x) (f (f x)))
 
   ;; the wrappers enable partial application of primitives

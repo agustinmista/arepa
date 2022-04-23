@@ -22,6 +22,7 @@ import Language.TIM
 -- Arepa to TIM translation
 ----------------------------------------
 
+-- Translate a core module into TIM code
 translateModule :: MonadArepa m => CoreModule -> m CodeStore
 translateModule m = do
   let name = mod_name m
@@ -31,9 +32,12 @@ translateModule m = do
   runTranslate name globals $ do
     mapM_ translateDecl (mod_decls m)
 
+-- Interpret a TIM code store, invoking some function
 interpretCodeStore :: MonadArepa m => CodeStore -> m [Value]
 interpretCodeStore store = do
-  (res, trace) <- liftIO $ evalTIM store
+  entry <- lookupCompilerOption optEntryPoint
+  (res, trace) <- liftIO $ do
+    runTIM store $ invokeFunction (mkName entry)
   whenM hasVerboseEnabled $ do
     debugMsg "interpreter intermediate states" (Just (prettyPrint trace))
   case res of
