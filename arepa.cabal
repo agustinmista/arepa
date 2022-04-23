@@ -57,8 +57,9 @@ library arepa-lib
   hs-source-dirs: src
   exposed-modules:
     Control.Monad.Compiler
-    Data.Stack
     Data.Heap
+    Data.Name
+    Data.Stack
     Language.Arepa
     Language.Arepa.Compiler
     Language.Arepa.Compiler.Codegen
