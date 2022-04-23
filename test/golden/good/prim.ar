@@ -5,7 +5,7 @@
   (fun twice (f x) (f (f x)))
 
   ;; the wrappers enable partial application of primitives
-  (fun print_int (x) (__arepa_rts_print_int__ x))
-  (fun + (x y)       (__arepa_rts_add_int__ x y))
-  (fun - (x y)       (__arepa_rts_sub_int__ x y))
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+  (fun - (x y)       (__prim_sub_int__ x y))
 )

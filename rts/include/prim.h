@@ -20,10 +20,10 @@ typedef void   Void;
  */
 
 // BEGIN PROTOTYPES
-Int __arepa_rts_add_int__(Int, Int);
-Int __arepa_rts_sub_int__(Int, Int);
-Void __arepa_rts_print_int__(Int);
-Double __arepa_rts_pi__();
+Int __prim_add_int__(Int, Int);
+Int __prim_sub_int__(Int, Int);
+Void __prim_print_int__(Int);
+Double __prim_pi__();
 // END PROTOTYPES
 
 #endif

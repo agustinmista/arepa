@@ -11,12 +11,13 @@ import Language.TIM.Syntax
 
 -- Primitive operations
 
-data PrimOp = PrimOp {
+data Prim = Prim {
   prim_arity :: Int,
+  prim_type :: ([Type], Type),
   prim_runner :: [Value] -> IO Value
 }
 
-type PrimMap = Map Name PrimOp
+type PrimMap = Map Name Prim
 
 isPrimOp :: Name -> PrimMap -> Bool
 isPrimOp name prims = name `elem` Map.keys prims

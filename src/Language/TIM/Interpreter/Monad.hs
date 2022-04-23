@@ -141,7 +141,7 @@ lookupCodeBlock name = do
     Just code -> return code
 
 -- Lookup for a primitive operation
-lookupPrimOp :: Name -> TIM PrimOp
+lookupPrimOp :: Name -> TIM Prim
 lookupPrimOp name = do
   case Map.lookup name primitives of
     Nothing -> throwTIMError ("lookupPrimOp: primitive " <> fromName name <> " does not exist")

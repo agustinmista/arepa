@@ -97,7 +97,7 @@ freshName prefix = state $ \st ->
   (mkNameWithNum prefix (ts_fresh st), st { ts_fresh = ts_fresh st + 1 })
 
 -- Lookup a primitive operation by its name
-lookupPrimOp :: MonadArepa m => Name -> Translate m PrimOp
+lookupPrimOp :: MonadArepa m => Name -> Translate m Prim
 lookupPrimOp name = do
   case Map.lookup name primitives of
     Nothing -> throwInternalError ("lookupPrimOp: primitive " <> fromName name <> " is missing")
