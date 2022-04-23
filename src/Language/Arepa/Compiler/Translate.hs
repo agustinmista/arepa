@@ -35,9 +35,10 @@ translateModule m = do
 -- Interpret a TIM code store, invoking some function
 interpretCodeStore :: MonadArepa m => CodeStore -> m [Value]
 interpretCodeStore store = do
-  entry <- lookupCompilerOption optEntryPoint
+  fun <- lookupCompilerOption optEntryPoint
+  args <- lookupCompilerOption optInvokeArgs
   (res, trace) <- liftIO $ do
-    runTIM store $ invokeFunction entry
+    runTIM store $ invokeFunction fun args
   whenM hasVerboseEnabled $ do
     debugMsg "interpreter intermediate states" (Just (prettyPrint trace))
   case res of

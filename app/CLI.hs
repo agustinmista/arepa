@@ -23,7 +23,8 @@ parseCliOpts = do
       dumpOpts    (long "dump"      <> short 'd' <> metavar "DUMP" <>                 help "dump an internal structure") <*>
       switch      (long "verbose"   <> short 'v'                   <>                 help "show extra debug information") <*>
       switch      (long "interpret" <> short 'x'                   <>                 help "interpret the input instead of compiling it") <*>
-      strOption   (long "entry"     <> short 'e'                   <> value "main" <> help "set the module's entry point")
+      strOption   (long "entry"     <> short 'e'                   <> value "main" <> help "set the module's entry point") <*>
+      option auto (long "args"      <> short 'a'                   <> value []     <> help "set the module's entry point")
 
 optionalStr :: Mod OptionFields String -> OptParse.Parser (Maybe String)
 optionalStr = optional . strOption
