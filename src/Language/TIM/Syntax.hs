@@ -127,7 +127,7 @@ data Value =
   | CharV Char
   | StringV Text
   | VoidV ()
-  deriving (Show, Eq, Read, Ord)
+  deriving (Show, Read, Eq, Ord)
 
 instance Pretty Value where
   pretty (IntV n)    = angles (pretty n)
@@ -141,7 +141,7 @@ instance Pretty Value where
 data ValueMode =
     FramePtrM
   | InlineM Value
-  deriving (Show, Eq, Read, Ord)
+  deriving (Show, Read, Eq, Ord)
 
 instance Pretty ValueMode where
   pretty FramePtrM =
