@@ -37,7 +37,7 @@ interpretCodeStore :: MonadArepa m => CodeStore -> m [Value]
 interpretCodeStore store = do
   entry <- lookupCompilerOption optEntryPoint
   (res, trace) <- liftIO $ do
-    runTIM store $ invokeFunction (mkName entry)
+    runTIM store $ invokeFunction entry
   whenM hasVerboseEnabled $ do
     debugMsg "interpreter intermediate states" (Just (prettyPrint trace))
   case res of

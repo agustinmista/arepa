@@ -71,6 +71,7 @@ library arepa-lib
     Language.Arepa.Compiler.Translate
     Language.Arepa.Compiler.TypeCheck
     Language.Arepa.Syntax
+    Language.Arepa.Types
     Language.TIM
     Language.TIM.Interpreter
     Language.TIM.Interpreter.Monad
@@ -79,6 +80,7 @@ library arepa-lib
     Language.TIM.Prim.TH
     Language.TIM.Prim.Types
     Language.TIM.Syntax
+    Language.TIM.Types
   build-depends:
       mtl
     , text

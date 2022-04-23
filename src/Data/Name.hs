@@ -16,8 +16,8 @@ newtype Name = Name Text
 
 -- Constructors/destructors
 
-mkName :: Text -> Name
-mkName = Name
+mkName :: String -> Name
+mkName = Name . Text.pack
 
 mkNameWithNum :: Text -> Int -> Name
 mkNameWithNum prefix n = Name (prefix <> Text.pack (show n))
@@ -27,7 +27,7 @@ fromName (Name t) = fromString (Text.unpack t)
 
 -- This instance let us write variables directly as strings
 instance IsString Name where
-  fromString s = mkName (Text.pack s)
+  fromString = mkName
 
 instance Pretty Name where
   pretty (Name v) = pretty v

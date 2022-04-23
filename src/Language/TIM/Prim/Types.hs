@@ -4,6 +4,7 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 
 import Language.TIM.Syntax
+import Language.TIM.Types
 
 ----------------------------------------
 -- Primitive operations

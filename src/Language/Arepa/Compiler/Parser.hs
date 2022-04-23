@@ -225,36 +225,37 @@ contents p = whitespace *> p <* eof
 ----------------------------------------
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
-identInitial :: MonadArepa m => Parser m Char
-identInitial = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#_\\" :: [Char]))
+identInitialChar :: MonadArepa m => Parser m Char
+identInitialChar = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#_\\" :: [Char]))
 
-identSubsequent :: MonadArepa m => Parser m Char
-identSubsequent = identInitial <|> digitChar <|> identPeculiar
+identSubsequentChar :: MonadArepa m => Parser m Char
+identSubsequentChar = identInitialChar <|> digitChar <|> identPeculiarChar
 
-identPeculiar :: MonadArepa m => Parser m Char
-identPeculiar = satisfy (`elem` ("+-." :: [Char]))
+identPeculiarChar :: MonadArepa m => Parser m Char
+identPeculiarChar = satisfy (`elem` ("+-" :: [Char]))
 
-identifier :: MonadArepa m => Parser m Text
+peculiarIdent :: MonadArepa m => Parser m String
+peculiarIdent = pure <$> (char '+' <|> char '-')
+             <* notFollowedBy identSubsequentChar
+
+normalIdent :: MonadArepa m => Parser m String
+normalIdent = liftM2 (:) identInitialChar (many identSubsequentChar)
+
+identifier :: MonadArepa m => Parser m String
 identifier = Lexer.lexeme whitespace $ do
-  let normalIdent = do
-        x <- identInitial
-        xs <- many identSubsequent
-        return (Text.pack (x:xs))
-  let peculiarIdent =
-        (string "+" <|> string "-") <* notFollowedBy identSubsequent
   let check i | i `notElem` reserved = return i
-              | otherwise  = fail ("keyword " <> show i <> "cannot be used as an identifier")
+              | otherwise = fail ("keyword " <> show i <> "cannot be used as an identifier")
   check =<< normalIdent <|> peculiarIdent
 
 ----------------------------------------
 -- Parsing keywords
 
-reserved :: [Text]
+reserved :: [String]
 reserved = ["module", "lambda", "let", "letrec", "case"]
 
 keyword :: MonadArepa m => Text -> Parser m ()
 keyword kw = void $ Lexer.lexeme whitespace $ do
-  string kw <* notFollowedBy identInitial
+  string kw <* notFollowedBy identInitialChar
 
 ----------------------------------------
 -- Low-level lexemes
