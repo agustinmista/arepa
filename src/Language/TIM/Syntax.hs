@@ -15,8 +15,10 @@ import Prettyprinter
 
 import Data.Name
 
+import Language.TIM.Types
+
 ----------------------------------------
--- TIM: Three instruction machine
+-- TIM syntax
 ----------------------------------------
 
 -- CodeBlock stores (somewhat equivalent to core modules)
@@ -147,22 +149,6 @@ instance Pretty ValueMode where
   pretty (InlineM value) =
     "inline" <+> pretty value
 
--- Value types
-
-data Type =
-    IntT
-  | DoubleT
-  | CharT
-  | StringT
-  | VoidT
-  deriving (Show, Eq, Read, Ord)
-
-instance Pretty Type where
-  pretty IntT    = "Int"
-  pretty DoubleT = "Double"
-  pretty CharT   = "Char"
-  pretty StringT = "String"
-  pretty VoidT   = "Void"
 
 -- Map values to types
 

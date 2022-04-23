@@ -22,6 +22,7 @@ import Language.Haskell.TH (Q)
 import Language.Haskell.TH qualified as TH
 
 import Language.TIM.Syntax
+import Language.TIM.Types
 import Language.TIM.Prim.Types
 
 ----------------------------------------
@@ -256,4 +257,4 @@ semi = void $ symbol ";"
 identifier :: Parser Name
 identifier = do
   name <- many (alphaNumChar <|> char '_')
-  return (mkName (Text.pack name))
+  return (mkName name)

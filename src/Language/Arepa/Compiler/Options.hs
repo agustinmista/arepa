@@ -1,6 +1,6 @@
 module Language.Arepa.Compiler.Options where
 
-import Data.Text.Lazy (Text)
+import Data.Name
 
 ----------------------------------------
 -- Compiler options
@@ -12,7 +12,7 @@ data ArepaOpts = ArepaOpts {
   optDump :: [DumpOpt],
   optVerbose :: Bool,
   optInterpret :: Bool,
-  optEntryPoint :: Text
+  optEntryPoint :: Name
 } deriving (Show, Read, Eq, Ord)
 
 defaultOpts :: ArepaOpts
