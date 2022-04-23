@@ -198,6 +198,8 @@ operateOnValueStack arity op = do
       res <- liftIO (op args)
       put st { tim_value_stack = Stack.push res rest }
 
+-- Get the current value stack (only used to return the final values in the
+-- interpreter)
 getValueStack :: TIM [Value]
 getValueStack = do
   st <- get
