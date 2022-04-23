@@ -165,3 +165,8 @@ instance Pretty Type where
   pretty CharT   = "Char"
   pretty StringT = "String"
   pretty VoidT   = "Void"
+
+-- Map values to types
+
+valueType :: Value -> Type
+valueType

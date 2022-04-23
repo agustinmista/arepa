@@ -122,18 +122,18 @@ mkPrimOpName name =
 mkPrimOp :: Name -> Type -> [Type] -> Q TH.Exp
 mkPrimOp name ret args = do
   let len = TH.LitE (TH.IntegerL (genericLength args))
-  let ty = TH.TupE [ Just (TH.ListE [ TH.ConE (timTypeToTypeName a) | a <- args  ])
-                   , Just (TH.ConE (timTypeToTypeName ret)) ]
+  let ty = TH.TupE [ Just (TH.ListE [ TH.ConE (typeToTypeConName a) | a <- args  ])
+                   , Just (TH.ConE (typeToTypeConName ret)) ]
   runner <- mkPrimRunner name ret args
   return (TH.ConE 'Prim `TH.AppE` len `TH.AppE` ty `TH.AppE` runner)
 
 mkPrimRunner :: Name -> Type -> [Type] -> Q TH.Exp
 mkPrimRunner name ret args = do
   let argsVars = [ (a, TH.mkName ("x" <> show n)) | (a, n) <- zip args ([1..] :: [Int]) ]
-  let funPat = [ TH.ConP (timTypeToValueName a) [TH.VarP v] | (a, v) <- argsVars ]
+  let funPat = [ TH.ConP (typeToValueConName a) [TH.VarP v] | (a, v) <- argsVars ]
   let cFun = TH.VarE (TH.mkName (fromName name))
   let cFunApp = foldl TH.AppE cFun [ TH.VarE v | (_, v) <- argsVars ]
-  let fun = TH.VarE 'fmap `TH.AppE` TH.ConE (timTypeToValueName ret) `TH.AppE` cFunApp
+  let fun = TH.VarE 'fmap `TH.AppE` TH.ConE (typeToValueConName ret) `TH.AppE` cFunApp
   return (TH.LamE [TH.ListP funPat] fun)
 
 -- TH Utilities
@@ -143,31 +143,31 @@ mkHsType :: [Type] -> Type -> TH.Type
 mkHsType args ret =
   foldr
     (TH.AppT . TH.AppT TH.ArrowT)
-    (TH.AppT (TH.ConT (TH.mkName "IO")) (timTypeToHsType ret))
-    (timTypeToHsType <$> args)
+    (TH.AppT (TH.ConT (TH.mkName "IO")) (typeToHsType ret))
+    (typeToHsType <$> args)
 
--- These mappings will be simplified
+-- Name mappings between TIM and Haskell
 
-timTypeToHsType :: Type -> TH.Type
-timTypeToHsType IntT    = TH.ConT ''Int
-timTypeToHsType DoubleT = TH.ConT ''Double
-timTypeToHsType CharT   = TH.ConT ''Char
-timTypeToHsType StringT = TH.ConT ''String
-timTypeToHsType VoidT   = TH.TupleT 0
+typeToHsType :: Type -> TH.Type
+typeToHsType IntT    = TH.ConT ''Int
+typeToHsType DoubleT = TH.ConT ''Double
+typeToHsType CharT   = TH.ConT ''Char
+typeToHsType StringT = TH.ConT ''String
+typeToHsType VoidT   = TH.TupleT 0
 
-timTypeToValueName :: Type -> TH.Name
-timTypeToValueName IntT    = 'IntV
-timTypeToValueName DoubleT = 'DoubleV
-timTypeToValueName CharT   = 'CharV
-timTypeToValueName StringT = 'StringV
-timTypeToValueName VoidT   = 'VoidV
+typeToValueConName :: Type -> TH.Name
+typeToValueConName IntT    = 'IntV
+typeToValueConName DoubleT = 'DoubleV
+typeToValueConName CharT   = 'CharV
+typeToValueConName StringT = 'StringV
+typeToValueConName VoidT   = 'VoidV
 
-timTypeToTypeName :: Type -> TH.Name
-timTypeToTypeName IntT    = 'IntT
-timTypeToTypeName DoubleT = 'DoubleT
-timTypeToTypeName CharT   = 'CharT
-timTypeToTypeName StringT = 'StringT
-timTypeToTypeName VoidT   = 'VoidT
+typeToTypeConName :: Type -> TH.Name
+typeToTypeConName IntT    = 'IntT
+typeToTypeConName DoubleT = 'DoubleT
+typeToTypeConName CharT   = 'CharT
+typeToTypeConName StringT = 'StringT
+typeToTypeConName VoidT   = 'VoidT
 
 ----------------------------------------
 -- Prototype parser
