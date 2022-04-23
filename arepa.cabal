@@ -23,6 +23,7 @@ common common-arepa
     , extra
   default-extensions:
     ConstraintKinds
+    DataKinds
     DeriveFunctor
     DerivingVia
     EmptyCase
@@ -36,6 +37,7 @@ common common-arepa
     OverloadedLists
     OverloadedStrings
     PatternSynonyms
+    PolyKinds
     RecursiveDo
     ScopedTypeVariables
     StandaloneDeriving
