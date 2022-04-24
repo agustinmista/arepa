@@ -1,16 +1,17 @@
 #ifndef __DUMP_H__
 #define __DUMP_H__
 
-/* --------------------------------- */ 
-/* Dumps (stacks of stacks)          */  
-/* --------------------------------- */ 
+/* --------------------------------- */
+/* Dumps (stacks of stacks)          */
+/* --------------------------------- */
 
 typedef struct stack_t {
     struct stack_t *next;
     void *data;
 } *stack_t;
 
-typedef struct dump_t {    
+typedef struct dump_t {
+    long current_size;
     stack_t current;
     struct dump_t *parent;
 } *dump_t;
@@ -25,7 +26,7 @@ void dump_destroy(dump_t dump);
 int dump_is_empty(dump_t dump);
 
 // Push an element to the dump (on top of the current stack)
-void dump_push(dump_t dump, void *data); 
+void dump_push(dump_t dump, void *data);
 
 // Pop (and free) an element from the current stack
 void dump_pop(dump_t dump);
