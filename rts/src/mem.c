@@ -17,6 +17,6 @@ void rts_free(void *ptr) {
 }
 
 void rts_memcpy(void *dest, const void *src, size_t size){
-    debug_msg("copied %zu from %p to %p", size, src, dest);
+    debug_msg("copied %zu bytes from %p to %p", size, src, dest);
     memcpy(dest,src,size);
 }
