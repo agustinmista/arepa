@@ -117,7 +117,7 @@ void tim_push_label(void (* code)()){
     return dump_push(current_stack,make_closure(code,current_frame));
 }
 
-void tim_enter_closure(closure_t closure){
+void tim_enter_closure(closure_t *closure){
     debug_msg("Entering closure %p with code %p and frame %p"
              , &closure
              , closure.code
@@ -129,22 +129,22 @@ void tim_enter_closure(closure_t closure){
 void tim_enter_argument(long argument){
     debug_msg("Entering argument %li from frame %p",argument,current_frame);
     assert(argument<current_frame->length);
-    return tim_enter_closure(current_frame->arguments[argument]);
+    return tim_enter_closure(&(current_frame->arguments[argument]));
 }
 
 void tim_enter_literal_int(int literal){
     debug_msg("Entering int literal closure for %i", literal);
-    return tim_enter_closure(*int_closure(literal));
+    return tim_enter_closure(int_closure(literal));
 }
 
 void tim_enter_literal_float(float literal){
     debug_msg("Entering float literal closure for %f", literal);
-    return tim_enter_closure(*float_closure(literal));
+    return tim_enter_closure(float_closure(literal));
 }
 
 void tim_enter_label(void (*code)()){
     debug_msg("Entering function closure %p", code);
-    return tim_enter_closure(*make_closure(code,current_frame));
+    return tim_enter_closure(make_closure(code,current_frame));
 }
 
 int get_result(){
