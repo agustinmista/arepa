@@ -1,5 +1,6 @@
 module Language.TIM.Interpreter
   ( runTIM
+  , runCodeStore
   , invokeFunction
   , TIMError
   , TIMState
@@ -18,6 +19,16 @@ import Language.TIM.Interpreter.Monad
 -- TIM interpreter
 ----------------------------------------
 
+-- Like `runTIM` but loads the code store and invokes main.
+-- For debugging purposes mostly.
+runCodeStore :: CodeStore -> IO ()
+runCodeStore store = do
+  (res, _) <- runTIM store $ invokeFunction "main" []
+  case res of
+    Left err -> error (show err)
+    Right _  -> return ()
+
+-- Invoke a function with some arguments in the current code store
 invokeFunction :: Name -> [Value] -> TIM [Value]
 invokeFunction fun args = do
   -- Set the program code, which pushes (inline) the input arguments to the
@@ -29,6 +40,9 @@ invokeFunction fun args = do
   loopTIM
   -- When finished, pop the value stack as a result
   getValueStack
+
+----------------------------------------
+-- Internals
 
 loopTIM :: TIM ()
 loopTIM = do
