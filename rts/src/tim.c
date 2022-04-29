@@ -235,3 +235,11 @@ void* tim_pop_value(){
     dump_pop(value_stack);
     return value;
 }
+
+Int* tim_pop_value_int(){
+    return (Int*) tim_pop_value();
+};
+
+Double* tim_pop_value_double(){
+    return (Double*) tim_pop_value();
+};

@@ -49,8 +49,8 @@ void minus(){
 }
 
 void call_arg_cont10(){
-  Int a = * ((Int*) tim_pop_value());
-  Int b = * ((Int*) tim_pop_value());
+  Int a = *tim_pop_value_int();
+  Int b = *tim_pop_value_int();
   Int res = __prim_sub_int__(a,b);
   tim_push_value_int(res);
   tim_return();
@@ -62,14 +62,14 @@ void call_arg_cont11(){
 }
 
 void call_arg_cont7(){
-  Int a = * ((Int*) tim_pop_value());
+  Int a = *tim_pop_value_int();
   __prim_print_int__(a);
   tim_return();
 }
 
 void call_arg_cont8(){
-  Int a = * ((Int*) tim_pop_value());
-  Int b = * ((Int*) tim_pop_value());
+  Int a = *tim_pop_value_int();
+  Int b = *tim_pop_value_int();
   Int res = __prim_add_int__(a,b);
   tim_push_value_int(res);
   tim_return();
