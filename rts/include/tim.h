@@ -39,6 +39,10 @@ void tim_int_code();
 
 void tim_double_code();
 
-int get_result();
+void tim_return();
+
+Int get_int_result();
+
+Double get_double_result();
 
 #endif

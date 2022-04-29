@@ -32,7 +32,7 @@ int main(){
   tim_push_label(*k);
   tim_enter_label(*s);;
 
-  int result = get_result();
+  int result = get_int_result();
   printf("The result is: %i\n", result);
   assert(result == 5);
 }
