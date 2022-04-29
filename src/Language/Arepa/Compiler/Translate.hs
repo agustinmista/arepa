@@ -224,5 +224,4 @@ translateLit lit =
   case lit of
     IntL n -> return (IntV n)
     DoubleL n -> return (DoubleV n)
-    CharL c -> return (CharV c)
     StringL s -> return (StringV s)

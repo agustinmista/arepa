@@ -223,7 +223,6 @@ emitArgMode mode = do
 emitValue :: MonadLLVM m => Value -> m LLVM.Operand
 emitValue (IntV n) = return (IR.int64 (fromIntegral n))
 emitValue (DoubleV n) = return (IR.double n)
-emitValue (CharV c) = return (IR.int32 (fromIntegral (ord c)))
 emitValue (StringV str) = registerString str
 emitValue (VoidV _) = throwInternalError "emitValue: cannot emit void values"
 

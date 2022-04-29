@@ -124,7 +124,6 @@ instance Pretty ArgMode where
 data Value =
     IntV Int
   | DoubleV Double
-  | CharV Char
   | StringV Text
   | VoidV ()
   deriving (Show, Read, Eq, Ord)
@@ -132,7 +131,6 @@ data Value =
 instance Pretty Value where
   pretty (IntV n)    = angles (pretty n)
   pretty (DoubleV n) = angles (pretty n)
-  pretty (CharV c)   = angles (pretty (show c))
   pretty (StringV s) = angles (pretty (show s))
   pretty (VoidV _)   = angles "void"
 
@@ -155,6 +153,5 @@ instance Pretty ValueMode where
 valueType :: Value -> Type
 valueType IntV    {} = IntT
 valueType DoubleV {} = DoubleT
-valueType CharV   {} = CharT
 valueType StringV {} = StringT
 valueType VoidV   {} = VoidT

@@ -152,21 +152,18 @@ mkHsType args ret =
 typeToHsType :: Type -> TH.Type
 typeToHsType IntT    = TH.ConT ''Int
 typeToHsType DoubleT = TH.ConT ''Double
-typeToHsType CharT   = TH.ConT ''Char
 typeToHsType StringT = TH.ConT ''String
 typeToHsType VoidT   = TH.TupleT 0
 
 typeToValueConName :: Type -> TH.Name
 typeToValueConName IntT    = 'IntV
 typeToValueConName DoubleT = 'DoubleV
-typeToValueConName CharT   = 'CharV
 typeToValueConName StringT = 'StringV
 typeToValueConName VoidT   = 'VoidV
 
 typeToTypeConName :: Type -> TH.Name
 typeToTypeConName IntT    = 'IntT
 typeToTypeConName DoubleT = 'DoubleT
-typeToTypeConName CharT   = 'CharT
 typeToTypeConName StringT = 'StringT
 typeToTypeConName VoidT   = 'VoidT
 
@@ -223,7 +220,6 @@ prototype = do
 type' :: Parser Type
 type' = symbol "Int"    $> IntT
     <|> symbol "Double" $> DoubleT
-    <|> symbol "Char"   $> CharT
     <|> symbol "String" $> StringT
     <|> symbol "Void"   $> VoidT
 

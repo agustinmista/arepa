@@ -130,10 +130,6 @@ mkIntLitE n = LitE (IntL n)
 mkDoubleLitE :: Double -> Expr a
 mkDoubleLitE n = LitE (DoubleL n)
 
--- Create a char literal expression
-mkCharLitE :: Char -> Expr a
-mkCharLitE c = LitE (CharL c)
-
 -- Create a string literal expression
 mkStringLitE :: Text -> Expr a
 mkStringLitE s = LitE (StringL s)
@@ -212,14 +208,12 @@ instance Pretty CoreAlt where
 data Lit =
     IntL Int
   | DoubleL Double
-  | CharL Char
   | StringL Text
   deriving (Show, Eq, Read, Ord)
 
 instance Pretty Lit where
   pretty (IntL n)    = pretty n
   pretty (DoubleL n) = pretty n
-  pretty (CharL c)   = pretty (show c)
   pretty (StringL s) = pretty (show s)
 
 ----------------------------------------

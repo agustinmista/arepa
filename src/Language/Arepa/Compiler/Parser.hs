@@ -166,7 +166,7 @@ defA = do
 
 lit :: MonadArepa m => Parser m Lit
 lit = label "literal" $ do
-  try doubleL <|> intL <|> charL <|> stringL
+  try doubleL <|> intL <|> stringL
 
 intL :: MonadArepa m => Parser m Lit
 intL = do
@@ -177,9 +177,6 @@ doubleL :: MonadArepa m => Parser m Lit
 doubleL = do
   n <- signed float
   return (DoubleL n)
-
-charL :: MonadArepa m => Parser m Lit
-charL = CharL <$> charLiteral
 
 stringL :: MonadArepa m => Parser m Lit
 stringL = StringL <$> stringLiteral
@@ -280,9 +277,6 @@ braces = between (symbol "{") (symbol "}")
 
 brackets :: MonadArepa m => Parser m a -> Parser m a
 brackets = between (symbol "[") (symbol "]")
-
-charLiteral :: MonadArepa m => Parser m Char
-charLiteral = between (char '\'') (char '\'') Lexer.charLiteral
 
 stringLiteral :: MonadArepa m => Parser m Text
 stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"'))
