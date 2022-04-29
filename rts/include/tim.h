@@ -36,7 +36,7 @@ Int* tim_pop_value_int();
 
 Double* tim_pop_value_double();
 
-void tim_enter_argument(Int argument);
+void tim_enter_argument(long argument);
 
 void tim_enter_int(Int literal);
 

@@ -187,7 +187,7 @@ void tim_push_value_double(Double literal){
     return dump_push(value_stack,p);
 }
 
-void tim_enter_argument(Int argument){
+void tim_enter_argument(long argument){
     debug_msg("Entering argument %li from frame %p",argument,current_frame);
     assert(argument<current_frame->length);
     return tim_enter_closure(&(current_frame->arguments[argument]));
