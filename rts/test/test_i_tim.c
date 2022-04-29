@@ -10,7 +10,7 @@ void i(){
 int main(){
   tim_start();
   tim_take(0);
-  tim_push_value_int(5);
+  tim_push_argument_int(5);
   tim_enter_label(*i);
 
   int result = get_int_result();

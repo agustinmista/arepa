@@ -19,19 +19,23 @@ void tim_start();
 
 void tim_take(Int range);
 
-void tim_push_argument(Int argument);
+void tim_push_argument_argument(Int offset);
+
+void tim_push_argument_int(Int literal);
+
+void tim_push_argument_double(Double literal);
+
+void tim_push_argument_label(void (*code)());
 
 void tim_push_value_int(Int literal);
 
 void tim_push_value_double(Double literal);
 
-void tim_push_label(void (*code)());
-
 void tim_enter_argument(Int argument);
 
-void tim_enter_value_int(Int literal);
+void tim_enter_int(Int literal);
 
-void tim_enter_value_double(Double literal);
+void tim_enter_double(Double literal);
 
 void tim_enter_label(void (*code)());
 

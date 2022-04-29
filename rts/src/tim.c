@@ -15,14 +15,14 @@ dump_t value_stack;
 /*********************/
 
 frame_t new_frame(Int size){
-  frame_t frame = rts_malloc(sizeof(struct frame_t));
-  debug_msg("New frame at %p with size %li", frame, size);
-  frame->length    = size;
-  frame->arguments = NULL;
-  debug_msg("New frame has %li arguments at %p"
-           , frame->length
-           , frame->arguments);
-  return frame;
+    frame_t frame = rts_malloc(sizeof(struct frame_t));
+    debug_msg("New frame at %p with size %li", frame, size);
+    frame->length    = size;
+    frame->arguments = NULL;
+    debug_msg("New frame has %li arguments at %p"
+             , frame->length
+             , frame->arguments);
+    return frame;
 }
 
 closure_t* take_n_closures_from_stack(Int n){
@@ -128,12 +128,12 @@ void tim_start_argument_stack(){
 }
 
 void tim_start(){
-  debug_msg("Initializing frame");
-  current_frame = new_frame(0);
-  tim_start_argument_stack();
-  debug_msg("Initializing value stack");
-  value_stack = dump_new();
-  debug_msg("Initialization finished");
+    debug_msg("Initializing frame");
+    current_frame = new_frame(0);
+    tim_start_argument_stack();
+    debug_msg("Initializing value stack");
+    value_stack = dump_new();
+    debug_msg("Initialization finished");
 }
 
 /*******************/
@@ -152,25 +152,39 @@ void tim_take (Int range){
     current_frame = frame;
 }
 
-void tim_push_argument(Int argument){
-    debug_msg("Pushing argument %li from frame %p",argument,current_frame);
-    assert(argument < current_frame->length);
-    return dump_push(argument_stack,&current_frame->arguments[argument]);
+void tim_push_argument_argument(Int offset){
+    debug_msg("Pushing argument %li from frame %p",offset,current_frame);
+    assert(offset < current_frame->length);
+    return dump_push(argument_stack,&current_frame->arguments[offset]);
 }
 
-void tim_push_value_int(Int value){
+void tim_push_argument_int(Int value){
     debug_msg("Pushing int value %li into the stack", value);
     return dump_push(argument_stack,int_closure(value));
 }
 
-void tim_push_value_double(Double value){
+void tim_push_argument_double(Double value){
     debug_msg("Pushing double value %f into the stack", value);
     return dump_push(argument_stack,double_closure(value));
 }
 
-void tim_push_label(void (* code)()){
+void tim_push_argument_label(void (* code)()){
     debug_msg("Pushing code %p", code);
     return dump_push(argument_stack,make_closure(code,current_frame));
+}
+
+void tim_push_value_int(Int literal){
+    debug_msg("Pushing int %li into the value stack",literal);
+    Int * p = rts_malloc(sizeof(Int));
+    *p = literal;
+    return dump_push(value_stack,p);
+}
+
+void tim_push_value_double(Double literal){
+    debug_msg("Pushing double %f into the value stack",literal);
+    Double * p = rts_malloc(sizeof(Double));
+    *p = literal;
+    return dump_push(value_stack,p);
 }
 
 void tim_enter_argument(Int argument){
@@ -179,12 +193,12 @@ void tim_enter_argument(Int argument){
     return tim_enter_closure(&(current_frame->arguments[argument]));
 }
 
-void tim_enter_value_int(Int value){
+void tim_enter_int(Int value){
     debug_msg("Entering int value closure for %li", value);
     return tim_enter_closure(int_closure(value));
 }
 
-void tim_enter_value_double(Double value){
+void tim_enter_double(Double value){
     debug_msg("Entering double value closure for %f", value);
     return tim_enter_closure(double_closure(value));
 }
@@ -209,9 +223,9 @@ Double get_double_result(){
 }
 
 void tim_return(){
-  debug_msg("Returning the topmost closure in the argument stack");
-  closure_t* top_closure = (closure_t*) dump_peek(argument_stack);
-  dump_pop(argument_stack);
-  current_frame = top_closure->frame;
-  return top_closure->code();
+    debug_msg("Returning the topmost closure in the argument stack");
+    closure_t* top_closure = (closure_t*) dump_peek(argument_stack);
+    dump_pop(argument_stack);
+    current_frame = top_closure->frame;
+    return top_closure->code();
 }

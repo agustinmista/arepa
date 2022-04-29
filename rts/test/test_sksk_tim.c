@@ -13,25 +13,25 @@ void k(){
 }
 
 void fun0(){
-  tim_push_argument(2);
+  tim_push_argument_argument(2);
   tim_enter_argument(1);
 }
 
 void s(){
   tim_take(3);
-  tim_push_label(*fun0);
-  tim_push_argument(2);
+  tim_push_argument_label(*fun0);
+  tim_push_argument_argument(2);
   tim_enter_argument(0);
 }
 
 int main(){
   tim_start();
   tim_take(0);
-  tim_push_value_int(0);
-  tim_push_value_int(5);
-  tim_push_label(*k);
-  tim_push_label(*s);
-  tim_push_label(*k);
+  tim_push_argument_int(0);
+  tim_push_argument_int(5);
+  tim_push_argument_label(*k);
+  tim_push_argument_label(*s);
+  tim_push_argument_label(*k);
   tim_enter_label(*s);
 
   int result = get_int_result();
