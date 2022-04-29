@@ -4,12 +4,13 @@
 #include "dump.h"
 #include "mem.h"
 #include "tim.h"
+#include "prim.h"
 
 frame_t current_frame;
 dump_t current_stack;
 int current_value;
 
-frame_t new_frame(long size){
+frame_t new_frame(Int size){
   frame_t frame = rts_malloc(sizeof(struct frame_t));
   debug_msg("New frame at %p with size %li", frame, size);
   frame->length    = size;
@@ -27,7 +28,7 @@ void tim_start(){
   debug_msg("Initialization finished");
 }
 
-closure_t* take_n_closures_from_stack(long n){
+closure_t* take_n_closures_from_stack(Int n){
     debug_msg("Copying %li arguments from frame %p into argument array"
              , n
              , current_frame);
@@ -47,7 +48,7 @@ closure_t* take_n_closures_from_stack(long n){
     return closures;
 }
 
-void tim_take (long range){
+void tim_take (Int range){
     debug_msg("Taking %li arguments from frame %p",range,current_frame);
     assert(range <= current_stack->current_size);
     frame_t frame = new_frame(range);
@@ -59,7 +60,7 @@ void tim_take (long range){
     current_frame = frame;
 }
 
-void tim_push_argument(long argument){
+void tim_push_argument(Int argument){
     debug_msg("Pushing argument %li from frame %p",argument,current_frame);
     assert(argument < current_frame->length);
     return dump_push(current_stack,&current_frame->arguments[argument]);
@@ -67,14 +68,14 @@ void tim_push_argument(long argument){
 
 void tim_int_code(){
     debug_msg("Running int code");
-    int literal = *((int*) current_frame);
-    current_value = literal;
+    int value = *((Int*) current_frame);
+    current_value = value;
 }
 
-void tim_float_code(){
-    debug_msg("Running float code");
-    float literal = *((float*) current_frame);
-    current_value = (int) literal;
+void tim_double_code(){
+    debug_msg("Running double code");
+    Double value = *((Double*) current_frame);
+    current_value = (Int) value;
 }
 
 closure_t* make_closure(void (*code)(),void* frame){
@@ -89,27 +90,27 @@ closure_t* make_closure(void (*code)(),void* frame){
     return closure;
 }
 
-closure_t* int_closure(int literal){
-    debug_msg("Creating new int literal closure for %i", literal);
+closure_t* int_closure(Int value){
+    debug_msg("Creating new int value closure for %li", value);
     int* int_ptr_as_frame = rts_malloc(sizeof(int));
-    *int_ptr_as_frame = literal;
+    *int_ptr_as_frame = value;
     return make_closure(*tim_int_code,int_ptr_as_frame);
 }
 
-void tim_push_literal_int(int literal){
-    debug_msg("Pushing int literal %i into the stack", literal);
-    return dump_push(current_stack,int_closure(literal));
+void tim_push_value_int(Int value){
+    debug_msg("Pushing int value %li into the stack", value);
+    return dump_push(current_stack,int_closure(value));
 }
 
-closure_t* float_closure(float literal){
-    debug_msg("Creating new int literal closure for %f", literal);
-    float* float_ptr_as_frame = rts_malloc(sizeof(float));
-    *float_ptr_as_frame = literal;
-    return make_closure(*tim_float_code,float_ptr_as_frame);
+closure_t* double_closure(Double value){
+    debug_msg("Creating new int value closure for %f", value);
+    Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
+    *double_ptr_as_frame = value;
+    return make_closure(*tim_double_code,double_ptr_as_frame);
 }
-void tim_push_literal_float(float literal){
-    debug_msg("Pushing float literal %f into the stack", literal);
-    return dump_push(current_stack,float_closure(literal));
+void tim_push_value_double(Double value){
+    debug_msg("Pushing double value %f into the stack", value);
+    return dump_push(current_stack,double_closure(value));
 }
 
 void tim_push_label(void (* code)()){
@@ -126,20 +127,20 @@ void tim_enter_closure(closure_t *closure){
     return closure->code();
 }
 
-void tim_enter_argument(long argument){
+void tim_enter_argument(Int argument){
     debug_msg("Entering argument %li from frame %p",argument,current_frame);
     assert(argument<current_frame->length);
     return tim_enter_closure(&(current_frame->arguments[argument]));
 }
 
-void tim_enter_literal_int(int literal){
-    debug_msg("Entering int literal closure for %i", literal);
-    return tim_enter_closure(int_closure(literal));
+void tim_enter_value_int(Int value){
+    debug_msg("Entering int value closure for %li", value);
+    return tim_enter_closure(int_closure(value));
 }
 
-void tim_enter_literal_float(float literal){
-    debug_msg("Entering float literal closure for %f", literal);
-    return tim_enter_closure(float_closure(literal));
+void tim_enter_value_double(Double value){
+    debug_msg("Entering double value closure for %f", value);
+    return tim_enter_closure(double_closure(value));
 }
 
 void tim_enter_label(void (*code)()){

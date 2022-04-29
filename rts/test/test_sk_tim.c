@@ -27,8 +27,8 @@ void s(){
 int main(){
   tim_start();
   tim_take(0);
-  tim_push_literal_int(5);
-  tim_push_literal_int(0);
+  tim_push_value_int(5);
+  tim_push_value_int(0);
   tim_push_label(*k);
   tim_enter_label(*s);;
 
