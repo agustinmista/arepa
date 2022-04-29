@@ -10,6 +10,10 @@ frame_t current_frame;
 dump_t argument_stack;
 dump_t value_stack;
 
+/*********************/
+/* Utility functions */
+/*********************/
+
 frame_t new_frame(Int size){
   frame_t frame = rts_malloc(sizeof(struct frame_t));
   debug_msg("New frame at %p with size %li", frame, size);
@@ -19,42 +23,6 @@ frame_t new_frame(Int size){
            , frame->length
            , frame->arguments);
   return frame;
-}
-
-closure_t* make_closure(void (*code)(),void* frame){
-    debug_msg("Creating new closure with code at %p and frame %p",code,frame);
-    closure_t* closure = rts_malloc(sizeof(closure_t));
-    closure->code  = code;
-    closure->frame = (frame_t) frame;
-    debug_msg("New closure at %p with code %p and frame %p"
-             , closure
-             , closure->code
-             , closure->frame);
-    return closure;
-}
-
-void tim_nil_code(){
-    return;
-}
-
-closure_t* tim_nil_closure(){
-    return make_closure(*tim_nil_code,NULL);
-}
-
-void tim_start_argument_stack(){
-    debug_msg("Initializing argument stack");
-    argument_stack = dump_new();
-    debug_msg("Creating a nil closure for main to land to");
-    return dump_push(argument_stack,tim_nil_closure());
-}
-
-void tim_start(){
-  debug_msg("Initializing frame");
-  current_frame = new_frame(0);
-  tim_start_argument_stack();
-  debug_msg("Initializing value stack");
-  value_stack = dump_new();
-  debug_msg("Initialization finished");
 }
 
 closure_t* take_n_closures_from_stack(Int n){
@@ -77,22 +45,21 @@ closure_t* take_n_closures_from_stack(Int n){
     return closures;
 }
 
-void tim_take (Int range){
-    debug_msg("Taking %li arguments from frame %p",range,current_frame);
-    assert(range <= argument_stack->current_size);
-    frame_t frame = new_frame(range);
-    frame->arguments = take_n_closures_from_stack(range);
-    debug_msg("New frame created at %p with %li argument and closure array %p"
-             , frame
-             , frame->length
-             , frame->arguments);
-    current_frame = frame;
+void tim_enter_closure(closure_t *closure){
+    debug_msg("Entering closure %p with code %p and frame %p"
+             , &closure
+             , closure->code
+             , closure->frame);
+    current_frame = closure->frame;
+    return closure->code();
 }
 
-void tim_push_argument(Int argument){
-    debug_msg("Pushing argument %li from frame %p",argument,current_frame);
-    assert(argument < current_frame->length);
-    return dump_push(argument_stack,&current_frame->arguments[argument]);
+/*****************************/
+/* Predefined code/functions */
+/*****************************/
+
+void tim_nil_code(){
+    return;
 }
 
 void tim_int_code(){
@@ -115,16 +82,31 @@ void tim_double_code(){
     return tim_return();
 }
 
+/************************/
+/* Closure construction */
+/************************/
+
+closure_t* make_closure(void (*code)(),void* frame){
+    debug_msg("Creating new closure with code at %p and frame %p",code,frame);
+    closure_t* closure = rts_malloc(sizeof(closure_t));
+    closure->code  = code;
+    closure->frame = (frame_t) frame;
+    debug_msg("New closure at %p with code %p and frame %p"
+             , closure
+             , closure->code
+             , closure->frame);
+    return closure;
+}
+
+closure_t* tim_nil_closure(){
+    return make_closure(*tim_nil_code,NULL);
+}
+
 closure_t* int_closure(Int value){
     debug_msg("Creating new int value closure for %li", value);
     int* int_ptr_as_frame = rts_malloc(sizeof(int));
     *int_ptr_as_frame = value;
     return make_closure(*tim_int_code,int_ptr_as_frame);
-}
-
-void tim_push_value_int(Int value){
-    debug_msg("Pushing int value %li into the stack", value);
-    return dump_push(argument_stack,int_closure(value));
 }
 
 closure_t* double_closure(Double value){
@@ -133,6 +115,54 @@ closure_t* double_closure(Double value){
     *double_ptr_as_frame = value;
     return make_closure(*tim_double_code,double_ptr_as_frame);
 }
+
+/*****************/
+/* Start-up code */
+/*****************/
+
+void tim_start_argument_stack(){
+    debug_msg("Initializing argument stack");
+    argument_stack = dump_new();
+    debug_msg("Creating a nil closure for main to land to");
+    return dump_push(argument_stack,tim_nil_closure());
+}
+
+void tim_start(){
+  debug_msg("Initializing frame");
+  current_frame = new_frame(0);
+  tim_start_argument_stack();
+  debug_msg("Initializing value stack");
+  value_stack = dump_new();
+  debug_msg("Initialization finished");
+}
+
+/*******************/
+/* Instruction API */
+/*******************/
+
+void tim_take (Int range){
+    debug_msg("Taking %li arguments from frame %p",range,current_frame);
+    assert(range <= argument_stack->current_size);
+    frame_t frame = new_frame(range);
+    frame->arguments = take_n_closures_from_stack(range);
+    debug_msg("New frame created at %p with %li argument and closure array %p"
+             , frame
+             , frame->length
+             , frame->arguments);
+    current_frame = frame;
+}
+
+void tim_push_argument(Int argument){
+    debug_msg("Pushing argument %li from frame %p",argument,current_frame);
+    assert(argument < current_frame->length);
+    return dump_push(argument_stack,&current_frame->arguments[argument]);
+}
+
+void tim_push_value_int(Int value){
+    debug_msg("Pushing int value %li into the stack", value);
+    return dump_push(argument_stack,int_closure(value));
+}
+
 void tim_push_value_double(Double value){
     debug_msg("Pushing double value %f into the stack", value);
     return dump_push(argument_stack,double_closure(value));
@@ -141,15 +171,6 @@ void tim_push_value_double(Double value){
 void tim_push_label(void (* code)()){
     debug_msg("Pushing code %p", code);
     return dump_push(argument_stack,make_closure(code,current_frame));
-}
-
-void tim_enter_closure(closure_t *closure){
-    debug_msg("Entering closure %p with code %p and frame %p"
-             , &closure
-             , closure->code
-             , closure->frame);
-    current_frame = closure->frame;
-    return closure->code();
 }
 
 void tim_enter_argument(Int argument){
