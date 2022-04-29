@@ -31,6 +31,8 @@ void tim_push_value_int(Int literal);
 
 void tim_push_value_double(Double literal);
 
+void * tim_pop_value();
+
 void tim_enter_argument(Int argument);
 
 void tim_enter_int(Int literal);

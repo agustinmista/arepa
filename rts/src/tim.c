@@ -65,7 +65,7 @@ void tim_nil_code(){
 void tim_int_code(){
     debug_msg("Running int code");
     Int* int_ptr_as_frame = (Int*) current_frame;
-    debug_msg("Pushing double value %li at %p into the value stack"
+    debug_msg("Pushing int value %li at %p into the value stack"
              , *int_ptr_as_frame
              ,  int_ptr_as_frame);
     dump_push(value_stack,int_ptr_as_frame);
@@ -228,4 +228,10 @@ void tim_return(){
     dump_pop(argument_stack);
     current_frame = top_closure->frame;
     return top_closure->code();
+}
+
+void* tim_pop_value(){
+    void* value = dump_peek(value_stack);
+    dump_pop(value_stack);
+    return value;
 }
