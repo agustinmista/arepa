@@ -1,17 +1,11 @@
 #ifndef __PRIM_H__
 #define __PRIM_H__
 
-#include <stdio.h>
+#include "value.h"
 
 /* --------------------------------- */
 /* Primitive operations              */
 /* --------------------------------- */
-
-typedef long   Int;
-typedef double Double;
-typedef char   Char;
-typedef char*  String;
-typedef void   Void;
 
 /*
  * Do not modify the BEGIN and END comments below since they are used to mine

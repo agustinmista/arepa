@@ -4,7 +4,7 @@
 #include "dump.h"
 #include "mem.h"
 #include "tim.h"
-#include "prim.h"
+#include "value.h"
 
 frame_t current_frame;
 dump_t argument_stack;

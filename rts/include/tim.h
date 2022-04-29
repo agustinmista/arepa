@@ -1,6 +1,7 @@
 #ifndef __TIM_H__
 #define __TIM_H__
 
+#include "value.h"
 #include "prim.h"
 
 struct closure_t;

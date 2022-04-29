@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "prim.h"
 
 Int __prim_add_int__(Int x, Int y) { return x + y; }
