@@ -12,6 +12,7 @@ import Data.Maybe
 import Data.Void
 import Data.Functor
 
+import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
 import Text.Megaparsec hiding (runParser)
@@ -168,10 +169,14 @@ lit = label "literal" $ do
   try doubleL <|> intL <|> charL <|> stringL
 
 intL :: MonadArepa m => Parser m Lit
-intL = IntL <$> signed decimal
+intL = do
+  n <- signed decimal
+  return (IntL n)
 
 doubleL :: MonadArepa m => Parser m Lit
-doubleL = DoubleL <$> signed float
+doubleL = do
+  n <- signed float
+  return (DoubleL n)
 
 charL :: MonadArepa m => Parser m Lit
 charL = CharL <$> charLiteral
@@ -220,45 +225,46 @@ contents p = whitespace *> p <* eof
 ----------------------------------------
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
-identInitial :: MonadArepa m => Parser m Char
-identInitial = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^_~" :: [Char]))
+identInitialChar :: MonadArepa m => Parser m Char
+identInitialChar = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#_\\" :: [Char]))
 
-identSubsequent :: MonadArepa m => Parser m Char
-identSubsequent = identInitial <|> digitChar <|> identPeculiar
+identSubsequentChar :: MonadArepa m => Parser m Char
+identSubsequentChar = identInitialChar <|> digitChar <|> identPeculiarChar
 
-identPeculiar :: MonadArepa m => Parser m Char
-identPeculiar = satisfy (`elem` ("+-." :: [Char]))
+identPeculiarChar :: MonadArepa m => Parser m Char
+identPeculiarChar = satisfy (`elem` ("+-" :: [Char]))
 
-identifier :: MonadArepa m => Parser m Text
+peculiarIdent :: MonadArepa m => Parser m String
+peculiarIdent = pure <$> (char '+' <|> char '-')
+             <* notFollowedBy identSubsequentChar
+
+normalIdent :: MonadArepa m => Parser m String
+normalIdent = liftM2 (:) identInitialChar (many identSubsequentChar)
+
+identifier :: MonadArepa m => Parser m String
 identifier = Lexer.lexeme whitespace $ do
-  let normalIdent = do
-        x <- identInitial
-        xs <- many identSubsequent
-        return (Text.pack (x:xs))
-  let peculiarIdent =
-        (string "+" <|> string "-") <* notFollowedBy identSubsequent
   let check i | i `notElem` reserved = return i
-              | otherwise  = fail ("keyword " <> show i <> "cannot be used as an identifier")
+              | otherwise = fail ("keyword " <> show i <> "cannot be used as an identifier")
   check =<< normalIdent <|> peculiarIdent
 
 ----------------------------------------
 -- Parsing keywords
 
-reserved :: [Text]
+reserved :: [String]
 reserved = ["module", "lambda", "let", "letrec", "case"]
 
 keyword :: MonadArepa m => Text -> Parser m ()
 keyword kw = void $ Lexer.lexeme whitespace $ do
-  string kw <* notFollowedBy identInitial
+  string kw <* notFollowedBy identInitialChar
 
 ----------------------------------------
 -- Low-level lexemes
 
-symbol :: MonadArepa m => Text -> Parser m ()
-symbol s = void (Lexer.symbol whitespace s)
+symbol :: MonadArepa m => Text -> Parser m Text
+symbol = Lexer.symbol whitespace
 
 signed :: (MonadArepa m, Num a) => Parser m a -> Parser m a
-signed = Lexer.signed whitespace
+signed = Lexer.signed (pure ())
 
 float :: MonadArepa m => Parser m Double
 float = Lexer.float <* whitespace
@@ -282,4 +288,4 @@ stringLiteral :: MonadArepa m => Parser m Text
 stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"'))
 
 comma :: MonadArepa m => Parser m ()
-comma = symbol ","
+comma = void $ symbol ","

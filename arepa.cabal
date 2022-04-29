@@ -10,65 +10,89 @@ license-file: LICENSE
 author: Agustin Mista, Alejandro Gómez Londoño
 maintainer: mista@chalmers.se
 category: Language
+
 extra-source-files: CHANGELOG.md
 
 ----------------------------------------
 
 common common-arepa
   default-language: Haskell2010
-  ghc-options: -Wall -Wno-unused-do-bind
+  ghc-options: -Wall -Wno-unused-do-bind -ddump-splices
   build-depends:
       base >=4.14 && <4.15
     , extra
   default-extensions:
-    GADTs
+    ConstraintKinds
+    DataKinds
     DeriveFunctor
-    GeneralizedNewtypeDeriving
     DerivingVia
-    StandaloneDeriving
-    ScopedTypeVariables
+    EmptyCase
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    LambdaCase
+    MultiParamTypeClasses
     OverloadedLists
     OverloadedStrings
-    ImportQualifiedPost
-    FlexibleInstances
-    FlexibleContexts
-    MultiParamTypeClasses
+    PatternSynonyms
+    PolyKinds
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
     TypeApplications
     TypeFamilies
-    ConstraintKinds
-    RecursiveDo
-    EmptyCase
+    ViewPatterns
+  include-dirs:
+    rts/include
+  includes:
+    rts/include/prim.h
+  c-sources:
+    rts/src/prim.c
 
 library arepa-lib
   import: common-arepa
   hs-source-dirs: src
   exposed-modules:
     Control.Monad.Compiler
-    Data.Stack
     Data.Heap
+    Data.Name
+    Data.Stack
     Language.Arepa
     Language.Arepa.Compiler
     Language.Arepa.Compiler.Codegen
+    Language.Arepa.Compiler.Error
     Language.Arepa.Compiler.IO
+    Language.Arepa.Compiler.Options
     Language.Arepa.Compiler.Parser
     Language.Arepa.Compiler.Monad
     Language.Arepa.Compiler.Translate
     Language.Arepa.Compiler.TypeCheck
     Language.Arepa.Syntax
+    Language.Arepa.Types
     Language.TIM
     Language.TIM.Interpreter
     Language.TIM.Interpreter.Monad
     Language.TIM.Interpreter.Types
+    Language.TIM.Prim
+    Language.TIM.Prim.TH
+    Language.TIM.Prim.Types
     Language.TIM.Syntax
+    Language.TIM.Types
   build-depends:
       mtl
     , text
     , pretty-simple
+    , filepath
     , containers
     , prettyprinter
     , megaparsec
     , llvm-hs-pure
     , llvm-hs-pretty
+    , template-haskell
+
 
 executable arepa
   import: common-arepa
