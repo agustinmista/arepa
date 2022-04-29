@@ -3,6 +3,7 @@
 *
 !*/
 !*.*
+# C stuff
 *.gch
 # Haskell stuff
 dist
