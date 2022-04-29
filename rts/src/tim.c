@@ -120,10 +120,10 @@ void tim_push_label(void (* code)()){
 void tim_enter_closure(closure_t *closure){
     debug_msg("Entering closure %p with code %p and frame %p"
              , &closure
-             , closure.code
-             , closure.frame);
-    current_frame = closure.frame;
-    return closure.code();
+             , closure->code
+             , closure->frame);
+    current_frame = closure->frame;
+    return closure->code();
 }
 
 void tim_enter_argument(long argument){
