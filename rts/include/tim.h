@@ -17,9 +17,9 @@ typedef struct closure_t {
 
 void tim_start();
 
-void tim_take(Int range);
+void tim_take(long range);
 
-void tim_push_argument_argument(Int offset);
+void tim_push_argument_argument(long offset);
 
 void tim_push_argument_int(Int literal);
 

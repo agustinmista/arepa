@@ -14,7 +14,7 @@ dump_t value_stack;
 /* Utility functions */
 /*********************/
 
-frame_t new_frame(Int size){
+frame_t new_frame(long size){
     frame_t frame = rts_malloc(sizeof(struct frame_t));
     debug_msg("New frame at %p with size %li", frame, size);
     frame->length    = size;
@@ -25,7 +25,7 @@ frame_t new_frame(Int size){
     return frame;
 }
 
-closure_t* take_n_closures_from_stack(Int n){
+closure_t* take_n_closures_from_stack(long n){
     debug_msg("Copying %li arguments from frame %p into argument array"
              , n
              , current_frame);
@@ -140,7 +140,7 @@ void tim_start(){
 /* Instruction API */
 /*******************/
 
-void tim_take (Int range){
+void tim_take (long range){
     debug_msg("Taking %li arguments from frame %p",range,current_frame);
     assert(range <= argument_stack->current_size);
     frame_t frame = new_frame(range);
@@ -152,7 +152,7 @@ void tim_take (Int range){
     current_frame = frame;
 }
 
-void tim_push_argument_argument(Int offset){
+void tim_push_argument_argument(long offset){
     debug_msg("Pushing argument %li from frame %p",offset,current_frame);
     assert(offset < current_frame->length);
     return dump_push(argument_stack,&current_frame->arguments[offset]);
