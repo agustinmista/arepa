@@ -7,7 +7,6 @@
 
 typedef long   Int;
 typedef double Double;
-typedef char   Char;
 typedef char*  String;
 typedef void   Void;
 
