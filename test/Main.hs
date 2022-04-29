@@ -1,4 +1,8 @@
 module Main where
 
+import TIMTests (runTimTests)
+
 main :: IO ()
-main = putStrLn "Testing, testing!"
+main = do
+  putStrLn "Running shitty TIM tests"
+  runTimTests

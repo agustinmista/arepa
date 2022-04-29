@@ -5,12 +5,10 @@ import Language.Arepa.Compiler.Monad (testArepa)
 import Language.Arepa.Compiler.Parser (parseDecl)
 import Language.TIM.Syntax (CodeStore, Value (IntV))
 import Language.Arepa.Compiler.Translate (translateModule)
-import Language.TIM.Interpreter.Types ( FramePtr(ValueP) )
 import Data.Text.Lazy (unpack,Text)
-import Language.TIM.Interpreter.Monad (tim_curr_frame)
 import Control.Monad.Compiler (prettyPrint)
 import qualified Data.Text.Lazy.IO as TIO
-import Language.TIM (runCodeStore)
+import Language.TIM.Interpreter (runCodeStore)
 
 k :: IO CoreDecl
 k = testArepa . parseDecl $ "(fun k (x y) x)"
