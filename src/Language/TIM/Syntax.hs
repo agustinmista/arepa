@@ -150,8 +150,8 @@ instance Pretty ValueMode where
 
 -- Map values to types
 
-valueType :: Value -> Type
-valueType IntV    {} = IntT
-valueType DoubleV {} = DoubleT
-valueType StringV {} = StringT
-valueType VoidV   {} = VoidT
+typeOfValue :: Value -> Type
+typeOfValue IntV    {} = IntT
+typeOfValue DoubleV {} = DoubleT
+typeOfValue StringV {} = StringT
+typeOfValue VoidV   {} = VoidT
