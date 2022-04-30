@@ -7,8 +7,6 @@ module Language.Arepa.Compiler.Codegen
 import GHC.Exts
 import Control.Monad.State
 
-import Data.String
-
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
@@ -187,14 +185,18 @@ rtsFunctions = [
     ("tim_push_argument_argument", [longType],          voidType),
     ("tim_push_argument_int",      [valueType IntT],    voidType),
     ("tim_push_argument_double",   [valueType DoubleT], voidType),
+    ("tim_push_argument_string",   [valueType StringT], voidType),
     ("tim_push_argument_label",    [funPtrType],        voidType),
     ("tim_push_value_int",         [valueType IntT],    voidType),
     ("tim_push_value_double",      [valueType DoubleT], voidType),
+    ("tim_push_value_string",      [valueType StringT], voidType),
     ("tim_pop_value_int",          [],                  LLVM.ptr (valueType IntT)),
     ("tim_pop_value_double",       [],                  LLVM.ptr (valueType DoubleT)),
+    ("tim_pop_value_string",       [],                  LLVM.ptr (valueType StringT)),
     ("tim_enter_argument",         [longType],          voidType),
     ("tim_enter_int",              [valueType IntT],    voidType),
     ("tim_enter_double",           [valueType DoubleT], voidType),
+    ("tim_enter_string",           [valueType StringT], voidType),
     ("tim_enter_label",            [funPtrType],        voidType),
     ("tim_return",                 [],                  voidType)
   ]
@@ -272,7 +274,9 @@ emitInstr instr = do
       double <- IR.bitcast (mkDoubleV n) (valueType DoubleT)
       callVoidRTS "tim_enter_value_double" [double]
     EnterI (ValueM (StringV s)) -> do
-      notImplemented "emitInstr/EnterI/ValueM/StringV"
+      op <- registerString s
+      string <- IR.bitcast op (valueType StringT)
+      callVoidRTS "tim_enter_value_string" [string]
     EnterI (ValueM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot enter a void argument"
     -- Push arguments
@@ -288,7 +292,9 @@ emitInstr instr = do
       double <- IR.bitcast (mkDoubleV n) (valueType DoubleT)
       callVoidRTS "tim_push_argument_double" [double]
     PushArgI (ValueM (StringV s)) -> do
-      notImplemented "emitInstr/PushArgI/ValueM/StringV"
+      op <- registerString s
+      string <- IR.bitcast op (valueType StringT)
+      callVoidRTS "tim_push_argument_string" [string]
     PushArgI (ValueM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot push a void argument"
     -- Push values
@@ -301,7 +307,9 @@ emitInstr instr = do
       double <- IR.bitcast (mkDoubleV n) (valueType DoubleT)
       callVoidRTS "tim_push_value_double" [double]
     PushValueI (InlineM (StringV s)) -> do
-      notImplemented "emitInstr/PushValueI/InlineM/StringV"
+      op <- registerString s
+      string <- IR.bitcast op (valueType StringT)
+      callVoidRTS "tim_push_value_string" [string]
     PushValueI (InlineM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot push a void value"
     -- Call
@@ -319,7 +327,8 @@ emitInstr instr = do
           ptr <- callRTS "tim_pop_value_double" []
           IR.load ptr 0
         StringT -> do
-          notImplemented "emitInstr/CallI when argType = StringT"
+          ptr <- callRTS "tim_pop_value_string" []
+          IR.load ptr 0
         VoidT -> do
           throwInternalError "emitInstr: impossible! cannot pop a void value"
       -- Call the function
@@ -331,7 +340,7 @@ emitInstr instr = do
         DoubleT -> do
           callVoidRTS "tim_push_value_double" [res]
         StringT -> do
-          notImplemented "emitInstr/CallI when retType = StringT"
+          callVoidRTS "tim_push_value_string" [res]
         VoidT -> do
           return ()
     -- Return

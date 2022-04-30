@@ -82,6 +82,16 @@ void tim_double_code(){
     return tim_return();
 }
 
+void tim_string_code(){
+    debug_msg("Running string code");
+    String* string_ptr_as_frame = (String*) current_frame;
+    debug_msg("Pushing string value \"%s\" at %p into the value stack"
+             , *string_ptr_as_frame
+             ,  string_ptr_as_frame);
+    dump_push(value_stack,string_ptr_as_frame);
+    return tim_return();
+}
+
 /************************/
 /* Closure construction */
 /************************/
@@ -110,10 +120,17 @@ closure_t* int_closure(Int value){
 }
 
 closure_t* double_closure(Double value){
-    debug_msg("Creating new int value closure for %f", value);
+    debug_msg("Creating new double value closure for %f", value);
     Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
     return make_closure(*tim_double_code,double_ptr_as_frame);
+}
+
+closure_t* string_closure(String value){
+    debug_msg("Creating new string value closure for \"%s\"", value);
+    String* string_ptr_as_frame = rts_malloc(sizeof(String));
+    *string_ptr_as_frame = value;
+    return make_closure(*tim_double_code,string_ptr_as_frame);
 }
 
 /*****************/
@@ -168,6 +185,11 @@ void tim_push_argument_double(Double value){
     return dump_push(argument_stack,double_closure(value));
 }
 
+void tim_push_argument_string(String value){
+    debug_msg("Pushing string value \"%s\" into the stack", value);
+    return dump_push(argument_stack,string_closure(value));
+}
+
 void tim_push_argument_label(void (* code)()){
     debug_msg("Pushing code %p", code);
     return dump_push(argument_stack,make_closure(code,current_frame));
@@ -175,14 +197,21 @@ void tim_push_argument_label(void (* code)()){
 
 void tim_push_value_int(Int literal){
     debug_msg("Pushing int %li into the value stack",literal);
-    Int * p = rts_malloc(sizeof(Int));
+    Int* p = rts_malloc(sizeof(Int));
     *p = literal;
     return dump_push(value_stack,p);
 }
 
 void tim_push_value_double(Double literal){
     debug_msg("Pushing double %f into the value stack",literal);
-    Double * p = rts_malloc(sizeof(Double));
+    Double* p = rts_malloc(sizeof(Double));
+    *p = literal;
+    return dump_push(value_stack,p);
+}
+
+void tim_push_value_string(String literal){
+    debug_msg("Pushing string \"%s\" into the value stack",literal);
+    String* p = rts_malloc(sizeof(String));
     *p = literal;
     return dump_push(value_stack,p);
 }
@@ -203,6 +232,11 @@ void tim_enter_double(Double value){
     return tim_enter_closure(double_closure(value));
 }
 
+void tim_enter_string(String value){
+    debug_msg("Entering string value closure for \"%s\"", value);
+    return tim_enter_closure(string_closure(value));
+}
+
 void tim_enter_label(void (*code)()){
     debug_msg("Entering function closure %p", code);
     return tim_enter_closure(make_closure(code,current_frame));
@@ -216,10 +250,17 @@ Int get_int_result(){
 }
 
 Double get_double_result(){
-    debug_msg("Getting an double result from the top of the value stack");
+    debug_msg("Getting a double result from the top of the value stack");
     Double double_result = *((Double*) dump_peek(value_stack));
     debug_msg("The result is %f", double_result);
     return double_result;
+}
+
+String get_string_result(){
+    debug_msg("Getting a string result from the top of the value stack");
+    String string_result = *((String*) dump_peek(value_stack));
+    debug_msg("The result is \"%s\"", string_result);
+    return string_result;
 }
 
 void tim_return(){
@@ -242,4 +283,8 @@ Int* tim_pop_value_int(){
 
 Double* tim_pop_value_double(){
     return (Double*) tim_pop_value();
+};
+
+String* tim_pop_value_string(){
+    return (String*) tim_pop_value();
 };

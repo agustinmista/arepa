@@ -14,10 +14,24 @@
  */
 
 // BEGIN PROTOTYPES
+
+// Int arithmetic
 Int __prim_add_int__(Int, Int);
 Int __prim_sub_int__(Int, Int);
-Void __prim_print_int__(Int);
+
+// Double arithmetic
+Double __prim_add_double__(Double, Double);
+Double __prim_sub_double__(Double, Double);
+
+
+// Constants
 Double __prim_pi__();
+
+// IO
+Void __prim_print_int__(Int);
+Void __prim_print_double__(Double);
+Void __prim_print_string__(String);
+
 // END PROTOTYPES
 
 #endif
