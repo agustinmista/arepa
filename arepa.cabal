@@ -49,8 +49,10 @@ common common-arepa
     rts/include
   includes:
     rts/include/prim.h
+    rts/include/mem.h
   c-sources:
     rts/src/prim.c
+    rts/src/mem.c
 
 library arepa-lib
   import: common-arepa
