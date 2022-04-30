@@ -268,6 +268,9 @@ float = Lexer.float <* whitespace
 decimal :: MonadArepa m => Parser m Int
 decimal = Lexer.decimal <* whitespace
 
+stringLiteral :: MonadArepa m => Parser m Text
+stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"')) <* whitespace
+
 parens :: MonadArepa m => Parser m a -> Parser m a
 parens = between (symbol "(") (symbol ")")
 
@@ -276,9 +279,6 @@ braces = between (symbol "{") (symbol "}")
 
 brackets :: MonadArepa m => Parser m a -> Parser m a
 brackets = between (symbol "[") (symbol "]")
-
-stringLiteral :: MonadArepa m => Parser m Text
-stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"'))
 
 comma :: MonadArepa m => Parser m ()
 comma = void $ symbol ","
