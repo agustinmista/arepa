@@ -23,9 +23,10 @@ parseCliOpts = do
       dumpOpts    (long "dump"      <> short 'd' <> metavar "DUMP" <>                 help "dump an internal structure") <*>
       switch      (long "verbose"   <> short 'v'                   <>                 help "show extra debug information") <*>
       switch      (long "interpret" <> short 'x'                   <>                 help "interpret the input instead of compiling it") <*>
-      strOption   (long "entry"     <> short 'e'                   <> value "main" <> help "set the module's entry point") <*>
+      strOption   (long "entry"     <> short 'e' <> metavar "NAME" <> value "main" <> help "set the module's entry point") <*>
       option auto (long "args"      <> short 'a'                   <> value []     <> help "set the module's entry point") <*>
-      option auto (                    short 'O'                   <> value 0      <> help "set the optimization level")
+      option auto (                    short 'O' <> metavar "NUM"  <> value 0      <> help "set the optimization level") <*>
+      switch      (long "debug"     <> short 'D'                                   <> help "enable debug messages in the compiled binary")
 
 optionalStr :: Mod OptionFields String -> OptParse.Parser (Maybe String)
 optionalStr = optional . strOption
@@ -39,4 +40,4 @@ dumpOpts desc = many (option dumpReader desc)
         "ppr"  -> Right PPR
         "tim"  -> Right TIM
         "llvm" -> Right LLVM
-        _      -> Left ("invalid dumpOpts option " <> s)
+        _      -> Left ("invalid dump option " <> s)

@@ -16,19 +16,19 @@ import Data.Text.Lazy.IO qualified as Text
 -- Running clang
 ----------------------------------------
 
-compileAndLinkLLVM :: Int -> Text -> Maybe FilePath -> Maybe FilePath -> IO Text
-compileAndLinkLLVM opt llvm mbinput mboutput = do
+compileAndLinkLLVM :: Int -> Bool -> Text -> Maybe FilePath -> Maybe FilePath -> IO Text
+compileAndLinkLLVM opt dbg llvm mbinput mboutput = do
   let binpath = fromMaybe "a.out" mboutput
   case mbinput of
     Nothing -> do
       withTempFile "." "arepa_temp.ll" $ \llpath llhandle -> do
         Text.hPutStrLn llhandle llvm
         hFlush llhandle
-        runClang opt llpath binpath
+        runClang opt dbg llpath binpath
     Just path -> do
       let llpath = replaceExtension path "ll"
       Text.writeFile llpath llvm
-      runClang opt llpath binpath
+      runClang opt dbg llpath binpath
 
 rtsSrc :: FilePath
 rtsSrc = "rts" </> "src"
@@ -42,13 +42,13 @@ readRtsSrcDir = do
   let c_files = filter ((".c" ==) . takeExtension) files
   return [ rtsSrc </> c_file | c_file <- c_files ]
 
-runClang :: Int -> FilePath -> FilePath -> IO Text
-runClang opt input output = do
-  args <- mkClangArgs opt input output
+runClang :: Int -> Bool -> FilePath -> FilePath -> IO Text
+runClang opt dbg input output = do
+  args <- mkClangArgs opt dbg input output
   Text.pack <$> readProcess "clang" args []
 
-mkClangArgs :: Int -> FilePath -> FilePath -> IO [String]
-mkClangArgs opt input output = do
+mkClangArgs :: Int -> Bool -> FilePath -> FilePath -> IO [String]
+mkClangArgs opt dbg input output = do
   c_files <- readRtsSrcDir
   return $
     c_files <>
@@ -56,5 +56,6 @@ mkClangArgs opt input output = do
     , "-Wno-override-module"
     , "-I", rtsInclude
     , "-O" <> show opt
+    , if dbg then "-DDEBUG" else ""
     , "-o", output
     ]
