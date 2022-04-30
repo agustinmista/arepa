@@ -3,8 +3,7 @@ module Language.Arepa.Compiler.Parser
   , parseModule
   , parseDecl
   , parseExpr
-  )
-  where
+  ) where
 
 import Control.Monad.Extra
 
