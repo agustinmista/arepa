@@ -12,11 +12,12 @@ module Control.Monad.Compiler
   , writeStderr
   , writeStdout
   , writeToFile
-  , warningMsg
-  , debugMsg
+  , CompilerMsg(..)
+  , logCompilerMsg
   , compilerIO
   , prettyPrint
   , prettyShow
+  , liftIO
   ) where
 
 import System.IO
@@ -114,25 +115,22 @@ writeToFile path = compilerIO . Text.writeFile path
 -- Compiler messages (written to stderr)
 
 data CompilerMsg where
-  WarningMsg :: Text -> Maybe Text -> CompilerMsg
-  DebugMsg   :: Text -> Maybe Text -> CompilerMsg
+  WarningMsg :: Text -> CompilerMsg
+  DebugMsg   :: Text -> CompilerMsg
+  DumpMsg    :: Text -> Text -> CompilerMsg
 
 
 renderCompilerMsg :: CompilerMsg -> Text
-renderCompilerMsg (WarningMsg msg obj) =
-  "[WARNING] " <> msg <> maybe mempty (":\n" <>) obj
-renderCompilerMsg (DebugMsg   msg obj) =
-  "[DEBUG] "   <> msg <> maybe mempty (":\n" <>) obj
+renderCompilerMsg (WarningMsg msg) =
+  "[WARNING] " <> msg
+renderCompilerMsg (DebugMsg msg) =
+  "[DEBUG] "   <> msg
+renderCompilerMsg (DumpMsg msg obj) =
+  "[DUMP] "    <> msg <> ":\n" <> obj
+
 
 logCompilerMsg :: MonadCompiler err opt m => CompilerMsg -> m ()
 logCompilerMsg msg = writeStderr (renderCompilerMsg msg)
-
-
-warningMsg :: (MonadCompiler err opt m) => Text -> Maybe Text -> m ()
-warningMsg msg obj = logCompilerMsg (WarningMsg msg obj)
-
-debugMsg :: (MonadCompiler err opt m) => Text -> Maybe Text -> m ()
-debugMsg msg obj = logCompilerMsg (DebugMsg msg obj)
 
 ----------------------------------------
 -- Other utilities

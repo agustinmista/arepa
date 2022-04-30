@@ -40,7 +40,7 @@ interpretCodeStore store = do
   (res, trace) <- liftIO $ do
     runTIM store $ invokeFunction fun args
   whenM hasVerboseEnabled $ do
-    debugMsg "interpreter intermediate states" (Just (prettyPrint trace))
+    dump "interpreter intermediate states" (prettyPrint trace)
   case res of
     Left err -> throwInterpreterError err
     Right vals -> return vals
@@ -222,6 +222,6 @@ translateLitValueMode lit = do
 translateLit :: MonadArepa m => Lit -> Translate m Value
 translateLit lit =
   case lit of
-    IntL n -> return (IntV n)
+    IntL    n -> return (IntV n)
     DoubleL n -> return (DoubleV n)
     StringL s -> return (StringV s)
