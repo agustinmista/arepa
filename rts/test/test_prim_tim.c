@@ -28,7 +28,7 @@ void fun_arg5();
 
 void fun_arg6();
 
-int main();
+void _main();
 
 void mymain();
 
@@ -119,8 +119,7 @@ void fun_arg6(){
   tim_enter_argument(0);
 }
 
-int main(){
-  tim_start();
+void _main(){
   tim_take(0);
   tim_push_argument_label(*fun_arg0);
   tim_enter_label(*print_int);
@@ -142,4 +141,11 @@ void twice(){
   tim_take(2);
   tim_push_argument_label(*fun_arg6);
   tim_enter_argument(0);
+}
+
+// The real main function wraps the module's main one
+int main() {
+  tim_start();
+  _main();
+  return 0;
 }
