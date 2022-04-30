@@ -14,7 +14,8 @@ data ArepaOpts = ArepaOpts {
   optVerbose :: Bool,
   optInterpret :: Bool,
   optEntryPoint :: Name,
-  optInvokeArgs :: [Value]
+  optInvokeArgs :: [Value],
+  optOptimize :: Int
 } deriving (Show, Read, Eq, Ord)
 
 defaultOpts :: ArepaOpts
@@ -25,7 +26,8 @@ defaultOpts :: ArepaOpts = ArepaOpts {
   optVerbose = False,
   optInterpret = False,
   optEntryPoint = "main",
-  optInvokeArgs = []
+  optInvokeArgs = [],
+  optOptimize = 0
 }
 
 -- Dump options

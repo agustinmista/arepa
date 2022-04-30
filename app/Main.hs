@@ -1,7 +1,13 @@
 module Main where
+
 import Control.Monad.Extra
+
+import Data.Text.Lazy qualified as Text
+
 import Language.Arepa.Compiler
+
 import CLI
+import Clang
 
 ----------------------------------------
 -- Entry point
@@ -19,19 +25,35 @@ compiler = do
       text <- readInput
       ----------------------------------------
       psMod <- parseModule text
-      whenM (hasDumpEnabled AST) $ debugMsg "Parsed AST" (Just (prettyShow psMod))
-      whenM (hasDumpEnabled PPR) $ debugMsg "Pretty-printed AST" (Just (prettyPrint psMod))
+      whenM (hasDumpEnabled AST) $ do
+        dump "Parsed AST" (prettyShow psMod)
+      whenM (hasDumpEnabled PPR) $ do
+        dump "Pretty-printed AST" (prettyPrint psMod)
       ----------------------------------------
       tcMod <- typeCheckModule psMod
       ----------------------------------------
       store <- translateModule tcMod
-      whenM (hasDumpEnabled TIM) $ debugMsg "TIM code store" (Just (prettyPrint store))
+      whenM (hasDumpEnabled TIM) $ do
+        dump "TIM code store" (prettyPrint store)
       ----------------------------------------
       ifM hasInterpretEnabled
         ----------------------------------------
         (do res <- interpretCodeStore store
-            whenM hasVerboseEnabled $ debugMsg "Final value stack" (Just (prettyPrint res)))
+            whenM hasVerboseEnabled $ do
+              dump "Final value stack" (prettyPrint res)
+        )
         ----------------------------------------
         (do llvmMod <- renderLLVM =<< emitLLVM store
-            whenM (hasDumpEnabled PPR) $ debugMsg "Emitted LLVM" (Just llvmMod))
+            whenM (hasDumpEnabled LLVM) $ do
+              dump "Emitted LLVM" llvmMod
+
+            opt    <- lookupCompilerOption optOptimize
+            input  <- lookupCompilerOption optInput
+            output <- lookupCompilerOption optOutput
+
+            stdout <- liftIO $ compileAndLinkLLVM opt llvmMod input output
+
+            unless (Text.null stdout) $ do
+              warning stdout
+        )
       ----------------------------------------
