@@ -1,8 +1,14 @@
 module Main where
 
+import System.IO.Temp
+import System.FilePath
+
 import Control.Monad.Extra
 
-import Data.Text.Lazy qualified as Text
+import Data.Maybe
+
+import Data.Text.Lazy    qualified as Text
+import Data.Text.Lazy.IO qualified as Text
 
 import Language.Arepa.Compiler
 
@@ -54,16 +60,26 @@ compiler = do
         (do
             ----------------------------------------
             -- Code generation
-            llvmMod <- renderLLVM =<< emitLLVM store
+            llvm <- renderLLVM =<< emitLLVM store
             whenM (hasDumpEnabled LLVM) $ do
-              dump "Emitted LLVM" llvmMod
+              dump "Emitted LLVM" llvm
             ----------------------------------------
-            -- Compilation
-            opt    <- lookupCompilerOption optOptimize
-            dbg    <- lookupCompilerOption optDebug
-            input  <- lookupCompilerOption optInput
+            -- Saving generated LLVM
+            input <- lookupCompilerOption optInput
+            llpath <- case input of
+              Nothing -> do
+                liftIO $ emptyTempFile "." "arepa.ll"
+              Just path -> do
+                return (replaceExtension path "ll")
+            liftIO $ Text.writeFile llpath llvm
+            ----------------------------------------
+            -- Linking (optional if -o/--output)
             output <- lookupCompilerOption optOutput
-            stdout <- liftIO $ compileAndLinkLLVM opt dbg llvmMod input output
-            unless (Text.null stdout) $ do
-              warning stdout
+            when (isJust output) $ do
+              opt   <- lookupCompilerOption optOptimize
+              dbg   <- lookupCompilerOption optDebug
+              extra <- lookupCompilerOption optInclude
+              stdout <- liftIO $ runClang opt dbg extra llpath (fromJust output)
+              unless (Text.null stdout) $ do
+                warning stdout
         )

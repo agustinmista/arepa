@@ -6,6 +6,8 @@ module Language.Arepa.Compiler.Translate
 import Control.Monad.Extra
 import Control.Monad.State
 
+import Data.Maybe
+
 import Data.Map (Map)
 import Data.Map qualified as Map
 
@@ -35,8 +37,9 @@ translateModule m = do
 -- Interpret a TIM code store, invoking some function
 interpretCodeStore :: MonadArepa m => CodeStore -> m [Value]
 interpretCodeStore store = do
-  fun <- lookupCompilerOption optEntryPoint
+  entry <- lookupCompilerOption optEntryPoint
   args <- lookupCompilerOption optInvokeArgs
+  let fun = mkName (fromMaybe "main" entry)
   (res, trace) <- liftIO $ do
     runTIM store $ invokeFunction fun args
   whenM hasVerboseEnabled $ do
@@ -74,13 +77,17 @@ runTranslate name globals ma = ts_store <$> execStateT ma (initialTranslateState
 ----------------------------------------
 -- Monad operations
 
--- Lookup for the addressing mode of a variable in the environment
+-- Lookup for the addressing mode of an identifier in the environment
+-- NOTE: this assumes that the arg mode is always a label if the identifier is
+-- not defined here
 lookupArgMode :: MonadArepa m => Name -> Translate m ArgMode
 lookupArgMode name = do
   env <- gets ts_env
   case Map.lookup name env of
-    Nothing -> throwInternalError ("lookupArgMode: variable " <> fromName name <> " is not in the environment")
-    Just mode -> return mode
+    Nothing -> do
+      return (LabelM name)
+    Just mode -> do
+      return mode
 
 -- Run the translation inside a local environment
 withExtendedEnv :: MonadArepa m => [(Name, ArgMode)] -> Translate m a -> Translate m a

@@ -10,11 +10,10 @@ import Control.Monad.State
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
+import Data.Maybe
+
 import Data.Map (Map)
 import Data.Map qualified as Map
-
-import Prettyprinter
-
 
 import LLVM.AST          qualified as LLVM
 import LLVM.AST.Type     qualified as LLVM
@@ -85,19 +84,21 @@ runLLVM name mb = evalStateT (buildModuleT (fromString name) mb) emptyCodegenSta
 -- Global operands
 
 -- Register the operand associated to a global identifier
--- registerGlobalOperand :: MonadLLVM m => Ident -> LLVM.Operand -> m ()
 registerGlobalOperand :: MonadLLVM m => Name -> LLVM.Operand -> m ()
 registerGlobalOperand name op = do
   modify' $ \st -> st { cg_globals = Map.insert name op (cg_globals st) }
 
 -- Get the operand associated with an identifier
--- lookupGlobalOperand :: MonadLLVM m => Ident -> m LLVM.Operand
+-- NOTE: this emits an extern if the identifier is not a global defined here
 lookupGlobalOperand :: MonadLLVM m => Name -> m LLVM.Operand
 lookupGlobalOperand name = do
   globals <- gets cg_globals
   case Map.lookup name globals of
-    Nothing -> throwInternalError ("lookupGlobalOperand: operand for global" <+> pretty name <+> "does not exist")
-    Just op -> return op
+    Nothing -> do
+      warning $ "Emitting implicit extern for " <> fromName name
+      IR.extern (mkMangledFunctionName name) [] voidType
+    Just op -> do
+      return op
 
 ----------------------------------------
 -- Local operands
@@ -169,12 +170,19 @@ emitRTS = do
     op <- IR.extern (fromName name) argTypes retType
     registerGlobalOperand name op
 
-  -- RTS main wrapper
+  -- RTS main wrapper (only when necessary)
+  output <- lookupCompilerOption optOutput
+  when (isJust output) $ do
+    entry <- lookupCompilerOption optEntryPoint
+    emitMain (mkName (fromMaybe "main" entry))
+
+
+emitMain :: MonadLLVM m => Name -> m ()
+emitMain name = do
   void $ IR.function "main" [] intType $ \[] -> do
     callVoidRTS "tim_start" []
-    name <- lookupCompilerOption optEntryPoint
-    entry <- lookupGlobalOperand name
-    IR.call entry []
+    fun <- lookupGlobalOperand name
+    IR.call fun []
     IR.ret (IR.int32 0)
 
 
