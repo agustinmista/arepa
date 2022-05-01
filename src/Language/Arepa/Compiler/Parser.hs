@@ -222,7 +222,7 @@ contents p = whitespace *> p <* eof
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
 identInitialChar :: MonadArepa m => Parser m Char
-identInitialChar = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#_\\" :: [Char]))
+identInitialChar = letterChar <|> satisfy (`elem` (".%!$&*/:<=>?^~#_\\" :: [Char]))
 
 identSubsequentChar :: MonadArepa m => Parser m Char
 identSubsequentChar = identInitialChar <|> digitChar <|> identPeculiarChar
