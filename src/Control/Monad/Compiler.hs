@@ -116,17 +116,14 @@ writeToFile path = compilerIO . Text.writeFile path
 
 data CompilerMsg where
   WarningMsg :: Text -> CompilerMsg
-  DebugMsg   :: Text -> CompilerMsg
-  DumpMsg    :: Text -> Text -> CompilerMsg
+  DebugMsg   :: Text -> Maybe Text -> CompilerMsg
 
 
 renderCompilerMsg :: CompilerMsg -> Text
 renderCompilerMsg (WarningMsg msg) =
   "[WARNING] " <> msg
-renderCompilerMsg (DebugMsg msg) =
-  "[DEBUG] "   <> msg
-renderCompilerMsg (DumpMsg msg obj) =
-  "[DUMP] "    <> msg <> ":\n" <> obj
+renderCompilerMsg (DebugMsg msg mbobj) =
+  "[DEBUG] "   <> msg <> maybe "" (":\n" <>) mbobj
 
 
 logCompilerMsg :: MonadCompiler err opt m => CompilerMsg -> m ()

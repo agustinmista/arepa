@@ -33,18 +33,15 @@ compiler = do
       ----------------------------------------
       -- Parsing
       psMod <- parseModule text
-      whenM (hasDumpEnabled AST) $ do
-        dump "Parsed AST" (prettyShow psMod)
-      whenM (hasDumpEnabled PPR) $ do
-        dump "Pretty-printed AST" (prettyPrint psMod)
+      whenDump AST $ dump "Parsed AST" (prettyShow psMod)
+      whenDump PPR $ dump "Pretty-printed AST" (prettyPrint psMod)
       ----------------------------------------
       -- Type checking
       tcMod <- typeCheckModule psMod
       ----------------------------------------
       -- Translation into TIM code
       store <- translateModule tcMod
-      whenM (hasDumpEnabled TIM) $ do
-        dump "TIM code store" (prettyPrint store)
+      whenDump TIM $ dump "TIM code store" (prettyPrint store)
       ----------------------------------------
       -- Interpretation/compilation
       ifM hasInterpretEnabled
@@ -52,8 +49,7 @@ compiler = do
         -- Interpretation
         (do
             res <- interpretCodeStore store
-            whenM hasVerboseEnabled $ do
-              dump "Final value stack" (prettyPrint res)
+            whenVerbose $ dump "Final value stack" (prettyPrint res)
         )
         ----------------------------------------
         -- Compilation
@@ -61,8 +57,7 @@ compiler = do
             ----------------------------------------
             -- Code generation
             llvm <- renderLLVM =<< emitLLVM store
-            whenM (hasDumpEnabled LLVM) $ do
-              dump "Emitted LLVM" llvm
+            whenDump LLVM $ dump "Emitted LLVM" llvm
             ----------------------------------------
             -- Saving generated LLVM
             input <- lookupCompilerOption optInput

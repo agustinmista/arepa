@@ -20,7 +20,7 @@ data ArepaError =
 instance Pretty ArepaError where
   pretty (ParserError      err) = vsep ["Parser error:",      pretty (errorBundlePretty err)]
   pretty (InterpreterError err) = vsep ["Interpreter error:", pretty err]
-  pretty (InternalError    err) = vsep ["Internal error:",    unAnnotate err]
+  pretty (InternalError    err) = vsep ["Internal error:",    pretty err]
 
 -- Parse errors
 type ParserError = ParseErrorBundle Text Void
@@ -29,4 +29,4 @@ type ParserError = ParseErrorBundle Text Void
 type InterpreterError = TIMError
 
 -- Internal errors
-type InternalError = Doc ()
+type InternalError = Text

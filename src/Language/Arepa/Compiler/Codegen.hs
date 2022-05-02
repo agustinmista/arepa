@@ -86,18 +86,21 @@ runLLVM name mb = evalStateT (buildModuleT (fromString name) mb) emptyCodegenSta
 -- Register the operand associated to a global identifier
 registerGlobalOperand :: MonadLLVM m => Name -> LLVM.Operand -> m ()
 registerGlobalOperand name op = do
+  whenVerbose $ debug ("Registering global operand " <> prettyPrint op <> " as " <> prettyPrint name)
   modify' $ \st -> st { cg_globals = Map.insert name op (cg_globals st) }
 
 -- Get the operand associated with an identifier
 -- NOTE: this emits an extern if the identifier is not a global defined here
 lookupGlobalOperand :: MonadLLVM m => Name -> m LLVM.Operand
 lookupGlobalOperand name = do
+  whenVerbose $ debug ("Looking up global operand of " <> prettyPrint name)
   globals <- gets cg_globals
   case Map.lookup name globals of
     Nothing -> do
-      warning $ "Emitting implicit extern for " <> fromName name
+      warning $ "Emitting implicit extern for " <> prettyPrint name
       IR.extern (mkMangledFunctionName name) [] voidType
     Just op -> do
+      whenVerbose $ debug ("Found operand for " <> prettyPrint name <> ": " <> prettyPrint op)
       return op
 
 ----------------------------------------
@@ -135,14 +138,18 @@ lookupGlobalOperand name = do
 -- If it is already registered, then return the corresponding operand
 registerString :: MonadLLVM m => Text -> m LLVM.Operand
 registerString str = do
+  whenVerbose $ dump "Registering string" (prettyPrint str)
   strings <- gets cg_strings
   case Map.lookup str strings of
-    Just op -> return op
+    Just op -> do
+      whenVerbose $ debug ("The string already had a global operand: " <> prettyPrint op)
+      return op
     Nothing -> do
       let name = mkGlobalStringName (Map.size strings)
       con <- IR.globalStringPtr (Text.unpack str) name
       let op = LLVM.ConstantOperand con
       modify' $ \st -> st { cg_strings = Map.insert str op strings }
+      whenVerbose $ debug ("Created a new global operand: " <> prettyPrint op)
       return op
 
 ----------------------------------------
@@ -150,10 +157,12 @@ registerString str = do
 
 lookupPrim :: MonadLLVM m => Name -> m Prim
 lookupPrim name = do
+  whenVerbose $ debug ("Looking up primitive operation " <> prettyPrint name)
   case Map.lookup name primitives of
-    Nothing ->
-      throwInternalError ("lookupPrim: cannot find primitive operation " <> fromName name)
-    Just prim ->
+    Nothing -> do
+      throwInternalError ("lookupPrim: cannot find primitive operation " <> prettyPrint name)
+    Just prim -> do
+      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyShow (prim_arity prim, prim_type prim))
       return prim
 
 
@@ -163,14 +172,15 @@ lookupPrim name = do
 
 emitRTS :: MonadLLVM m => m ()
 emitRTS = do
-  debug "Emitting RTS externs"
 
   -- RTS evaluation operations
+  whenVerbose $ debug "Emitting RTS externs"
   forM_ rtsFunctions $ \(name, argTypes, retType) -> do
     op <- IR.extern (fromName name) argTypes retType
     registerGlobalOperand name op
 
   -- RTS main wrapper (only when necessary)
+  whenVerbose $ debug "Emitting RTS main()"
   output <- lookupCompilerOption optOutput
   when (isJust output) $ do
     entry <- lookupCompilerOption optEntryPoint
@@ -224,6 +234,7 @@ callVoidRTS name args = void (callRTS name args)
 
 emitPrimitives :: MonadLLVM m => m ()
 emitPrimitives = do
+  whenVerbose $ debug "Emitting primitive operations externs"
   forM_ (Map.toList primitives) $ \(name, prim) -> do
     let argTypes = valueType <$> fst (prim_type prim)
     let retType  = valueType (snd (prim_type prim))
@@ -241,6 +252,7 @@ emitPrimitives = do
 -- `function` is the same as the name of the global, no fresh name is generated.
 registerGlobals :: MonadLLVM m => CodeStore -> m ()
 registerGlobals store = do
+  whenVerbose $ debug "Registering global definitions"
   forM_ (Map.keys (store_blocks store)) $ \name -> do
     let ty = LLVM.ptr voidFunType
     let op = mkGlobalOperand (mkMangledFunctionName name) ty
@@ -250,6 +262,7 @@ registerGlobals store = do
 -- Code stores
 emitCodeStore :: MonadLLVM m => CodeStore -> m ()
 emitCodeStore store = do
+  whenVerbose $ debug ("Emitting code store " <> prettyPrint (store_name store))
   forM_ (Map.toList (store_blocks store)) $ \(name, code) -> do
     emitCodeBlock name code
 
@@ -257,6 +270,7 @@ emitCodeStore store = do
 -- Code blocks
 emitCodeBlock :: MonadLLVM m => Name -> CodeBlock -> m ()
 emitCodeBlock name code = void $ do
+  whenVerbose $ debug ("Emitting code block " <> prettyPrint name)
   let funName = mkMangledFunctionName name
   IR.function funName [] voidType $ \[] -> do
     mapM_ emitInstr (toList code)
@@ -265,6 +279,7 @@ emitCodeBlock name code = void $ do
 -- Instructions
 emitInstr :: (MonadIRBuilder m, MonadLLVM m) => Instr -> m ()
 emitInstr instr = do
+  whenVerbose $ dump "Emitting instruction" (prettyPrint instr)
   case instr of
     -- Take
     TakeArgI n -> do

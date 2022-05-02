@@ -39,17 +39,25 @@ type MonadArepa m = MonadCompiler ArepaError ArepaOpts m
 ----------------------------------------
 -- Compilation messages
 
+-- Log a warning message
 warning :: MonadArepa m => Text -> m ()
-warning msg = do
-  logCompilerMsg (WarningMsg msg)
+warning msg = logCompilerMsg (WarningMsg msg)
 
+-- Log a debug message
 debug :: MonadArepa m => Text -> m ()
-debug msg = do
-  whenM (lookupCompilerOption optVerbose) $ do
-    logCompilerMsg (DebugMsg msg)
+debug msg = logCompilerMsg (DebugMsg msg Nothing)
 
+-- Log a debug message along with some dump values
 dump :: MonadArepa m => Text -> Text -> m ()
-dump msg obj = logCompilerMsg (DumpMsg msg obj)
+dump msg obj = logCompilerMsg (DebugMsg msg (Just obj))
+
+-- Report a message only when in debug mode (-v/--verbose)
+whenVerbose :: MonadArepa m => m () -> m ()
+whenVerbose = whenM hasVerboseEnabled
+
+-- Report a message only when a certain dump flag is enabled
+whenDump :: MonadArepa m => DumpOpt -> m () -> m ()
+whenDump flag = whenM (hasDumpEnabled flag)
 
 ----------------------------------------
 -- Compilation errors

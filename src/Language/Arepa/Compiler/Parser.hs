@@ -27,13 +27,19 @@ import Language.Arepa.Compiler.Monad
 ----------------------------------------
 
 parseModule :: MonadArepa m => Text -> m CoreModule
-parseModule = runParser (contents module')
+parseModule text = do
+  whenVerbose $ dump "Parsing module" text
+  runParser (contents module') text
 
 parseDecl :: MonadArepa m => Text -> m CoreDecl
-parseDecl = runParser (contents decl)
+parseDecl text = do
+  whenVerbose $ dump "Parsing declaration" text
+  runParser (contents decl) text
 
 parseExpr :: MonadArepa m => Text -> m CoreExpr
-parseExpr = runParser (contents expr)
+parseExpr text = do
+  whenVerbose $ dump "Parsing expression" text
+  runParser (contents expr) text
 
 ----------------------------------------
 -- The parser monad
@@ -124,7 +130,7 @@ lamE = do
 letE :: MonadArepa m => Parser m CoreExpr
 letE = do
   isRec <- try (symbol "letrec" $> True)
-           <|> symbol "let" $> False
+           <|>  symbol "let"    $> False
   binds <- parens $ many $ parens $ (,) <$> name <*> expr
   body <- expr
   return (LetE isRec binds body)
