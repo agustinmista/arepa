@@ -1,12 +1,9 @@
 module Language.Arepa.Compiler.Translate
   ( translateModule
-  , interpretCodeStore
   ) where
 
 import Control.Monad.Extra
 import Control.Monad.State
-
-import Data.Maybe
 
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -32,20 +29,6 @@ translateModule m = do
   whenVerbose $ debug ("Translating module " <> prettyPrint name)
   runTranslate name globals $ do
     mapM_ translateDecl (mod_decls m)
-
--- Interpret a TIM code store, invoking some function
-interpretCodeStore :: MonadArepa m => CodeStore -> m [Value]
-interpretCodeStore store = do
-  entry <- lookupCompilerOption optEntryPoint
-  args <- lookupCompilerOption optInvokeArgs
-  let fun = mkName (fromMaybe "main" entry)
-  whenVerbose $ debug ("Interpreting code store [entry=" <> prettyPrint fun <> "] [args=" <> prettyPrint args <> "]")
-  (res, trace) <- liftIO $ do
-    runTIM store $ invokeFunction fun args
-  whenVerbose $ dump "Interpreter intermediate states" (prettyPrint trace)
-  case res of
-    Left err -> throwInterpreterError err
-    Right vals -> return vals
 
 ----------------------------------------
 -- Internal translation state

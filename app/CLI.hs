@@ -24,7 +24,6 @@ parseCliOpts = do
       switch      (long "verbose"   <> short 'v'                   <>             help "show extra debug information") <*>
       switch      (long "interpret" <> short 'x'                   <>             help "interpret the input instead of compiling it") <*>
       optionalStr (long "entry"     <> short 'e' <> metavar "NAME" <>             help "set the module's entry point") <*>
-      option auto (long "args"      <> short 'a'                   <> value [] <> help "set the module's entry point") <*>
       option auto (                    short 'O' <> metavar "NUM"  <> value 0  <> help "set the optimization level") <*>
       manyStr     (long "include"   <> short 'I' <> metavar "PATH" <>             help "include extra LLVM/C files during linking") <*>
       switch      (long "debug"     <> short 'D' <>                               help "enable debug messages in the compiled binary")

@@ -66,6 +66,7 @@ library arepa-lib
     Language.Arepa.Compiler
     Language.Arepa.Compiler.Codegen
     Language.Arepa.Compiler.Error
+    Language.Arepa.Compiler.Interpret
     Language.Arepa.Compiler.IO
     Language.Arepa.Compiler.Options
     Language.Arepa.Compiler.Parser
