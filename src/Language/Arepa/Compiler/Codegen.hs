@@ -52,14 +52,14 @@ renderLLVM m = return (ppllvm m)
 
 data CodegenState = CodegenState {
   cg_globals :: Map Name LLVM.Operand,   -- Global operands
-  cg_context :: [Map Name LLVM.Operand], -- Local operands
+  -- cg_context :: [Map Name LLVM.Operand], -- Local operands
   cg_strings :: Map Text LLVM.Operand   -- Global strings
 }
 
 emptyCodegenState :: CodegenState
 emptyCodegenState = CodegenState {
   cg_globals = mempty,
-  cg_context = mempty,
+  -- cg_context = mempty,
   cg_strings = mempty
 }
 
@@ -98,7 +98,7 @@ lookupGlobalOperand name = do
   case Map.lookup name globals of
     Nothing -> do
       warning $ "Emitting implicit extern for " <> prettyPrint name
-      IR.extern (mkMangledFunctionName name) [] voidType
+      IR.extern (mkMangledFunctionName name) [] LLVM.void
     Just op -> do
       whenVerbose $ debug ("Found operand for " <> prettyPrint name <> ": " <> prettyPrint op)
       return op
@@ -189,7 +189,7 @@ emitRTS = do
 
 emitMain :: MonadLLVM m => Name -> m ()
 emitMain name = do
-  void $ IR.function "main" [] intType $ \[] -> do
+  void $ IR.function "main" [] LLVM.i32 $ \[] -> do
     callVoidRTS "tim_start" []
     fun <- lookupGlobalOperand name
     IR.call fun []
@@ -198,25 +198,25 @@ emitMain name = do
 
 rtsFunctions :: [(Name, [LLVM.Type], LLVM.Type)]
 rtsFunctions = [
-    ("tim_start",                  [],                  voidType),
-    ("tim_take",                   [longType],          voidType),
-    ("tim_push_argument_argument", [longType],          voidType),
-    ("tim_push_argument_int",      [valueType IntT],    voidType),
-    ("tim_push_argument_double",   [valueType DoubleT], voidType),
-    ("tim_push_argument_string",   [valueType StringT], voidType),
-    ("tim_push_argument_label",    [funPtrType],        voidType),
-    ("tim_push_value_int",         [valueType IntT],    voidType),
-    ("tim_push_value_double",      [valueType DoubleT], voidType),
-    ("tim_push_value_string",      [valueType StringT], voidType),
-    ("tim_pop_value_int",          [],                  LLVM.ptr (valueType IntT)),
-    ("tim_pop_value_double",       [],                  LLVM.ptr (valueType DoubleT)),
-    ("tim_pop_value_string",       [],                  LLVM.ptr (valueType StringT)),
-    ("tim_enter_argument",         [longType],          voidType),
-    ("tim_enter_int",              [valueType IntT],    voidType),
-    ("tim_enter_double",           [valueType DoubleT], voidType),
-    ("tim_enter_string",           [valueType StringT], voidType),
-    ("tim_enter_label",            [funPtrType],        voidType),
-    ("tim_return",                 [],                  voidType)
+    ("tim_start",                  [],            LLVM.void),
+    ("tim_take",                   [LLVM.i64],    LLVM.void),
+    ("tim_push_argument_argument", [LLVM.i64],    LLVM.void),
+    ("tim_push_argument_int",      [intVType],    LLVM.void),
+    ("tim_push_argument_double",   [doubleVType], LLVM.void),
+    ("tim_push_argument_string",   [stringVType], LLVM.void),
+    ("tim_push_argument_label",    [funPtrType],  LLVM.void),
+    ("tim_push_value_int",         [intVType],    LLVM.void),
+    ("tim_push_value_double",      [doubleVType], LLVM.void),
+    ("tim_push_value_string",      [stringVType], LLVM.void),
+    ("tim_pop_value_int",          [],            LLVM.ptr intVType),
+    ("tim_pop_value_double",       [],            LLVM.ptr doubleVType),
+    ("tim_pop_value_string",       [],            LLVM.ptr stringVType),
+    ("tim_enter_argument",         [LLVM.i64],    LLVM.void),
+    ("tim_enter_int",              [intVType],    LLVM.void),
+    ("tim_enter_double",           [doubleVType], LLVM.void),
+    ("tim_enter_string",           [stringVType], LLVM.void),
+    ("tim_enter_label",            [funPtrType],  LLVM.void),
+    ("tim_return",                 [],            LLVM.void)
   ]
 
 
@@ -254,8 +254,7 @@ registerGlobals :: MonadLLVM m => CodeStore -> m ()
 registerGlobals store = do
   whenVerbose $ debug "Registering global definitions"
   forM_ (Map.keys (store_blocks store)) $ \name -> do
-    let ty = LLVM.ptr voidFunType
-    let op = mkGlobalOperand (mkMangledFunctionName name) ty
+    let op = mkGlobalOperand (mkMangledFunctionName name) funPtrType
     registerGlobalOperand name op
 
 
@@ -272,7 +271,7 @@ emitCodeBlock :: MonadLLVM m => Name -> CodeBlock -> m ()
 emitCodeBlock name code = void $ do
   whenVerbose $ debug ("Emitting code block " <> prettyPrint name)
   let funName = mkMangledFunctionName name
-  IR.function funName [] voidType $ \[] -> do
+  IR.function funName [] LLVM.void $ \[] -> do
     mapM_ emitInstr (toList code)
 
 
@@ -291,14 +290,11 @@ emitInstr instr = do
       fun <- lookupGlobalOperand name
       callVoidRTS "tim_enter_label" [fun]
     EnterI (ValueM (IntV n)) -> do
-      int <- IR.bitcast (mkIntV n) (valueType IntT)
-      callVoidRTS "tim_enter_value_int" [int]
+      callVoidRTS "tim_enter_value_int" [mkIntV n]
     EnterI (ValueM (DoubleV n)) -> do
-      double <- IR.bitcast (mkDoubleV n) (valueType DoubleT)
-      callVoidRTS "tim_enter_value_double" [double]
+      callVoidRTS "tim_enter_value_double" [mkDoubleV n]
     EnterI (ValueM (StringV s)) -> do
-      op <- registerString s
-      string <- IR.bitcast op (valueType StringT)
+      string <- registerString s
       callVoidRTS "tim_enter_value_string" [string]
     EnterI (ValueM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot enter a void argument"
@@ -309,14 +305,11 @@ emitInstr instr = do
       fun <- lookupGlobalOperand name
       callVoidRTS "tim_push_argument_label" [fun]
     PushArgI (ValueM (IntV n)) -> do
-      int <- IR.bitcast (mkIntV n) (valueType IntT)
-      callVoidRTS "tim_push_argument_int" [int]
+      callVoidRTS "tim_push_argument_int" [mkIntV n]
     PushArgI (ValueM (DoubleV n)) -> do
-      double <- IR.bitcast (mkDoubleV n) (valueType DoubleT)
-      callVoidRTS "tim_push_argument_double" [double]
+      callVoidRTS "tim_push_argument_double" [mkDoubleV n]
     PushArgI (ValueM (StringV s)) -> do
-      op <- registerString s
-      string <- IR.bitcast op (valueType StringT)
+      string <- registerString s
       callVoidRTS "tim_push_argument_string" [string]
     PushArgI (ValueM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot push a void argument"
@@ -324,14 +317,11 @@ emitInstr instr = do
     PushValueI FramePtrM -> do
       throwInternalError "emitInstr: impossible! we never generate instructions masking the frame pointer"
     PushValueI (InlineM (IntV n)) -> do
-      int <- IR.bitcast (mkIntV n) (valueType IntT)
-      callVoidRTS "tim_push_value_int" [int]
+      callVoidRTS "tim_push_value_int" [mkIntV n]
     PushValueI (InlineM (DoubleV n)) -> do
-      double <- IR.bitcast (mkDoubleV n) (valueType DoubleT)
-      callVoidRTS "tim_push_value_double" [double]
+      callVoidRTS "tim_push_value_double" [mkDoubleV n]
     PushValueI (InlineM (StringV s)) -> do
-      op <- registerString s
-      string <- IR.bitcast op (valueType StringT)
+      string <- registerString s
       callVoidRTS "tim_push_value_string" [string]
     PushValueI (InlineM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot push a void value"
@@ -375,17 +365,25 @@ emitInstr instr = do
 -- Low-level utilities
 ----------------------------------------
 
-mkGlobalStringName :: Int -> LLVM.Name
-mkGlobalStringName n = LLVM.mkName ("__string__." <> show n)
+-- Name manipulation
 
 mkGlobalOperand :: LLVM.Name -> LLVM.Type -> LLVM.Operand
 mkGlobalOperand name ty = LLVM.ConstantOperand (Constant.GlobalReference ty name)
 
+mkGlobalStringName :: Int -> LLVM.Name
+mkGlobalStringName n = LLVM.mkName ("__string__." <> show n)
+
 mkMangledFunctionName :: Name -> LLVM.Name
 mkMangledFunctionName name = LLVM.mkName ("__sc_" <> fromName (zEncode name) <> "__")
 
+-- Creating literal values
+
+-- C long
 mkLong :: Int -> LLVM.Operand
 mkLong n = IR.int64 (fromIntegral n)
+
+-- Arepa values
+-- NOTE: make sure that these functions match the types defined below!
 
 mkIntV :: Int -> LLVM.Operand
 mkIntV n = IR.int64 (fromIntegral n)
@@ -397,25 +395,32 @@ mkDoubleV = IR.double
 -- LLVM types
 ----------------------------------------
 
-voidType :: LLVM.Type
-voidType = LLVM.VoidType
-
-voidFunType :: LLVM.Type
-voidFunType = LLVM.FunctionType voidType [] False
-
+-- The type of a compiled supercombinator
+-- In C: void (*f())
 funPtrType :: LLVM.Type
-funPtrType = LLVM.ptr voidFunType
+funPtrType = LLVM.ptr (LLVM.FunctionType LLVM.void [] False)
+
+----------------------------------------
+-- Value types
 
 valueType :: Type -> LLVM.Type
-valueType IntT    = LLVM.i64
-valueType DoubleT = LLVM.double
-valueType StringT = LLVM.ptr LLVM.i8
-valueType VoidT   = LLVM.VoidType
+valueType IntT    = intVType
+valueType DoubleT = doubleVType
+valueType StringT = stringVType
+valueType VoidT   = voidVType
 
 -- NOTE: the ones below are platform dependent!
 
-intType :: LLVM.Type
-intType = LLVM.IntegerType 32
+intVType :: LLVM.Type
+intVType = LLVM.i64
 
-longType :: LLVM.Type
-longType = LLVM.IntegerType 64
+doubleVType :: LLVM.Type
+doubleVType = LLVM.double
+
+stringVType :: LLVM.Type
+stringVType = LLVM.ptr LLVM.i8
+
+voidVType :: LLVM.Type
+voidVType = LLVM.void
+
+
