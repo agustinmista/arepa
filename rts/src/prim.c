@@ -48,7 +48,7 @@ String __prim_read_file__(String path) {
     assert(f);
 
     fseek(f, 0, SEEK_END);
-    int length = ftell(f);
+    size_t length = ftell(f);
     fseek(f, 0, SEEK_SET);
 
     String data = rts_malloc(length);
