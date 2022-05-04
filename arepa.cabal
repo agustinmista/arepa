@@ -49,8 +49,10 @@ common common-arepa
     rts/include
   includes:
     rts/include/prim.h
+    rts/include/mem.h
   c-sources:
     rts/src/prim.c
+    rts/src/mem.c
 
 library arepa-lib
   import: common-arepa
@@ -64,6 +66,7 @@ library arepa-lib
     Language.Arepa.Compiler
     Language.Arepa.Compiler.Codegen
     Language.Arepa.Compiler.Error
+    Language.Arepa.Compiler.Interpret
     Language.Arepa.Compiler.IO
     Language.Arepa.Compiler.Options
     Language.Arepa.Compiler.Parser
@@ -92,6 +95,7 @@ library arepa-lib
     , llvm-hs-pure
     , llvm-hs-pretty
     , template-haskell
+    , zenc
 
 
 executable arepa
@@ -100,15 +104,23 @@ executable arepa
   main-is: Main.hs
   other-modules:
     CLI
+    Clang
   build-depends:
       arepa-lib
+    , text
     , optparse-applicative
+    , process
+    , filepath
+    , directory
+    , temporary
 
 test-suite arepa-tests
   import: common-arepa
   type: exitcode-stdio-1.0
   hs-source-dirs: test
   main-is: Main.hs
+  other-modules:
+    TIMTests
   build-depends:
       arepa-lib
     , text

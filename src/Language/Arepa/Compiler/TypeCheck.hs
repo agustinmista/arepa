@@ -10,7 +10,10 @@ import Language.Arepa.Compiler.Monad
 ----------------------------------------
 
 typeCheckModule :: MonadArepa m => CoreModule -> m CoreModule
-typeCheckModule = return -- no type-checking at the moment
+typeCheckModule m = do
+  let name = mod_name m
+  whenVerbose $ debug ("Type checking module " <> prettyPrint name)
+  return m
 
 ----------------------------------------
 -- The type checking monad

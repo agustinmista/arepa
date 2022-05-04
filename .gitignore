@@ -3,6 +3,8 @@
 *
 !*/
 !*.*
+# C stuff
+*.gch
 # Haskell stuff
 dist
 dist-*
@@ -27,3 +29,5 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
+# LLVM stuff
+*.ll

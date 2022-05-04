@@ -4,24 +4,22 @@ module Language.Arepa.Compiler.Codegen
   , renderLLVM
   ) where
 
+import GHC.Exts
 import Control.Monad.State
-
-import Data.Char
-import Data.String
 
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
+import Data.Maybe
+
 import Data.Map (Map)
 import Data.Map qualified as Map
 
-import Prettyprinter
+import LLVM.AST          qualified as LLVM
+import LLVM.AST.Type     qualified as LLVM
+import LLVM.AST.Constant qualified as Constant
 
-import GHC.Exts
-
-import LLVM.AST                        qualified as LLVM
-import LLVM.AST.Constant               qualified as Constant
-import LLVM.IRBuilder(MonadModuleBuilder, MonadIRBuilder, ModuleBuilderT, buildModuleT, named)
+import LLVM.IRBuilder(MonadModuleBuilder, MonadIRBuilder, ModuleBuilderT, buildModuleT)
 import LLVM.IRBuilder qualified as IR
 import LLVM.Pretty
 
@@ -40,8 +38,9 @@ emitLLVM :: MonadArepa m => CodeStore -> m LLVMModule
 emitLLVM store = do
   let name = fromName (store_name store)
   runLLVM name $ do
-    initCodegen store
+    registerGlobals store
     emitRTS
+    emitPrimitives
     emitCodeStore store
 
 renderLLVM :: MonadArepa m => LLVMModule -> m Text
@@ -53,14 +52,14 @@ renderLLVM m = return (ppllvm m)
 
 data CodegenState = CodegenState {
   cg_globals :: Map Name LLVM.Operand,   -- Global operands
-  cg_context :: [Map Name LLVM.Operand], -- Local operands
+  -- cg_context :: [Map Name LLVM.Operand], -- Local operands
   cg_strings :: Map Text LLVM.Operand   -- Global strings
 }
 
 emptyCodegenState :: CodegenState
 emptyCodegenState = CodegenState {
   cg_globals = mempty,
-  cg_context = mempty,
+  -- cg_context = mempty,
   cg_strings = mempty
 }
 
@@ -85,47 +84,52 @@ runLLVM name mb = evalStateT (buildModuleT (fromString name) mb) emptyCodegenSta
 -- Global operands
 
 -- Register the operand associated to a global identifier
--- registerGlobalOperand :: MonadLLVM m => Ident -> LLVM.Operand -> m ()
 registerGlobalOperand :: MonadLLVM m => Name -> LLVM.Operand -> m ()
 registerGlobalOperand name op = do
+  whenVerbose $ debug ("Registering global operand " <> prettyPrint op <> " as " <> prettyPrint name)
   modify' $ \st -> st { cg_globals = Map.insert name op (cg_globals st) }
 
 -- Get the operand associated with an identifier
--- lookupGlobalOperand :: MonadLLVM m => Ident -> m LLVM.Operand
+-- NOTE: this emits an extern if the identifier is not a global defined here
 lookupGlobalOperand :: MonadLLVM m => Name -> m LLVM.Operand
 lookupGlobalOperand name = do
+  whenVerbose $ debug ("Looking up global operand of " <> prettyPrint name)
   globals <- gets cg_globals
   case Map.lookup name globals of
-    Nothing -> throwInternalError ("lookupGlobalOperand: operand for global" <+> pretty name <+> "does not exist")
-    Just op -> return op
+    Nothing -> do
+      warning $ "Emitting implicit extern for " <> prettyPrint name
+      IR.extern (mkMangledFunctionName name) [] LLVM.void
+    Just op -> do
+      whenVerbose $ debug ("Found operand for " <> prettyPrint name <> ": " <> prettyPrint op)
+      return op
 
 ----------------------------------------
 -- Local operands
 
--- Register the operand associated to a variable identifier in the closest context
-registerVarOperand :: MonadLLVM m => Name -> LLVM.Operand -> m ()
-registerVarOperand name op = do
-  ctx <- gets cg_context
-  case ctx of
-    [] -> throwInternalError "registerVarOperand: null context"
-    c:cs -> modify' $ \st -> st { cg_context = Map.insert name op c : cs }
+-- -- Register the operand associated to a variable identifier in the closest context
+-- registerVarOperand :: MonadLLVM m => Name -> LLVM.Operand -> m ()
+-- registerVarOperand name op = do
+--   ctx <- gets cg_context
+--   case ctx of
+--     [] -> throwInternalError "registerVarOperand: null context"
+--     c:cs -> modify' $ \st -> st { cg_context = Map.insert name op c : cs }
 
--- Get the operand associated with an identifier
-lookupVarOperand :: MonadLLVM m => Name -> m LLVM.Operand
-lookupVarOperand name = do
-  gets cg_context >>= search
-  where
-    search []     = throwInternalError ("lookupVarOperand: operand for variable" <+> pretty name <+> "does not exist")
-    search (c:cs) = maybe (search cs) return (Map.lookup name c)
+-- -- Get the operand associated with an identifier
+-- lookupVarOperand :: MonadLLVM m => Name -> m LLVM.Operand
+-- lookupVarOperand name = do
+--   gets cg_context >>= search
+--   where
+--     search []     = throwInternalError ("lookupVarOperand: operand for variable" <+> pretty name <+> "does not exist")
+--     search (c:cs) = maybe (search cs) return (Map.lookup name c)
 
--- Run the code inside of a new local context
-insideLocalContext :: MonadLLVM m => m a -> m a
-insideLocalContext ma = do
-  ctx <- gets cg_context
-  modify' $ \st -> st { cg_context = Map.empty : ctx }
-  a <- ma
-  modify' $ \st -> st { cg_context = ctx }
-  return a
+-- -- Run the code inside of a new local context
+-- insideLocalContext :: MonadLLVM m => m a -> m a
+-- insideLocalContext ma = do
+--   ctx <- gets cg_context
+--   modify' $ \st -> st { cg_context = Map.empty : ctx }
+--   a <- ma
+--   modify' $ \st -> st { cg_context = ctx }
+--   return a
 
 ----------------------------------------
 -- Strings literals
@@ -134,23 +138,112 @@ insideLocalContext ma = do
 -- If it is already registered, then return the corresponding operand
 registerString :: MonadLLVM m => Text -> m LLVM.Operand
 registerString str = do
+  whenVerbose $ dump "Registering string" (prettyPrint str)
   strings <- gets cg_strings
   case Map.lookup str strings of
-    Just op -> return op
+    Just op -> do
+      whenVerbose $ debug ("The string already had a global operand: " <> prettyPrint op)
+      return op
     Nothing -> do
       let name = mkGlobalStringName (Map.size strings)
       con <- IR.globalStringPtr (Text.unpack str) name
       let op = LLVM.ConstantOperand con
       modify' $ \st -> st { cg_strings = Map.insert str op strings }
+      whenVerbose $ debug ("Created a new global operand: " <> prettyPrint op)
       return op
 
 ----------------------------------------
--- Initializing code generator
+-- Primitives
+
+lookupPrim :: MonadLLVM m => Name -> m Prim
+lookupPrim name = do
+  whenVerbose $ debug ("Looking up primitive operation " <> prettyPrint name)
+  case Map.lookup name primitives of
+    Nothing -> do
+      throwInternalError ("lookupPrim: cannot find primitive operation " <> prettyPrint name)
+    Just prim -> do
+      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyShow (prim_arity prim, prim_type prim))
+      return prim
+
+
+----------------------------------------
+-- Emitting RTS code
 ----------------------------------------
 
-initCodegen :: MonadLLVM m => CodeStore -> m ()
-initCodegen store = do
-  registerGlobals store
+emitRTS :: MonadLLVM m => m ()
+emitRTS = do
+
+  -- RTS evaluation operations
+  whenVerbose $ debug "Emitting RTS externs"
+  forM_ rtsFunctions $ \(name, argTypes, retType) -> do
+    op <- IR.extern (fromName name) argTypes retType
+    registerGlobalOperand name op
+
+  -- RTS main wrapper (only when necessary)
+  whenVerbose $ debug "Emitting RTS main()"
+  output <- lookupCompilerOption optOutput
+  when (isJust output) $ do
+    entry <- lookupCompilerOption optEntryPoint
+    emitMain (mkName (fromMaybe "main" entry))
+
+
+emitMain :: MonadLLVM m => Name -> m ()
+emitMain name = do
+  void $ IR.function "main" [] LLVM.i32 $ \[] -> do
+    callVoidRTS "tim_start" []
+    fun <- lookupGlobalOperand name
+    IR.call fun []
+    IR.ret (IR.int32 0)
+
+
+rtsFunctions :: [(Name, [LLVM.Type], LLVM.Type)]
+rtsFunctions = [
+    ("tim_start",                  [],            LLVM.void),
+    ("tim_take",                   [LLVM.i64],    LLVM.void),
+    ("tim_push_argument_argument", [LLVM.i64],    LLVM.void),
+    ("tim_push_argument_int",      [intVType],    LLVM.void),
+    ("tim_push_argument_double",   [doubleVType], LLVM.void),
+    ("tim_push_argument_string",   [stringVType], LLVM.void),
+    ("tim_push_argument_label",    [funPtrType],  LLVM.void),
+    ("tim_push_value_int",         [intVType],    LLVM.void),
+    ("tim_push_value_double",      [doubleVType], LLVM.void),
+    ("tim_push_value_string",      [stringVType], LLVM.void),
+    ("tim_pop_value_int",          [],            LLVM.ptr intVType),
+    ("tim_pop_value_double",       [],            LLVM.ptr doubleVType),
+    ("tim_pop_value_string",       [],            LLVM.ptr stringVType),
+    ("tim_enter_argument",         [LLVM.i64],    LLVM.void),
+    ("tim_enter_int",              [intVType],    LLVM.void),
+    ("tim_enter_double",           [doubleVType], LLVM.void),
+    ("tim_enter_string",           [stringVType], LLVM.void),
+    ("tim_enter_label",            [funPtrType],  LLVM.void),
+    ("tim_return",                 [],            LLVM.void)
+  ]
+
+
+callRTS :: (MonadLLVM m, MonadIRBuilder m) => Name -> [LLVM.Operand] -> m LLVM.Operand
+callRTS name args = do
+  fun <- lookupGlobalOperand name
+  IR.call fun [ (arg, []) | arg <- args ]
+
+callVoidRTS :: (MonadLLVM m, MonadIRBuilder m) => Name -> [LLVM.Operand] -> m ()
+callVoidRTS name args = void (callRTS name args)
+
+----------------------------------------
+-- Emitting primitive operations
+----------------------------------------
+
+emitPrimitives :: MonadLLVM m => m ()
+emitPrimitives = do
+  whenVerbose $ debug "Emitting primitive operations externs"
+  forM_ (Map.toList primitives) $ \(name, prim) -> do
+    let argTypes = valueType <$> fst (prim_type prim)
+    let retType  = valueType (snd (prim_type prim))
+    op <- IR.extern (fromName name) argTypes retType
+    registerGlobalOperand name op
+
+----------------------------------------
+-- Emitting user code
+----------------------------------------
 
 -- Register global declarations before we start emitting code so out-of-order
 -- and mutually-recursive functions can be generated using `IR.function`.
@@ -159,83 +252,175 @@ initCodegen store = do
 -- `function` is the same as the name of the global, no fresh name is generated.
 registerGlobals :: MonadLLVM m => CodeStore -> m ()
 registerGlobals store = do
+  whenVerbose $ debug "Registering global definitions"
   forM_ (Map.keys (store_blocks store)) $ \name -> do
-    let ty = mkVoidFunType
-    let op = mkGlobalOperand name ty
+    let op = mkGlobalOperand (mkMangledFunctionName name) funPtrType
     registerGlobalOperand name op
 
-----------------------------------------
--- Emitting RTS code
-----------------------------------------
-
-emitRTS :: MonadLLVM m => m ()
-emitRTS = return ()
-
-----------------------------------------
--- Emitting user code
-----------------------------------------
 
 -- Code stores
 emitCodeStore :: MonadLLVM m => CodeStore -> m ()
 emitCodeStore store = do
+  whenVerbose $ debug ("Emitting code store " <> prettyPrint (store_name store))
   forM_ (Map.toList (store_blocks store)) $ \(name, code) -> do
     emitCodeBlock name code
+
 
 -- Code blocks
 emitCodeBlock :: MonadLLVM m => Name -> CodeBlock -> m ()
 emitCodeBlock name code = void $ do
-  IR.function (fromName name) [] LLVM.VoidType $ \_ -> do
-    ----------------------------------------
-    IR.block `named` (fromName name <> ".entry")
+  whenVerbose $ debug ("Emitting code block " <> prettyPrint name)
+  let funName = mkMangledFunctionName name
+  IR.function funName [] LLVM.void $ \[] -> do
     mapM_ emitInstr (toList code)
+
 
 -- Instructions
 emitInstr :: (MonadIRBuilder m, MonadLLVM m) => Instr -> m ()
 emitInstr instr = do
+  whenVerbose $ dump "Emitting instruction" (prettyPrint instr)
   case instr of
-    TakeArgI _n -> do
-      notImplemented "emitInstr/TakeI"
-    EnterI mode -> do
-      _am <- emitArgMode mode
-      case mode of
-        ArgM {} -> notImplemented "emitInstr/EnterI/ArgM"
-        LabelM {} -> notImplemented "emitInstr/EnterI/LabelM"
-        ValueM {} -> notImplemented "emitInstr/EnterI/ValueM"
-    PushArgI _mode -> do
-      notImplemented "emitInstr/PushArgI"
-    PushValueI _mode -> do
-      notImplemented "emitInstr/PushValueI"
-    CallI _prim -> do
-      notImplemented "emitInstr/CallI"
+    -- Take
+    TakeArgI n -> do
+      callVoidRTS "tim_take" [mkLong n]
+    -- Enter
+    EnterI (ArgM n) -> do
+      callVoidRTS "tim_enter_argument" [mkLong n]
+    EnterI (LabelM name) -> do
+      fun <- lookupGlobalOperand name
+      callVoidRTS "tim_enter_label" [fun]
+    EnterI (ValueM (IntV n)) -> do
+      callVoidRTS "tim_enter_value_int" [mkIntV n]
+    EnterI (ValueM (DoubleV n)) -> do
+      callVoidRTS "tim_enter_value_double" [mkDoubleV n]
+    EnterI (ValueM (StringV s)) -> do
+      string <- registerString s
+      callVoidRTS "tim_enter_value_string" [string]
+    EnterI (ValueM (VoidV _)) -> do
+      throwInternalError "emitInstr: impossible! cannot enter a void argument"
+    -- Push arguments
+    PushArgI (ArgM n) -> do
+      callVoidRTS "tim_push_argument_argument" [mkLong n]
+    PushArgI (LabelM name) -> do
+      fun <- lookupGlobalOperand name
+      callVoidRTS "tim_push_argument_label" [fun]
+    PushArgI (ValueM (IntV n)) -> do
+      callVoidRTS "tim_push_argument_int" [mkIntV n]
+    PushArgI (ValueM (DoubleV n)) -> do
+      callVoidRTS "tim_push_argument_double" [mkDoubleV n]
+    PushArgI (ValueM (StringV s)) -> do
+      string <- registerString s
+      callVoidRTS "tim_push_argument_string" [string]
+    PushArgI (ValueM (VoidV _)) -> do
+      throwInternalError "emitInstr: impossible! cannot push a void argument"
+    -- Push values
+    PushValueI FramePtrM -> do
+      throwInternalError "emitInstr: impossible! we never generate instructions masking the frame pointer"
+    PushValueI (InlineM (IntV n)) -> do
+      callVoidRTS "tim_push_value_int" [mkIntV n]
+    PushValueI (InlineM (DoubleV n)) -> do
+      callVoidRTS "tim_push_value_double" [mkDoubleV n]
+    PushValueI (InlineM (StringV s)) -> do
+      string <- registerString s
+      callVoidRTS "tim_push_value_string" [string]
+    PushValueI (InlineM (VoidV _)) -> do
+      throwInternalError "emitInstr: impossible! cannot push a void value"
+    -- Call
+    CallI name -> do
+      -- Find the primitive function operand
+      fun <- lookupGlobalOperand name
+      -- Pop the arguments
+      prim <- lookupPrim name
+      let (argTypes, retType) = prim_type prim
+      args <- forM argTypes $ \case
+        IntT -> do
+          ptr <- callRTS "tim_pop_value_int" []
+          IR.load ptr 0
+        DoubleT -> do
+          ptr <- callRTS "tim_pop_value_double" []
+          IR.load ptr 0
+        StringT -> do
+          ptr <- callRTS "tim_pop_value_string" []
+          IR.load ptr 0
+        VoidT -> do
+          throwInternalError "emitInstr: impossible! cannot pop a void value"
+      -- Call the function
+      res <- IR.call fun [ (arg, []) | arg <- args ]
+      -- Push the return type
+      case retType of
+        IntT -> do
+          callVoidRTS "tim_push_value_int" [res]
+        DoubleT -> do
+          callVoidRTS "tim_push_value_double" [res]
+        StringT -> do
+          callVoidRTS "tim_push_value_string" [res]
+        VoidT -> do
+          return ()
+    -- Return
     ReturnI -> do
-      notImplemented "emitInstr/ReturnI"
+      callVoidRTS "tim_return" []
 
-
--- Addressing modes
-emitArgMode :: MonadLLVM m => ArgMode -> m LLVM.Operand
-emitArgMode mode = do
-  case mode of
-    ArgM offset -> return (IR.int64 (fromIntegral offset))
-    LabelM name -> lookupGlobalOperand name
-    ValueM value -> emitValue value
-
--- Literals
-emitValue :: MonadLLVM m => Value -> m LLVM.Operand
-emitValue (IntV n) = return (IR.int64 (fromIntegral n))
-emitValue (DoubleV n) = return (IR.double n)
-emitValue (CharV c) = return (IR.int32 (fromIntegral (ord c)))
-emitValue (StringV str) = registerString str
-emitValue (VoidV _) = throwInternalError "emitValue: cannot emit void values"
 
 ----------------------------------------
 -- Low-level utilities
 ----------------------------------------
 
+-- Name manipulation
+
+mkGlobalOperand :: LLVM.Name -> LLVM.Type -> LLVM.Operand
+mkGlobalOperand name ty = LLVM.ConstantOperand (Constant.GlobalReference ty name)
+
 mkGlobalStringName :: Int -> LLVM.Name
 mkGlobalStringName n = LLVM.mkName ("__string__." <> show n)
 
-mkGlobalOperand :: Name -> LLVM.Type -> LLVM.Operand
-mkGlobalOperand name ty = LLVM.ConstantOperand (Constant.GlobalReference ty (fromName name))
+mkMangledFunctionName :: Name -> LLVM.Name
+mkMangledFunctionName name = LLVM.mkName ("__sc_" <> fromName (zEncode name) <> "__")
 
-mkVoidFunType :: LLVM.Type
-mkVoidFunType = LLVM.FunctionType LLVM.VoidType [] False
+-- Creating literal values
+
+-- C long
+mkLong :: Int -> LLVM.Operand
+mkLong n = IR.int64 (fromIntegral n)
+
+-- Arepa values
+-- NOTE: make sure that these functions match the types defined below!
+
+mkIntV :: Int -> LLVM.Operand
+mkIntV n = IR.int64 (fromIntegral n)
+
+mkDoubleV :: Double -> LLVM.Operand
+mkDoubleV = IR.double
+
+----------------------------------------
+-- LLVM types
+----------------------------------------
+
+-- The type of a compiled supercombinator
+-- In C: void (*f())
+funPtrType :: LLVM.Type
+funPtrType = LLVM.ptr (LLVM.FunctionType LLVM.void [] False)
+
+----------------------------------------
+-- Value types
+
+valueType :: Type -> LLVM.Type
+valueType IntT    = intVType
+valueType DoubleT = doubleVType
+valueType StringT = stringVType
+valueType VoidT   = voidVType
+
+-- NOTE: the ones below are platform dependent!
+
+intVType :: LLVM.Type
+intVType = LLVM.i64
+
+doubleVType :: LLVM.Type
+doubleVType = LLVM.double
+
+stringVType :: LLVM.Type
+stringVType = LLVM.ptr LLVM.i8
+
+voidVType :: LLVM.Type
+voidVType = LLVM.void
+
+

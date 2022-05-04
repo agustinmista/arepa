@@ -3,8 +3,7 @@ module Language.Arepa.Compiler.Parser
   , parseModule
   , parseDecl
   , parseExpr
-  )
-  where
+  ) where
 
 import Control.Monad.Extra
 
@@ -28,13 +27,19 @@ import Language.Arepa.Compiler.Monad
 ----------------------------------------
 
 parseModule :: MonadArepa m => Text -> m CoreModule
-parseModule = runParser (contents module')
+parseModule text = do
+  whenVerbose $ dump "Parsing module" text
+  runParser (contents module') text
 
 parseDecl :: MonadArepa m => Text -> m CoreDecl
-parseDecl = runParser (contents decl)
+parseDecl text = do
+  whenVerbose $ dump "Parsing declaration" text
+  runParser (contents decl) text
 
 parseExpr :: MonadArepa m => Text -> m CoreExpr
-parseExpr = runParser (contents expr)
+parseExpr text = do
+  whenVerbose $ dump "Parsing expression" text
+  runParser (contents expr) text
 
 ----------------------------------------
 -- The parser monad
@@ -125,7 +130,7 @@ lamE = do
 letE :: MonadArepa m => Parser m CoreExpr
 letE = do
   isRec <- try (symbol "letrec" $> True)
-           <|> symbol "let" $> False
+           <|>  symbol "let"    $> False
   binds <- parens $ many $ parens $ (,) <$> name <*> expr
   body <- expr
   return (LetE isRec binds body)
@@ -166,7 +171,7 @@ defA = do
 
 lit :: MonadArepa m => Parser m Lit
 lit = label "literal" $ do
-  try doubleL <|> intL <|> charL <|> stringL
+  try doubleL <|> intL <|> stringL
 
 intL :: MonadArepa m => Parser m Lit
 intL = do
@@ -177,9 +182,6 @@ doubleL :: MonadArepa m => Parser m Lit
 doubleL = do
   n <- signed float
   return (DoubleL n)
-
-charL :: MonadArepa m => Parser m Lit
-charL = CharL <$> charLiteral
 
 stringL :: MonadArepa m => Parser m Lit
 stringL = StringL <$> stringLiteral
@@ -226,7 +228,7 @@ contents p = whitespace *> p <* eof
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
 identInitialChar :: MonadArepa m => Parser m Char
-identInitialChar = letterChar <|> satisfy (`elem` ("!$&*/:<=>?^~#_\\" :: [Char]))
+identInitialChar = letterChar <|> satisfy (`elem` (".%!$&*/:<=>?^~#_\\" :: [Char]))
 
 identSubsequentChar :: MonadArepa m => Parser m Char
 identSubsequentChar = identInitialChar <|> digitChar <|> identPeculiarChar
@@ -272,6 +274,9 @@ float = Lexer.float <* whitespace
 decimal :: MonadArepa m => Parser m Int
 decimal = Lexer.decimal <* whitespace
 
+stringLiteral :: MonadArepa m => Parser m Text
+stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"')) <* whitespace
+
 parens :: MonadArepa m => Parser m a -> Parser m a
 parens = between (symbol "(") (symbol ")")
 
@@ -280,12 +285,6 @@ braces = between (symbol "{") (symbol "}")
 
 brackets :: MonadArepa m => Parser m a -> Parser m a
 brackets = between (symbol "[") (symbol "]")
-
-charLiteral :: MonadArepa m => Parser m Char
-charLiteral = between (char '\'') (char '\'') Lexer.charLiteral
-
-stringLiteral :: MonadArepa m => Parser m Text
-stringLiteral = Text.pack <$> (char '\"' *> manyTill Lexer.charLiteral (char '\"'))
 
 comma :: MonadArepa m => Parser m ()
 comma = void $ symbol ","

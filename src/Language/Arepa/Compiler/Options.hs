@@ -1,8 +1,5 @@
 module Language.Arepa.Compiler.Options where
 
-import Data.Name
-import Language.TIM
-
 ----------------------------------------
 -- Compiler options
 ----------------------------------------
@@ -13,8 +10,10 @@ data ArepaOpts = ArepaOpts {
   optDump :: [DumpOpt],
   optVerbose :: Bool,
   optInterpret :: Bool,
-  optEntryPoint :: Name,
-  optInvokeArgs :: [Value]
+  optEntryPoint :: Maybe String,
+  optOptimize :: Int,
+  optInclude :: [FilePath],
+  optDebug :: Bool
 } deriving (Show, Read, Eq, Ord)
 
 defaultOpts :: ArepaOpts
@@ -24,8 +23,10 @@ defaultOpts :: ArepaOpts = ArepaOpts {
   optDump = [],
   optVerbose = False,
   optInterpret = False,
-  optEntryPoint = "main",
-  optInvokeArgs = []
+  optEntryPoint = Nothing,
+  optOptimize = 0,
+  optInclude = [],
+  optDebug = False
 }
 
 -- Dump options

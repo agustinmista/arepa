@@ -9,7 +9,6 @@ import Prettyprinter
 data Type =
     IntT
   | DoubleT
-  | CharT
   | StringT
   | VoidT
   deriving (Show, Eq, Read, Ord)
@@ -17,6 +16,5 @@ data Type =
 instance Pretty Type where
   pretty IntT    = "Int"
   pretty DoubleT = "Double"
-  pretty CharT   = "Char"
   pretty StringT = "String"
   pretty VoidT   = "Void"
