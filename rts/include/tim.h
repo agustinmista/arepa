@@ -22,19 +22,19 @@ void tim_take(long range);
 
 void tim_push_argument_argument(long offset);
 
-void tim_push_argument_int(Int literal);
+void tim_push_argument_int(Int value);
 
-void tim_push_argument_double(Double literal);
+void tim_push_argument_double(Double value);
 
-void tim_push_argument_string(String literal);
+void tim_push_argument_string(String value);
 
 void tim_push_argument_label(void (*code)());
 
-void tim_push_value_int(Int literal);
+void tim_push_value_int(Int value);
 
-void tim_push_value_double(Double literal);
+void tim_push_value_double(Double value);
 
-void tim_push_value_string(String literal);
+void tim_push_value_string(String value);
 
 Int* tim_pop_value_int();
 
@@ -44,11 +44,11 @@ String* tim_pop_value_string();
 
 void tim_enter_argument(long argument);
 
-void tim_enter_int(Int literal);
+void tim_enter_int(Int value);
 
-void tim_enter_double(Double literal);
+void tim_enter_double(Double value);
 
-void tim_enter_string(String literal);
+void tim_enter_string(String value);
 
 void tim_enter_label(void (*code)());
 

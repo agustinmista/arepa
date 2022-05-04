@@ -195,24 +195,24 @@ void tim_push_argument_label(void (* code)()){
     return dump_push(argument_stack,make_closure(code,current_frame));
 }
 
-void tim_push_value_int(Int literal){
-    debug_msg("Pushing int %li into the value stack",literal);
+void tim_push_value_int(Int value){
+    debug_msg("Pushing int %li into the value stack",value);
     Int* p = rts_malloc(sizeof(Int));
-    *p = literal;
+    *p = value;
     return dump_push(value_stack,p);
 }
 
-void tim_push_value_double(Double literal){
-    debug_msg("Pushing double %f into the value stack",literal);
+void tim_push_value_double(Double value){
+    debug_msg("Pushing double %f into the value stack",value);
     Double* p = rts_malloc(sizeof(Double));
-    *p = literal;
+    *p = value;
     return dump_push(value_stack,p);
 }
 
-void tim_push_value_string(String literal){
-    debug_msg("Pushing string \"%s\" into the value stack",literal);
+void tim_push_value_string(String value){
+    debug_msg("Pushing string \"%s\" into the value stack",value);
     String* p = rts_malloc(sizeof(String));
-    *p = literal;
+    *p = value;
     return dump_push(value_stack,p);
 }
 
