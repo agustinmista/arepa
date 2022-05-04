@@ -52,12 +52,6 @@ void tim_enter_string(String literal);
 
 void tim_enter_label(void (*code)());
 
-void tim_int_code();
-
-void tim_double_code();
-
-void tim_string_code();
-
 void tim_return();
 
 Int get_int_result();
