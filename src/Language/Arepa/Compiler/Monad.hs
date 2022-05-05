@@ -85,3 +85,6 @@ hasVerboseEnabled = lookupCompilerOption optVerbose
 
 hasInterpretEnabled :: MonadArepa m => m Bool
 hasInterpretEnabled = lookupCompilerOption optInterpret
+
+hasStrictEnabled :: MonadArepa m => m Bool
+hasStrictEnabled = lookupCompilerOption optStrict

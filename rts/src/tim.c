@@ -36,7 +36,7 @@ closure_t* take_n_closures_from_stack(long n){
 
     for (int i = 0; i < n; i++){
         closure_t* argument = (closure_t*) dump_peek(argument_stack);
-        rts_memcpy(&closures[i],argument,sizeof(closure_t));
+        rts_memcpy(&closures[i], argument, sizeof(closure_t));
         dump_pop(argument_stack);
     }
 
@@ -68,7 +68,7 @@ void tim_int_code(){
     debug_msg("Pushing int value %li at %p into the value stack"
              , *int_ptr_as_frame
              ,  int_ptr_as_frame);
-    dump_push(value_stack,int_ptr_as_frame);
+    dump_push(value_stack, int_ptr_as_frame);
     return tim_return();
 }
 
@@ -78,7 +78,7 @@ void tim_double_code(){
     debug_msg("Pushing double value %f at %p into the value stack"
              , *double_ptr_as_frame
              ,  double_ptr_as_frame);
-    dump_push(value_stack,double_ptr_as_frame);
+    dump_push(value_stack, double_ptr_as_frame);
     return tim_return();
 }
 
@@ -88,7 +88,7 @@ void tim_string_code(){
     debug_msg("Pushing string value \"%s\" at %p into the value stack"
              , *string_ptr_as_frame
              ,  string_ptr_as_frame);
-    dump_push(value_stack,string_ptr_as_frame);
+    dump_push(value_stack, string_ptr_as_frame);
     return tim_return();
 }
 
@@ -96,8 +96,8 @@ void tim_string_code(){
 /* Closure construction */
 /************************/
 
-closure_t* make_closure(void (*code)(),void* frame){
-    debug_msg("Creating new closure with code at %p and frame %p",code,frame);
+closure_t* make_closure(void (*code)(), void* frame){
+    debug_msg("Creating new closure with code at %p and frame %p", code, frame);
     closure_t* closure = rts_malloc(sizeof(closure_t));
     closure->code  = code;
     closure->frame = (frame_t) frame;
@@ -109,28 +109,28 @@ closure_t* make_closure(void (*code)(),void* frame){
 }
 
 closure_t* tim_nil_closure(){
-    return make_closure(*tim_nil_code,NULL);
+    return make_closure(*tim_nil_code, NULL);
 }
 
 closure_t* int_closure(Int value){
     debug_msg("Creating new int value closure for %li", value);
     int* int_ptr_as_frame = rts_malloc(sizeof(int));
     *int_ptr_as_frame = value;
-    return make_closure(*tim_int_code,int_ptr_as_frame);
+    return make_closure(*tim_int_code, int_ptr_as_frame);
 }
 
 closure_t* double_closure(Double value){
     debug_msg("Creating new double value closure for %f", value);
     Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
-    return make_closure(*tim_double_code,double_ptr_as_frame);
+    return make_closure(*tim_double_code, double_ptr_as_frame);
 }
 
 closure_t* string_closure(String value){
     debug_msg("Creating new string value closure for \"%s\"", value);
     String* string_ptr_as_frame = rts_malloc(sizeof(String));
     *string_ptr_as_frame = value;
-    return make_closure(*tim_double_code,string_ptr_as_frame);
+    return make_closure(*tim_double_code, string_ptr_as_frame);
 }
 
 /*****************/
@@ -141,7 +141,7 @@ void tim_start_argument_stack(){
     debug_msg("Initializing argument stack");
     argument_stack = dump_new();
     debug_msg("Creating a nil closure for main to land to");
-    return dump_push(argument_stack,tim_nil_closure());
+    return dump_push(argument_stack, tim_nil_closure());
 }
 
 void tim_start(){
@@ -158,7 +158,7 @@ void tim_start(){
 /*******************/
 
 void tim_take (long range){
-    debug_msg("Taking %li arguments from frame %p",range,current_frame);
+    debug_msg("Taking %li arguments from frame %p", range, current_frame);
     assert(range <= argument_stack->current_size);
     frame_t frame = new_frame(range);
     frame->arguments = take_n_closures_from_stack(range);
@@ -170,54 +170,54 @@ void tim_take (long range){
 }
 
 void tim_push_argument_argument(long offset){
-    debug_msg("Pushing argument %li from frame %p",offset,current_frame);
+    debug_msg("Pushing argument %li from frame %p", offset, current_frame);
     assert(offset < current_frame->length);
-    return dump_push(argument_stack,&current_frame->arguments[offset]);
+    return dump_push(argument_stack, &current_frame->arguments[offset]);
 }
 
 void tim_push_argument_int(Int value){
     debug_msg("Pushing int value %li into the stack", value);
-    return dump_push(argument_stack,int_closure(value));
+    return dump_push(argument_stack, int_closure(value));
 }
 
 void tim_push_argument_double(Double value){
     debug_msg("Pushing double value %f into the stack", value);
-    return dump_push(argument_stack,double_closure(value));
+    return dump_push(argument_stack, double_closure(value));
 }
 
 void tim_push_argument_string(String value){
     debug_msg("Pushing string value \"%s\" into the stack", value);
-    return dump_push(argument_stack,string_closure(value));
+    return dump_push(argument_stack, string_closure(value));
 }
 
 void tim_push_argument_label(void (* code)()){
     debug_msg("Pushing code %p", code);
-    return dump_push(argument_stack,make_closure(code,current_frame));
+    return dump_push(argument_stack, make_closure(code, current_frame));
 }
 
 void tim_push_value_int(Int value){
-    debug_msg("Pushing int %li into the value stack",value);
+    debug_msg("Pushing int %li into the value stack", value);
     Int* p = rts_malloc(sizeof(Int));
     *p = value;
-    return dump_push(value_stack,p);
+    return dump_push(value_stack, p);
 }
 
 void tim_push_value_double(Double value){
-    debug_msg("Pushing double %f into the value stack",value);
+    debug_msg("Pushing double %f into the value stack", value);
     Double* p = rts_malloc(sizeof(Double));
     *p = value;
-    return dump_push(value_stack,p);
+    return dump_push(value_stack, p);
 }
 
 void tim_push_value_string(String value){
-    debug_msg("Pushing string \"%s\" into the value stack",value);
+    debug_msg("Pushing string \"%s\" into the value stack", value);
     String* p = rts_malloc(sizeof(String));
     *p = value;
-    return dump_push(value_stack,p);
+    return dump_push(value_stack, p);
 }
 
 void tim_enter_argument(long argument){
-    debug_msg("Entering argument %li from frame %p",argument,current_frame);
+    debug_msg("Entering argument %li from frame %p", argument, current_frame);
     assert(argument<current_frame->length);
     return tim_enter_closure(&(current_frame->arguments[argument]));
 }
@@ -239,7 +239,7 @@ void tim_enter_string(String value){
 
 void tim_enter_label(void (*code)()){
     debug_msg("Entering function closure %p", code);
-    return tim_enter_closure(make_closure(code,current_frame));
+    return tim_enter_closure(make_closure(code, current_frame));
 }
 
 Int get_int_result(){

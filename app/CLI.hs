@@ -13,20 +13,22 @@ import Language.Arepa.Compiler
 
 parseCliOpts :: IO ArepaOpts
 parseCliOpts = do
-  let cliPrefs = prefs (showHelpOnEmpty <> columns 150)
+  let cliPrefs = prefs (showHelpOnEmpty <> columns 140)
   let desc = fullDesc <> progDesc "The migthy arepa compiler"
   customExecParser cliPrefs (info (helper <*> cliOpts) desc)
   where
     cliOpts = ArepaOpts <$>
-      optionalStr (long "input"     <> short 'i' <> metavar "PATH" <>             help "input file") <*>
-      optionalStr (long "output"    <> short 'o' <> metavar "PATH" <>             help "output binary") <*>
-      dumpOpts    (long "dump"      <> short 'd' <> metavar "DUMP" <>             help "dump an internal structure") <*>
-      switch      (long "verbose"   <> short 'v'                   <>             help "show extra debug information") <*>
-      switch      (long "interpret" <> short 'x'                   <>             help "interpret the input instead of compiling it") <*>
-      optionalStr (long "entry"     <> short 'e' <> metavar "NAME" <>             help "set the module's entry point") <*>
-      option auto (                    short 'O' <> metavar "NUM"  <> value 0  <> help "set the optimization level") <*>
-      manyStr     (long "include"   <> short 'I' <> metavar "PATH" <>             help "include extra LLVM/C files during linking") <*>
-      switch      (long "debug"     <> short 'D' <>                               help "enable debug messages in the compiled binary")
+      optionalStr (long "input"     <> short 'i' <> metavar "PATH" <>            help "Input file") <*>
+      optionalStr (long "output"    <> short 'o' <> metavar "PATH" <>            help "Output binary") <*>
+      dumpOpts    (long "dump"      <> short 'd' <> metavar "DUMP" <>            help "Dump an internal structure (ast,ppr,tim,llvm)") <*>
+      switch      (long "verbose"   <> short 'v'                   <>            help "Show extra debug information") <*>
+      switch      (long "interpret" <> short 'x'                   <>            help "Interpret the input instead of compiling it") <*>
+      optionalStr (long "entry"     <> short 'e' <> metavar "NAME" <>            help "Set the module's entry point") <*>
+      option auto (                    short 'O' <> metavar "NUM"  <> value 0 <> help "Set the optimization level") <*>
+      switch      (long "strict"    <> short 's' <>                              help "Disable implicit externs") <*>
+      switch      (long "emit-main" <> short 'm' <>                              help "Always emit a compiled main()") <*>
+      manyStr     (long "include"   <> short 'I' <> metavar "PATH" <>            help "Include extra LLVM/C files during linking") <*>
+      switch      (long "debug"     <> short 'D' <>                              help "Enable debug messages in the compiled binary")
 
 optionalStr :: Mod OptionFields String -> OptParse.Parser (Maybe String)
 optionalStr = optional . strOption

@@ -12,6 +12,8 @@ data ArepaOpts = ArepaOpts {
   optInterpret :: Bool,
   optEntryPoint :: Maybe String,
   optOptimize :: Int,
+  optStrict :: Bool,
+  optEmitMain :: Bool,
   optInclude :: [FilePath],
   optDebug :: Bool
 } deriving (Show, Read, Eq, Ord)
@@ -25,6 +27,8 @@ defaultOpts :: ArepaOpts = ArepaOpts {
   optInterpret = False,
   optEntryPoint = Nothing,
   optOptimize = 0,
+  optStrict = False,
+  optEmitMain = False,
   optInclude = [],
   optDebug = False
 }

@@ -5,6 +5,7 @@ module Language.Arepa.Compiler.Codegen
   ) where
 
 import GHC.Exts
+import Control.Monad.Extra
 import Control.Monad.State
 
 import Data.Text.Lazy (Text)
@@ -90,13 +91,15 @@ registerGlobalOperand name op = do
   modify' $ \st -> st { cg_globals = Map.insert name op (cg_globals st) }
 
 -- Get the operand associated with an identifier
--- NOTE: this emits an extern if the identifier is not a global defined here
+-- NOTE: this emits an extern if the identifier is not a global defined here (and if not --strict)
 lookupGlobalOperand :: MonadLLVM m => Name -> m LLVM.Operand
 lookupGlobalOperand name = do
   whenVerbose $ debug ("Looking up global operand of " <> prettyPrint name)
   globals <- gets cg_globals
   case Map.lookup name globals of
     Nothing -> do
+      whenM hasStrictEnabled $ do
+        throwInternalError ("lookupGlobalOperand: missing operand for " <> prettyPrint name <> " (strict mode is enabled)")
       warning $ "Emitting implicit extern for " <> prettyPrint name
       IR.extern (mkMangledFunctionName name) [] LLVM.void
     Just op -> do
@@ -179,10 +182,11 @@ emitRTS = do
     op <- IR.extern (fromName name) argTypes retType
     registerGlobalOperand name op
 
-  -- RTS main wrapper (only when necessary)
+  -- RTS main wrapper (only when necessary or forced)
   whenVerbose $ debug "Emitting RTS main()"
   output <- lookupCompilerOption optOutput
-  when (isJust output) $ do
+  forced <- lookupCompilerOption optEmitMain
+  when (isJust output || forced) $ do
     entry <- lookupCompilerOption optEntryPoint
     emitMain (mkName (fromMaybe "main" entry))
 
@@ -254,7 +258,8 @@ registerGlobals :: MonadLLVM m => CodeStore -> m ()
 registerGlobals store = do
   whenVerbose $ debug "Registering global definitions"
   forM_ (Map.keys (store_blocks store)) $ \name -> do
-    let op = mkGlobalOperand (mkMangledFunctionName name) funPtrType
+    let mangled = mkMangledFunctionName name
+    let op = LLVM.ConstantOperand (Constant.GlobalReference funPtrType mangled)
     registerGlobalOperand name op
 
 
@@ -367,14 +372,11 @@ emitInstr instr = do
 
 -- Name manipulation
 
-mkGlobalOperand :: LLVM.Name -> LLVM.Type -> LLVM.Operand
-mkGlobalOperand name ty = LLVM.ConstantOperand (Constant.GlobalReference ty name)
-
 mkGlobalStringName :: Int -> LLVM.Name
-mkGlobalStringName n = LLVM.mkName ("__string__." <> show n)
+mkGlobalStringName n = LLVM.mkName ("__string_" <> show n <> "__")
 
 mkMangledFunctionName :: Name -> LLVM.Name
-mkMangledFunctionName name = LLVM.mkName ("__sc_" <> fromName (zEncode name) <> "__")
+mkMangledFunctionName name = LLVM.mkName ("__bb_" <> fromName (zEncode name) <> "__")
 
 -- Creating literal values
 

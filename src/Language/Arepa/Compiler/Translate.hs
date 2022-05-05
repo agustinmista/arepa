@@ -193,7 +193,7 @@ translateCallArgs args cont = do
       mode <- translateValueMode lit
       translateCallArgs rest ([PushValueI mode] <> cont)
     expr : rest -> do
-      label <- freshName "call_arg_cont"
+      label <- freshName "cont"
       saveCodeBlock label cont
       code <- translateExpr expr
       translateCallArgs rest ([PushArgI (LabelM label)] <> code)
@@ -210,7 +210,7 @@ translateArgMode expr = do
       value <- translateLit lit
       return (ValueM value)
     _ -> do
-      label <- freshName "fun_arg"
+      label <- freshName "arg"
       code <- translateExpr expr
       saveCodeBlock label code
       return (LabelM label)

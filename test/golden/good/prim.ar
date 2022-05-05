@@ -1,9 +1,13 @@
 (module prim
+
   (val main
-    (print_int (K (twice (+ 3) (- 30 5)) "dummy")))
+    (print_int
+      (K (twice (+ 3) (- 30 5))
+         "dummy")))
 
   (val mymain
-    (print_string (K "hey!" 3)))
+    (print_string
+      (K "hey!" 3)))
 
   (fun twice (f x) (f (f x)))
 
