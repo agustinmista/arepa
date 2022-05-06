@@ -11,7 +11,7 @@ import Data.Text.Lazy (Text)
 import Data.Stack (Stack)
 import Data.Stack qualified as Stack
 
-import Data.Heap (Heap, Addr)
+import Data.Heap (Heap)
 import Data.Heap qualified as Heap
 
 import Data.Map qualified as Map
@@ -227,11 +227,14 @@ derefClosure mode = do
       case curr_frame of
         AddrP addr -> do
           case Heap.deref addr heap of
-            Nothing -> throwTIMError "derefClosure: cannot find frame"
+            Nothing -> do
+              throwTIMError "derefClosure: cannot find frame"
             Just frame -> do
               case frameOffset offset frame of
-                Nothing -> throwTIMError "derefClosure: invalid frame offset"
-                Just closure -> return closure
+                Nothing -> do
+                  throwTIMError "derefClosure: invalid frame offset"
+                Just closure -> do
+                  return closure
         _ -> do
           throwTIMError "derefClosure: dereferencing an argument offset requires an address frame pointer"
     LabelM v -> do
@@ -241,10 +244,17 @@ derefClosure mode = do
       let litCode = [PushValueI FramePtrM, ReturnI]
       return (mkClosure litCode (ValueP lit))
 
--- Update a closure in the heap
-updateClosure :: Addr -> Offset -> Closure -> TIM ()
-updateClosure addr offset closure = do
+-- Update a closure in the current frame
+updateClosure :: Offset -> Closure -> TIM ()
+updateClosure offset closure = do
   st <- get
-  case Heap.update (updateFrame offset closure) addr (tim_heap st) of
-    Nothing -> throwTIMError "updateClosure: invalid frame address or frame offset"
-    Just heap -> put st { tim_heap = heap }
+  let curr_frame = tim_curr_frame st
+  case curr_frame of
+    AddrP addr -> do
+      case Heap.update (updateFrame offset closure) addr (tim_heap st) of
+        Nothing -> do
+          throwTIMError "updateClosure: invalid frame address or frame offset"
+        Just heap -> do
+          put st { tim_heap = heap }
+    _ -> do
+      throwTIMError "updateClosure: updating a closure in the current frame requires an address frame pointer"
