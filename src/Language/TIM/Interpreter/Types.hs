@@ -46,12 +46,12 @@ type Offset = Int
 
 updateFrame :: Offset -> Closure -> Frame -> Maybe Frame
 updateFrame offset closure frame
-  | offset > 0 && offset < frame_size frame =
+  | offset >= 0 && offset < frame_size frame =
       Just frame {
         frame_closures =
-          take (offset-1) (frame_closures frame) <>
+          take offset (frame_closures frame) <>
           [closure] <>
-          drop offset (frame_closures frame)
+          drop (offset+1) (frame_closures frame)
       }
   | otherwise = Nothing
 
@@ -81,3 +81,6 @@ instance Pretty Closure where
 
 mkClosure :: CodeBlock -> FramePtr -> Closure
 mkClosure = Closure
+
+dummyClosure :: Closure
+dummyClosure = Closure [] NullP
