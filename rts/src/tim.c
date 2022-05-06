@@ -23,7 +23,7 @@ frame_t new_frame(long size) {
 }
 
 void tim_enter_closure(closure_t *closure) {
-    debug_msg("Entering closure %p with code at %p", &closure, &closure->code);
+    debug_msg("Entering closure %p with code at %p and frame at %p", &closure, closure->code, closure->frame);
     current_frame = closure->frame;
     return closure->code();
 }
