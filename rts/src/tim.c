@@ -136,16 +136,21 @@ void tim_start() {
 /* Instruction API */
 /*******************/
 
-void tim_take(long total, long n) {
-    debug_msg("Taking %li arguments from stack into new frame of size %li", n, total);
+void move_n_stack_arguments_to_frame(long n, frame_t frame) {
     assert(n <= argument_stack->current_size);
-    frame_t frame = new_frame(total);
-
+    assert(frame != current_frame); // Sanity check!
     for (int i = 0; i < n; i++){
         closure_t* argument = (closure_t*) dump_peek(argument_stack);
-        rts_memcpy(&frame->arguments[i], argument, sizeof(closure_t));
         dump_pop(argument_stack);
+        rts_memcpy(&frame->arguments[i], argument, sizeof(closure_t));
     }
+}
+
+void tim_take(long total, long n) {
+    debug_msg("Taking %li arguments from stack into new frame of size %li", n, total);
+    assert(total >= n);
+    frame_t frame = new_frame(total);
+    move_n_stack_arguments_to_frame(n, frame);
     current_frame = frame;
 }
 
