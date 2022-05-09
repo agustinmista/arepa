@@ -11,7 +11,6 @@ import Control.Monad.Extra
 import Control.Monad.State
 
 import Language.TIM.Syntax
-import Language.TIM.Prim
 import Language.TIM.Interpreter.Types
 import Language.TIM.Interpreter.Monad
 
@@ -71,11 +70,11 @@ stepTIM = do
       setFramePtr (closure_frame closure)
     MoveI n mode -> do
       closure <- derefClosure mode
-      updateClosure n closure
+      updateFrameSlot n closure
     ReturnI -> do
       [closure] <- takeArgStack 1
       setCode (closure_code closure)
       setFramePtr (closure_frame closure)
     CallI name -> do
       prim <- lookupPrimOp name
-      operateOnValueStack (prim_arity prim) (prim_runner prim)
+      operateOnValueStack prim

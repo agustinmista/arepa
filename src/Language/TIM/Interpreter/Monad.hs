@@ -188,14 +188,14 @@ pushValueStack mode = do
       put st { tim_value_stack = Stack.push value (tim_value_stack st) }
 
 -- Transform the value stack (used by primitive operations)
-operateOnValueStack :: Int -> ([Value] -> IO Value) -> TIM ()
-operateOnValueStack arity op = do
+operateOnValueStack :: Prim -> TIM ()
+operateOnValueStack prim = do
   st <- get
-  case Stack.take arity (tim_value_stack st) of
+  case Stack.take (prim_arity prim) (tim_value_stack st) of
     Nothing -> do
       throwTIMError "operateOnValueStack: not enough arguments on the stack"
     Just (args, rest) -> do
-      res <- liftIO (op args)
+      res <- liftIO (prim_runner prim args)
       put st { tim_value_stack = Stack.push res rest }
 
 -- Get the current value stack (only used to return the final values in the
@@ -245,8 +245,8 @@ derefClosure mode = do
       return (mkClosure litCode (ValueP lit))
 
 -- Update a closure in the current frame
-updateClosure :: Offset -> Closure -> TIM ()
-updateClosure offset closure = do
+updateFrameSlot :: Offset -> Closure -> TIM ()
+updateFrameSlot offset closure = do
   st <- get
   let curr_frame = tim_curr_frame st
   case curr_frame of
