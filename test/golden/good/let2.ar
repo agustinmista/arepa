@@ -1,0 +1,21 @@
+(module let2
+  (val main
+    (print_int (foo 10 20)))
+
+  (fun foo (x y)
+    (letrec (
+      (a  (+ x x))
+      (b  (let ((one 1)
+                (two 2)
+                (three 3))
+            (+ one (* two three))))
+      (c  (letrec ((a 42)
+                   (b 24))
+            (+ a (+ b x)))))
+        (+ a (- b (* c y)))))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+  (fun - (x y)       (__prim_sub_int__ x y))
+  (fun * (x y)       (__prim_mul_int__ x y))
+)
