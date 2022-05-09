@@ -37,13 +37,13 @@ void print_int();
 void twice();
 
 void plus(){
-  tim_take(2);
+  tim_take(2, 2);
   tim_push_argument_label(*call_arg_cont9);
   tim_enter_argument(1);
 }
 
 void minus(){
-  tim_take(2);
+  tim_take(2, 2);
   tim_push_argument_label(*call_arg_cont11);
   tim_enter_argument(1);
 }
@@ -120,25 +120,25 @@ void fun_arg6(){
 }
 
 void _main(){
-  tim_take(0);
+  tim_take(0, 0);
   tim_push_argument_label(*fun_arg0);
   tim_enter_label(*print_int);
 }
 
 void mymain(){
-  tim_take(1);
+  tim_take(1, 1);
   tim_push_argument_label(*fun_arg3);
   tim_enter_label(*print_int);
 }
 
 void print_int(){
-  tim_take(1);
+  tim_take(1, 1);
   tim_push_argument_label(*call_arg_cont7);
   tim_enter_argument(0);
 }
 
 void twice(){
-  tim_take(2);
+  tim_take(2, 2);
   tim_push_argument_label(*fun_arg6);
   tim_enter_argument(0);
 }

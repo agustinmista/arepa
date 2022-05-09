@@ -18,7 +18,7 @@ typedef struct closure_t {
 
 void tim_start();
 
-void tim_take(long range);
+void tim_take(long total, long n);
 
 void tim_push_argument_argument(long offset);
 
@@ -51,6 +51,16 @@ void tim_enter_double(Double value);
 void tim_enter_string(String value);
 
 void tim_enter_label(void (*code)());
+
+void tim_move_argument(long offset, long argument);
+
+void tim_move_int(long offset, Int value);
+
+void tim_move_double(long offset, Double value);
+
+void tim_move_string(long offset, String value);
+
+void tim_move_label(long offset, void (*code)());
 
 void tim_return();
 

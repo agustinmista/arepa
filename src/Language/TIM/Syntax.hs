@@ -81,43 +81,46 @@ splitCodeBlock (CodeBlock instrs)
 -- Instructions
 
 data Instr =
-    TakeArgI Int
-  | EnterI ArgMode
+    TakeArgI Int Int
   | PushArgI ArgMode
   | PushValueI ValueMode
-  | CallI Name
+  | EnterI ArgMode
+  | MoveI Int ArgMode
   | ReturnI
+  | CallI Name
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty Instr where
-  pretty (TakeArgI n) =
-    "take" <+> pretty n
-  pretty (EnterI mode) =
-    "enter" <+> pretty mode
+  pretty (TakeArgI t n) =
+    "take" <+> pretty t <+> pretty n
   pretty (PushArgI mode) =
     "push arg" <+> pretty mode
   pretty (PushValueI mode) =
     "push value" <+> pretty mode
-  pretty (CallI prim) =
-    "call" <+> pretty prim
+  pretty (EnterI mode) =
+    "enter" <+> pretty mode
+  pretty (MoveI n mode) =
+    "move" <+> pretty n <+> pretty mode
   pretty ReturnI =
     "return"
+  pretty (CallI prim) =
+    "call" <+> pretty prim
 
 -- Argument addressing modes
 
 data ArgMode =
     ArgM Int
-  | LabelM Name
   | ValueM Value
+  | LabelM Name
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty ArgMode where
   pretty (ArgM n) =
     "$" <> pretty n
-  pretty (LabelM var) =
-    pretty var
   pretty (ValueM value) =
     pretty value
+  pretty (LabelM var) =
+    pretty var
 
 -- Values (akin to literals, but not always the same)
 

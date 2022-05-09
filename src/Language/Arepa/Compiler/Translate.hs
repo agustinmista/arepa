@@ -23,9 +23,7 @@ import Language.TIM
 translateModule :: MonadArepa m => CoreModule -> m CodeStore
 translateModule m = do
   let name = mod_name m
-  let decls = declName <$> mod_decls m
-  let prims = Map.keys primitives
-  let globals = prims <> decls
+  let globals = declName <$> mod_decls m
   whenVerbose $ debug ("Translating module " <> prettyPrint name)
   runTranslate name globals $ do
     mapM_ translateDecl (mod_decls m)
@@ -82,7 +80,7 @@ withExtendedEnv binds ma = do
   put (st { ts_env = foldr (uncurry Map.insert) (ts_env st) binds })
   a <- ma
   modify' $ \st' -> st' { ts_env = ts_env st }
-  whenVerbose $ dump "Restored the previous environment to" (prettyShow (ts_env st))
+  whenVerbose $ dump "Restored the previous environment to" (prettyPrint (Map.toList (ts_env st)))
   return a
 
 -- Insert a code bind in the internal code store
@@ -104,59 +102,159 @@ lookupPrimOp name = do
     Nothing -> do
       throwInternalError ("lookupPrimOp: primitive " <> prettyPrint name <> " is missing")
     Just prim -> do
-      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyShow (prim_arity prim, prim_type prim))
+      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyPrint (prim_arity prim, prim_type prim))
       return prim
 
 ----------------------------------------
 -- Translation operations
+----------------------------------------
 
+----------------------------------------
 -- Declarations
 
 translateDecl :: MonadArepa m => CoreDecl -> Translate m ()
 translateDecl decl = do
   whenVerbose $ dump "Translating declaration" (prettyPrint decl)
   let args = declArgs decl
-  let takeArgs = [ TakeArgI (length args) ]
   let extEnv = zip args (ArgM <$> [0..])
-  bodyInstrs <- withExtendedEnv extEnv $ do
-    translateExpr (declBody decl)
+  (totalSlots, bodyInstrs) <- withExtendedEnv extEnv $ do
+    translateExpr (length args) (declBody decl)
+  let takeArgs = [ TakeArgI totalSlots (length args) ]
   saveCodeBlock (declName decl) (takeArgs <> bodyInstrs)
 
+----------------------------------------
 -- Expressions
 
-translateExpr :: MonadArepa m => CoreExpr -> Translate m CodeBlock
-translateExpr expr = do
+translateExpr :: MonadArepa m => Int -> CoreExpr -> Translate m (Int, CodeBlock)
+translateExpr slots expr = do
   whenVerbose $ dump "Translating expression" (prettyPrint expr)
   case expr of
     -- Fully saturated primitive function calls
     -- NOTE: must be at top since this pattern overlaps VarE and AppE
     CallE name args -> do
-      translateCall name args
+      translateCall slots name args
     -- Variables
     VarE name -> do
-      mode <- translateArgMode (VarE name)
-      return [EnterI mode]
+      (slots', mode) <- translateArgMode slots (VarE name)
+      return (slots', [ EnterI mode ])
     -- Literal values
     LitE lit -> do
       mode <- translateValueMode lit
-      return [PushValueI mode, ReturnI]
+      return (slots, [ PushValueI mode, ReturnI ])
     -- Data constructors
     ConE _con -> do
       notImplemented "translateExpr/ConE"
     -- Function application
     AppE e1 e2 -> do
-      e1code <- translateExpr e1
-      mode <- translateArgMode e2
-      return ([PushArgI mode] <> e1code)
+      (slots',  e1code) <- translateExpr    slots  e1
+      (slots'', mode)   <- translateArgMode slots' e2
+      return (slots'', [ PushArgI mode ] <> e1code)
     -- Lambda functions should be gone by now
-    LamE _var _expr -> do
+    LamE _var _body -> do
       notImplemented "translateExpr/LamE"
     -- Let bindings
-    LetE _isRec _binds _expr -> do
-      notImplemented "translateExpr/LetE"
+    LetE isRec binds body -> do
+      translateLet slots isRec binds body
     -- Case expressions
     CaseE _scrut _alts -> do
       notImplemented "translateExpr/CaseE"
+
+----------------------------------------
+-- Primitive function calls
+
+-- This uses continuation passing style to build the chain of functions that
+-- prepare the value stack to call the primitive operation.
+
+translateCall :: MonadArepa m => Int -> Name -> [CoreExpr] -> Translate m (Int, CodeBlock)
+translateCall slots name args = do
+  whenVerbose $ dump "Translating primitive call" (prettyPrint (name, args))
+  prim <- lookupPrimOp name
+  when (prim_arity prim /= length args) $ do
+    throwInternalError ("translateCall: primitive " <> prettyPrint name <> " must take exactly " <> prettyPrint (prim_arity prim) <> " arguments")
+  translateCallArgs slots args [ CallI name, ReturnI ]
+
+translateCallArgs :: MonadArepa m => Int -> [CoreExpr] -> CodeBlock -> Translate m (Int, CodeBlock)
+translateCallArgs slots args cont = do
+  case args of
+    [] -> do
+      return (slots, cont)
+    LitE lit : rest -> do
+      mode <- translateValueMode lit
+      translateCallArgs slots rest ([ PushValueI mode ] <> cont)
+    expr : rest -> do
+      label <- freshName "cont"
+      saveCodeBlock label cont
+      (slots', code) <- translateExpr slots expr
+      translateCallArgs slots' rest ([ PushArgI (LabelM label) ] <> code)
+
+----------------------------------------
+-- Let binds
+
+translateLet :: MonadArepa m => Int -> Bool -> [(Name, CoreExpr)] -> CoreExpr -> Translate m (Int, CodeBlock)
+translateLet slots isRec binds body = do
+  -- The local slots used by this let expression
+  let letSlots = [ slots .. ]
+  -- Compute the extended environment used for letrec
+  -- (creates an indirection closure for each local bind)
+  bindsEnv <- forM (zip binds letSlots) $ \(bind, slot) -> do
+    label <- freshName "ind"
+    saveCodeBlock label [ EnterI (ArgM slot) ]
+    return (fst bind, LabelM label)
+  -- The environment used for the RHS of a let bind
+  let rhsEnv | isRec     = bindsEnv
+             | otherwise = []
+  -- Translate the let right-hand sides
+  (slots', bindsCode) <- withExtendedEnv rhsEnv $ do
+    mapAccumM (uncurrySnd translateLetBind) (slots + length binds) (zip binds letSlots)
+  -- Translate the body with the extended bind environment
+  (slots'', exprCode) <- withExtendedEnv bindsEnv $ do
+     translateExpr slots' body
+  return (slots'', mconcat bindsCode <> exprCode)
+
+translateLetBind :: MonadArepa m => Int -> (Name, CoreExpr) -> Int -> Translate m (Int, CodeBlock)
+translateLetBind slots bind slot = do
+  whenVerbose $ dump "Translating let bind" (prettyPrint bind)
+  (slots', rhsMode) <- translateArgMode slots (snd bind)
+  return (slots', [ MoveI slot rhsMode ])
+
+----------------------------------------
+-- Addressing modes
+
+translateArgMode :: MonadArepa m => Int -> CoreExpr -> Translate m (Int, ArgMode)
+translateArgMode slots expr = do
+  whenVerbose $ dump "Translating address mode of expression" (prettyPrint expr)
+  case expr of
+    VarE name -> do
+      mode <- lookupArgMode name
+      return (slots, mode)
+    LitE lit -> do
+      value <- translateLit lit
+      return (slots, ValueM value)
+    _ -> do
+      label <- freshName "arg"
+      (slots', code) <- translateExpr slots expr
+      saveCodeBlock label code
+      return (slots', LabelM label)
+
+translateValueMode :: MonadArepa m => Lit -> Translate m ValueMode
+translateValueMode lit = do
+  whenVerbose $ dump "Translating value mode of literal" (prettyPrint lit)
+  value <- translateLit lit
+  return (InlineM value)
+
+----------------------------------------
+-- Literals
+
+translateLit :: MonadArepa m => Lit -> Translate m Value
+translateLit lit = do
+  whenVerbose $ dump "Translating literal" (prettyPrint lit)
+  case lit of
+    IntL    n -> return (IntV n)
+    DoubleL n -> return (DoubleV n)
+    StringL s -> return (StringV s)
+
+----------------------------------------
+-- Utilities
 
 -- A pattern to identify calls to primitive operations
 
@@ -169,64 +267,13 @@ isCallE expr =
     (VarE name, args) | name `isPrimOp` primitives -> Just (name, args)
     _ -> Nothing
 
--- Primitive function calls
+mapAccumM :: Monad m => (acc -> a -> m (acc, b)) -> acc -> [a] -> m (acc, [b])
+mapAccumM _ acc [] = do
+  return (acc, [])
+mapAccumM f acc (x : xs) = do
+  (acc', y)   <- f acc x
+  (acc'', ys) <- mapAccumM f acc' xs
+  return (acc'', y : ys)
 
--- This uses continuation passing style to build the chain of functions that
--- prepare the value stack to call the primitive operation.
-
-translateCall :: MonadArepa m => Name -> [CoreExpr] -> Translate m CodeBlock
-translateCall name args = do
-  whenVerbose $ dump "Translating primitive call" (prettyShow (name, args))
-  prim <- lookupPrimOp name
-
-  when (prim_arity prim /= length args) $ do
-    throwInternalError ("translateCall: primitive " <> prettyPrint name <> " must take exactly " <> prettyPrint (prim_arity prim) <> " arguments")
-
-  translateCallArgs args [CallI name, ReturnI]
-
-translateCallArgs :: MonadArepa m => [CoreExpr] -> CodeBlock -> Translate m CodeBlock
-translateCallArgs args cont = do
-  case args of
-    [] -> do
-      return cont
-    LitE lit : rest -> do
-      mode <- translateValueMode lit
-      translateCallArgs rest ([PushValueI mode] <> cont)
-    expr : rest -> do
-      label <- freshName "cont"
-      saveCodeBlock label cont
-      code <- translateExpr expr
-      translateCallArgs rest ([PushArgI (LabelM label)] <> code)
-
--- Addressing modes
-
-translateArgMode :: MonadArepa m => CoreExpr -> Translate m ArgMode
-translateArgMode expr = do
-  whenVerbose $ dump "Translating address mode of expression" (prettyPrint expr)
-  case expr of
-    VarE name -> do
-      lookupArgMode name
-    LitE lit -> do
-      value <- translateLit lit
-      return (ValueM value)
-    _ -> do
-      label <- freshName "arg"
-      code <- translateExpr expr
-      saveCodeBlock label code
-      return (LabelM label)
-
-translateValueMode :: MonadArepa m => Lit -> Translate m ValueMode
-translateValueMode lit = do
-  whenVerbose $ dump "Translating value mode of literal" (prettyPrint lit)
-  value <- translateLit lit
-  return (InlineM value)
-
--- Literals
-
-translateLit :: MonadArepa m => Lit -> Translate m Value
-translateLit lit = do
-  whenVerbose $ dump "Translating literal" (prettyPrint lit)
-  case lit of
-    IntL    n -> return (IntV n)
-    DoubleL n -> return (DoubleV n)
-    StringL s -> return (StringV s)
+uncurrySnd :: (a -> b -> c -> d) -> a -> (b, c) -> d
+uncurrySnd f a (b, c) = f a b c

@@ -45,22 +45,21 @@ emitLLVM store = do
     emitCodeStore store
 
 renderLLVM :: MonadArepa m => LLVMModule -> m Text
-renderLLVM m = return (ppllvm m)
+renderLLVM m = do
+  return (ppllvm m)
 
 ----------------------------------------
 -- Code generation internal state
 ----------------------------------------
 
 data CodegenState = CodegenState {
-  cg_globals :: Map Name LLVM.Operand,   -- Global operands
-  -- cg_context :: [Map Name LLVM.Operand], -- Local operands
+  cg_globals :: Map Name LLVM.Operand,  -- Global operands
   cg_strings :: Map Text LLVM.Operand   -- Global strings
 }
 
 emptyCodegenState :: CodegenState
 emptyCodegenState = CodegenState {
   cg_globals = mempty,
-  -- cg_context = mempty,
   cg_strings = mempty
 }
 
@@ -101,38 +100,10 @@ lookupGlobalOperand name = do
       whenM hasStrictEnabled $ do
         throwInternalError ("lookupGlobalOperand: missing operand for " <> prettyPrint name <> " (strict mode is enabled)")
       warning $ "Emitting implicit extern for " <> prettyPrint name
-      IR.extern (mkMangledFunctionName name) [] LLVM.void
+      IR.extern (mkMangledFunctionName name) [] voidType
     Just op -> do
       whenVerbose $ debug ("Found operand for " <> prettyPrint name <> ": " <> prettyPrint op)
       return op
-
-----------------------------------------
--- Local operands
-
--- -- Register the operand associated to a variable identifier in the closest context
--- registerVarOperand :: MonadLLVM m => Name -> LLVM.Operand -> m ()
--- registerVarOperand name op = do
---   ctx <- gets cg_context
---   case ctx of
---     [] -> throwInternalError "registerVarOperand: null context"
---     c:cs -> modify' $ \st -> st { cg_context = Map.insert name op c : cs }
-
--- -- Get the operand associated with an identifier
--- lookupVarOperand :: MonadLLVM m => Name -> m LLVM.Operand
--- lookupVarOperand name = do
---   gets cg_context >>= search
---   where
---     search []     = throwInternalError ("lookupVarOperand: operand for variable" <+> pretty name <+> "does not exist")
---     search (c:cs) = maybe (search cs) return (Map.lookup name c)
-
--- -- Run the code inside of a new local context
--- insideLocalContext :: MonadLLVM m => m a -> m a
--- insideLocalContext ma = do
---   ctx <- gets cg_context
---   modify' $ \st -> st { cg_context = Map.empty : ctx }
---   a <- ma
---   modify' $ \st -> st { cg_context = ctx }
---   return a
 
 ----------------------------------------
 -- Strings literals
@@ -165,7 +136,7 @@ lookupPrim name = do
     Nothing -> do
       throwInternalError ("lookupPrim: cannot find primitive operation " <> prettyPrint name)
     Just prim -> do
-      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyShow (prim_arity prim, prim_type prim))
+      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyPrint (prim_arity prim, prim_type prim))
       return prim
 
 
@@ -175,13 +146,11 @@ lookupPrim name = do
 
 emitRTS :: MonadLLVM m => m ()
 emitRTS = do
-
   -- RTS evaluation operations
   whenVerbose $ debug "Emitting RTS externs"
   forM_ rtsFunctions $ \(name, argTypes, retType) -> do
     op <- IR.extern (fromName name) argTypes retType
     registerGlobalOperand name op
-
   -- RTS main wrapper (only when necessary or forced)
   whenVerbose $ debug "Emitting RTS main()"
   output <- lookupCompilerOption optOutput
@@ -202,25 +171,30 @@ emitMain name = do
 
 rtsFunctions :: [(Name, [LLVM.Type], LLVM.Type)]
 rtsFunctions = [
-    ("tim_start",                  [],            LLVM.void),
-    ("tim_take",                   [LLVM.i64],    LLVM.void),
-    ("tim_push_argument_argument", [LLVM.i64],    LLVM.void),
-    ("tim_push_argument_int",      [intVType],    LLVM.void),
-    ("tim_push_argument_double",   [doubleVType], LLVM.void),
-    ("tim_push_argument_string",   [stringVType], LLVM.void),
-    ("tim_push_argument_label",    [funPtrType],  LLVM.void),
-    ("tim_push_value_int",         [intVType],    LLVM.void),
-    ("tim_push_value_double",      [doubleVType], LLVM.void),
-    ("tim_push_value_string",      [stringVType], LLVM.void),
-    ("tim_pop_value_int",          [],            LLVM.ptr intVType),
-    ("tim_pop_value_double",       [],            LLVM.ptr doubleVType),
-    ("tim_pop_value_string",       [],            LLVM.ptr stringVType),
-    ("tim_enter_argument",         [LLVM.i64],    LLVM.void),
-    ("tim_enter_int",              [intVType],    LLVM.void),
-    ("tim_enter_double",           [doubleVType], LLVM.void),
-    ("tim_enter_string",           [stringVType], LLVM.void),
-    ("tim_enter_label",            [funPtrType],  LLVM.void),
-    ("tim_return",                 [],            LLVM.void)
+    ("tim_start",                  [],                      voidType),
+    ("tim_take",                   [longType, longType],    voidType),
+    ("tim_push_argument_argument", [longType],              voidType),
+    ("tim_push_argument_int",      [intVType],              voidType),
+    ("tim_push_argument_double",   [doubleVType],           voidType),
+    ("tim_push_argument_string",   [stringVType],           voidType),
+    ("tim_push_argument_label",    [funPtrType],            voidType),
+    ("tim_push_value_int",         [intVType],              voidType),
+    ("tim_push_value_double",      [doubleVType],           voidType),
+    ("tim_push_value_string",      [stringVType],           voidType),
+    ("tim_pop_value_int",          [],                      ptrType intVType),
+    ("tim_pop_value_double",       [],                      ptrType doubleVType),
+    ("tim_pop_value_string",       [],                      ptrType stringVType),
+    ("tim_enter_argument",         [longType],              voidType),
+    ("tim_enter_int",              [intVType],              voidType),
+    ("tim_enter_double",           [doubleVType],           voidType),
+    ("tim_enter_string",           [stringVType],           voidType),
+    ("tim_enter_label",            [funPtrType],            voidType),
+    ("tim_move_argument",          [longType, longType],    voidType),
+    ("tim_move_int",               [longType, intVType],    voidType),
+    ("tim_move_double",            [longType, doubleVType], voidType),
+    ("tim_move_string",            [longType, stringVType], voidType),
+    ("tim_move_label",             [longType, funPtrType],  voidType),
+    ("tim_return",                 [],                      voidType)
   ]
 
 
@@ -276,7 +250,7 @@ emitCodeBlock :: MonadLLVM m => Name -> CodeBlock -> m ()
 emitCodeBlock name code = void $ do
   whenVerbose $ debug ("Emitting code block " <> prettyPrint name)
   let funName = mkMangledFunctionName name
-  IR.function funName [] LLVM.void $ \[] -> do
+  IR.function funName [] voidType $ \[] -> do
     mapM_ emitInstr (toList code)
 
 
@@ -286,29 +260,11 @@ emitInstr instr = do
   whenVerbose $ dump "Emitting instruction" (prettyPrint instr)
   case instr of
     -- Take
-    TakeArgI n -> do
-      callVoidRTS "tim_take" [mkLong n]
-    -- Enter
-    EnterI (ArgM n) -> do
-      callVoidRTS "tim_enter_argument" [mkLong n]
-    EnterI (LabelM name) -> do
-      fun <- lookupGlobalOperand name
-      callVoidRTS "tim_enter_label" [fun]
-    EnterI (ValueM (IntV n)) -> do
-      callVoidRTS "tim_enter_value_int" [mkIntV n]
-    EnterI (ValueM (DoubleV n)) -> do
-      callVoidRTS "tim_enter_value_double" [mkDoubleV n]
-    EnterI (ValueM (StringV s)) -> do
-      string <- registerString s
-      callVoidRTS "tim_enter_value_string" [string]
-    EnterI (ValueM (VoidV _)) -> do
-      throwInternalError "emitInstr: impossible! cannot enter a void argument"
+    TakeArgI t n -> do
+      callVoidRTS "tim_take" [mkLong t, mkLong n]
     -- Push arguments
     PushArgI (ArgM n) -> do
       callVoidRTS "tim_push_argument_argument" [mkLong n]
-    PushArgI (LabelM name) -> do
-      fun <- lookupGlobalOperand name
-      callVoidRTS "tim_push_argument_label" [fun]
     PushArgI (ValueM (IntV n)) -> do
       callVoidRTS "tim_push_argument_int" [mkIntV n]
     PushArgI (ValueM (DoubleV n)) -> do
@@ -318,6 +274,9 @@ emitInstr instr = do
       callVoidRTS "tim_push_argument_string" [string]
     PushArgI (ValueM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot push a void argument"
+    PushArgI (LabelM name) -> do
+      fun <- lookupGlobalOperand name
+      callVoidRTS "tim_push_argument_label" [fun]
     -- Push values
     PushValueI FramePtrM -> do
       throwInternalError "emitInstr: impossible! we never generate instructions masking the frame pointer"
@@ -330,6 +289,39 @@ emitInstr instr = do
       callVoidRTS "tim_push_value_string" [string]
     PushValueI (InlineM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot push a void value"
+    -- Enter
+    EnterI (ArgM n) -> do
+      callVoidRTS "tim_enter_argument" [mkLong n]
+    EnterI (ValueM (IntV n)) -> do
+      callVoidRTS "tim_enter_value_int" [mkIntV n]
+    EnterI (ValueM (DoubleV n)) -> do
+      callVoidRTS "tim_enter_value_double" [mkDoubleV n]
+    EnterI (ValueM (StringV s)) -> do
+      string <- registerString s
+      callVoidRTS "tim_enter_value_string" [string]
+    EnterI (ValueM (VoidV _)) -> do
+      throwInternalError "emitInstr: impossible! cannot enter a void argument"
+    EnterI (LabelM name) -> do
+      fun <- lookupGlobalOperand name
+      callVoidRTS "tim_enter_label" [fun]
+    -- Move arguments
+    MoveI slot (ArgM n) -> do
+      callVoidRTS "tim_move_argument" [mkLong slot, mkLong n]
+    MoveI slot (ValueM (IntV n)) -> do
+      callVoidRTS "tim_move_int" [mkLong slot, mkIntV n]
+    MoveI slot (ValueM (DoubleV n)) -> do
+      callVoidRTS "tim_move_double" [mkLong slot, mkDoubleV n]
+    MoveI slot (ValueM (StringV s)) -> do
+      string <- registerString s
+      callVoidRTS "tim_move_string" [mkLong slot, string]
+    MoveI _ (ValueM (VoidV _)) -> do
+      throwInternalError "emitInstr: impossible! cannot move a void argument"
+    MoveI slot (LabelM name) -> do
+      fun <- lookupGlobalOperand name
+      callVoidRTS "tim_move_label" [mkLong slot, fun]
+    -- Return
+    ReturnI -> do
+      callVoidRTS "tim_return" []
     -- Call
     CallI name -> do
       -- Find the primitive function operand
@@ -361,9 +353,6 @@ emitInstr instr = do
           callVoidRTS "tim_push_value_string" [res]
         VoidT -> do
           return ()
-    -- Return
-    ReturnI -> do
-      callVoidRTS "tim_return" []
 
 
 ----------------------------------------
@@ -400,7 +389,16 @@ mkDoubleV = IR.double
 -- The type of a compiled supercombinator
 -- In C: void (*f())
 funPtrType :: LLVM.Type
-funPtrType = LLVM.ptr (LLVM.FunctionType LLVM.void [] False)
+funPtrType = ptrType (LLVM.FunctionType voidType [] False)
+
+longType :: LLVM.Type
+longType = LLVM.i64
+
+voidType :: LLVM.Type
+voidType = LLVM.void
+
+ptrType :: LLVM.Type -> LLVM.Type
+ptrType = LLVM.ptr
 
 ----------------------------------------
 -- Value types

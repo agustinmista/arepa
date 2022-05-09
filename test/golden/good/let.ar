@@ -1,0 +1,16 @@
+(module prim
+  (val main
+    (foo 10))
+
+  (fun foo (w)
+    (print_int
+      (letrec
+         ((x (+ y y))
+          (y (+ z z))
+          (z 3))
+        (+ x (- y w)))))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+  (fun - (x y)       (__prim_sub_int__ x y))
+)
