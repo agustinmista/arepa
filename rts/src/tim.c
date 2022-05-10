@@ -148,8 +148,9 @@ void tim_init_value_stack() {
     value_stack = dump_new();
 }
 
-void tim_init_io_stream() {
-    debug_msg("Initializing IO stream");
+void tim_init_io_streams() {
+    debug_msg("Initializing IO streams");
+    set_rts_stdin(stdin);
     set_rts_stdout(stdout);
 }
 
@@ -158,7 +159,7 @@ void tim_start() {
     tim_init_current_frame();
     tim_init_argument_stack();
     tim_init_value_stack();
-    tim_init_io_stream();
+    tim_init_io_streams();
     debug_msg("Initialization finished");
 }
 

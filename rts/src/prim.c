@@ -32,7 +32,7 @@ String __prim_read_line__() {
     buffer[buffer_len] = '\0';
 
     char c;
-    while ((c = getchar()) != '\n' && c != EOF) {
+    while ((c = rts_getchar()) != '\n' && c != EOF) {
         buffer_len++;
         if (buffer_len % buffer_step == 0) {
             buffer = rts_realloc(buffer, buffer_len + buffer_step);
