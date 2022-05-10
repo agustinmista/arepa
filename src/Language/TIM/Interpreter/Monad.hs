@@ -54,6 +54,13 @@ newtype TIMTrace = TIMTrace [TIMState]
 instance Pretty TIMTrace where
   pretty (TIMTrace states) = vsep (pretty <$> states)
 
+-- Dump elements
+data Dump = Dump {
+  dump_frame :: FramePtr,
+  dump_stack :: Stack Closure,
+  dump_index :: Int
+}
+
 -- Machine state
 
 data TIMState = TIMState {
@@ -62,7 +69,7 @@ data TIMState = TIMState {
   tim_curr_frame :: FramePtr,
   tim_heap :: Heap Frame,
   tim_arg_stack :: Stack Closure,
-  tim_arg_dump :: (),
+  tim_arg_dump :: Stack Dump,
   tim_value_stack :: Stack Value
 }
 
@@ -96,9 +103,12 @@ instance Pretty TIMState where
           then [ indent 2 "empty" ]
           else [ indent 2 (pretty closure) | closure <- reverse stack ]
       showDump =
+        let dump = Stack.toList (tim_arg_dump st) in
         vsep $
           [ "Argument dump:" ] <>
-          [ indent 2 (pretty (tim_arg_dump st)) ]
+          if null dump
+          then [ indent 2 "empty" ]
+          else [ indent 2 "TODO" ]
       showValueStack =
         let stack = Stack.toList (tim_value_stack st) in
         vsep $
@@ -114,7 +124,7 @@ initialTIMState code = TIMState {
   tim_curr_frame = NullP,
   tim_heap = Heap.empty,
   tim_arg_stack = Stack.empty,
-  tim_arg_dump = (),
+  tim_arg_dump = Stack.empty,
   tim_value_stack = Stack.empty
 }
 
