@@ -90,11 +90,14 @@ library arepa-lib
     , pretty-simple
     , filepath
     , containers
+    , directory
     , prettyprinter
     , megaparsec
     , llvm-hs-pure
     , llvm-hs-pretty
     , template-haskell
+    , temporary
+    , process
     , zenc
 
 
@@ -104,15 +107,11 @@ executable arepa
   main-is: Main.hs
   other-modules:
     CLI
-    Clang
   build-depends:
       arepa-lib
     , text
     , optparse-applicative
-    , process
     , filepath
-    , directory
-    , temporary
 
 test-suite arepa-tests
   import: common-arepa
@@ -121,6 +120,14 @@ test-suite arepa-tests
   main-is: Main.hs
   other-modules:
     TIMTests
+    Golden
   build-depends:
       arepa-lib
     , text
+    , tasty
+    , tasty-golden
+    , filepath
+    , process
+    , directory
+    , bytestring
+    , silently

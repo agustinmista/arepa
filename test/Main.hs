@@ -1,8 +1,11 @@
 module Main where
 
-import TIMTests (runTimTests)
+import Test.Tasty
+import Golden
 
 main :: IO ()
 main = do
-  putStrLn "Running shitty TIM tests"
-  runTimTests
+  goldenTests <- loadGoldenTests
+  defaultMain $ testGroup "all tests" [
+      goldenTests
+    ]
