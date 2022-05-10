@@ -6,8 +6,10 @@ module Data.Stack
   , peek
   , pop
   , take
+  , isEmpty
   , fromList
   , toList
+  , append
   ) where
 
 import Prelude hiding (take)
@@ -83,3 +85,10 @@ fromList xs = Stack {
 -- Forget the stack structure
 toList :: Stack a -> [a]
 toList = stack_values
+
+-- Append two stacks
+append :: Stack a -> Stack a -> Stack a
+append a b = fromList $ toList a ++ toList b
+
+isEmpty :: Stack a -> Bool
+isEmpty  = null . toList
