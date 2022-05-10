@@ -68,6 +68,6 @@ Void __prim_write_file__(String path, String data) {
 };
 
 // Printing
-Void __prim_print_int__(Int x)       { printf("%ld\n", x); };
-Void __prim_print_double__(Double x) { printf("%f\n", x);  };
-Void __prim_print_string__(String x) { printf("%s\n", x);  };
+Void __prim_print_int__(Int x)       { printf("%ld\n", x); fflush(stdout); };
+Void __prim_print_double__(Double x) { printf("%f\n", x);  fflush(stdout); };
+Void __prim_print_string__(String x) { printf("%s\n", x);  fflush(stdout); };
