@@ -1,5 +1,6 @@
 module Language.Arepa.Compiler.Translate
   ( translateModule
+  , CodeStore(..)
   ) where
 
 import Control.Monad.Extra
