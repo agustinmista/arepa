@@ -209,7 +209,8 @@ translateCall name args = do
   let argCode arg cont = withIsolatedFrameSlots (translateCallArg arg cont)
   let callCode = return [ CallI name, ReturnI ]
   (slots, code) <- chainAccumCPS (argCode <$> args) callCode
-  setFrameSlots (maximum slots)
+  unless (null slots) $
+    setFrameSlots (maximum slots)
   return code
 
 -- Primitive calls' arguments can safely reuse each other's frame slots because
