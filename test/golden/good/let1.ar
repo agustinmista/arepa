@@ -1,4 +1,4 @@
-(module prim
+(module let1
   (val main
     (foo 10))
 
