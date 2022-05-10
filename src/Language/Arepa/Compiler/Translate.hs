@@ -119,11 +119,11 @@ setFrameSlots slots = do
 
 -- Reserve some extra frame slots
 reserveFrameSlots :: MonadArepa m => Int -> Translate m [Int]
-reserveFrameSlots slots = do
-  st <- get
-  let reserved = take slots [ ts_slots st .. ]
+reserveFrameSlots n = do
+  slots <- getFrameSlots
+  let reserved = take n [ slots .. ]
   whenVerbose $ dump "Reserving frame slots" (prettyPrint reserved)
-  put (st { ts_slots = ts_slots st + slots })
+  setFrameSlots (slots + n)
   return reserved
 
 -- Run a computation isolating the new frame slots it reserves
