@@ -36,23 +36,35 @@ mkGoldenTests arepaFile = do
 
 
 runInterpreterHook :: FilePath -> IO ByteString
-runInterpreterHook path = do
-  let stdout = replaceExtension path "out"
-  let opts = defaultOpts { optInput = Just path, optInterpretStdout = stdout }
+runInterpreterHook arepaFile = do
+  let stdinFile = replaceExtension arepaFile "stdin"
+  hasStdin <- doesFileExist stdinFile
+  let stdoutFile = replaceExtension arepaFile "stdout"
+  let opts = defaultOpts {
+        optInput = Just arepaFile,
+        optInterpretStdout = stdoutFile,
+        optInterpretStdin = if hasStdin then stdinFile else "/dev/stdin"
+      }
   runArepa' opts $ do
     readArepaInput >>= parseModule >>= typeCheckModule >>= translateModule >>= interpretCodeStore
-  output <- readFile stdout
-  removeFile stdout
+  output <- readFile stdoutFile
+  removeFile stdoutFile
   return (fromString output)
 
 
 runCompilerHook :: FilePath -> IO ByteString
 runCompilerHook arepaFile = do
   let binFile  = replaceExtension arepaFile "elf"
-  let opts = defaultOpts { optInput = Just arepaFile, optOutput = Just binFile }
+  let opts = defaultOpts {
+        optInput = Just arepaFile,
+        optOutput = Just binFile
+      }
   runArepa' opts $ do
     readArepaInput >>= parseModule >>= typeCheckModule >>= translateModule >>= emitLLVM >>= renderLLVM >>= writeLLVMOutput
     mkClangArgs >>= runClang
-  output <- readProcess binFile [] []
+  let stdinFile = replaceExtension arepaFile "stdin"
+  hasStdin <- doesFileExist stdinFile
+  stdin <- if hasStdin then readFile stdinFile else return mempty
+  output <- readProcess binFile [] stdin
   removeFile binFile
   return (fromString output)
