@@ -20,6 +20,7 @@ parseCliOpts = do
     cliOpts = ArepaOpts <$>
       optionalStr (long "input"     <> short 'i' <> metavar "PATH" <>            help "Input file") <*>
       optionalStr (long "output"    <> short 'o' <> metavar "PATH" <>            help "Output binary") <*>
+      switch      (                    short 'c' <>                              help "Compile and assemble, but do not link") <*>
       dumpOpts    (long "dump"      <> short 'd' <> metavar "DUMP" <>            help "Dump an internal structure (ast,ppr,tim,llvm)") <*>
       switch      (long "verbose"   <> short 'v'                   <>            help "Show extra debug information") <*>
       switch      (long "interpret" <> short 'x'                   <>            help "Interpret the input instead of compiling it") <*>

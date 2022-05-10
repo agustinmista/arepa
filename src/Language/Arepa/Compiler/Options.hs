@@ -6,7 +6,8 @@ module Language.Arepa.Compiler.Options where
 
 data ArepaOpts = ArepaOpts {
   optInput :: Maybe FilePath,    -- Nothing means stdin
-  optOutput :: Maybe FilePath,   -- Nothing means stdout
+  optOutput :: Maybe FilePath,   -- Nothing means a.out
+  optNoLinking :: Bool,
   optDump :: [DumpOpt],
   optVerbose :: Bool,
   optInterpret :: Bool,
@@ -22,6 +23,7 @@ defaultOpts :: ArepaOpts
 defaultOpts :: ArepaOpts = ArepaOpts {
   optInput = Nothing,
   optOutput = Nothing,
+  optNoLinking = False,
   optDump = [],
   optVerbose = False,
   optInterpret = False,
