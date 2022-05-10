@@ -101,7 +101,6 @@ library arepa-lib
     , template-haskell
     , temporary
     , process
-    , silently
     , zenc
 
 
