@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "io.h"
 #include "debug.h"
@@ -16,4 +17,11 @@ void new_rts_stdout(char* path) {
 void close_rts_stdout() {
     debug_msg("Closing the RTS stdout stream");
     fclose(rts_stdout);
+}
+
+void rts_printf(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(rts_stdout, fmt, args);
+    va_end(args);
 }

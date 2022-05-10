@@ -15,4 +15,6 @@ void new_rts_stdout(char* path);
 
 void close_rts_stdout();
 
+void rts_printf(const char* fmt, ...);
+
 #endif

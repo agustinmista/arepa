@@ -69,6 +69,6 @@ Void __prim_write_file__(String path, String data) {
 };
 
 // Printing
-Void __prim_print_int__(Int x)       { fprintf(rts_stdout, "%ld\n", x); };
-Void __prim_print_double__(Double x) { fprintf(rts_stdout, "%f\n",  x); };
-Void __prim_print_string__(String x) { fprintf(rts_stdout, "%s\n",  x); };
+Void __prim_print_int__(Int x)       { rts_printf("%ld\n", x); };
+Void __prim_print_double__(Double x) { rts_printf("%f\n",  x); };
+Void __prim_print_string__(String x) { rts_printf("%s\n",  x); };
