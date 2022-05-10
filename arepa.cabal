@@ -123,6 +123,7 @@ test-suite arepa-tests
   hs-source-dirs: test
   main-is: Main.hs
   other-modules:
+    Good
     TIMTests
   build-depends:
       arepa-lib
