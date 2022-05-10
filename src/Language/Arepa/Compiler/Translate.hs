@@ -126,6 +126,15 @@ reserveFrameSlots slots = do
   put (st { ts_slots = ts_slots st + slots })
   return reserved
 
+-- Run a computation isolating the new frame slots it reserves
+withIsolatedFrameSlots :: MonadArepa m => Translate m a -> Translate m (Int, a)
+withIsolatedFrameSlots ma = do
+  slots <- getFrameSlots
+  a <- ma
+  slots' <- getFrameSlots
+  setFrameSlots slots
+  return (slots', a)
+
 ----------------------------------------
 -- Translation operations
 ----------------------------------------
@@ -136,14 +145,15 @@ reserveFrameSlots slots = do
 translateDecl :: MonadArepa m => CoreDecl -> Translate m ()
 translateDecl decl = do
   whenVerbose $ dump "Translating declaration" (prettyPrint decl)
+  let name = declName decl
   let args = declArgs decl
   let extEnv = zip args (ArgM <$> [0..])
   setFrameSlots (length args)
   bodyInstrs <- withExtendedEnv extEnv (translateExpr (declBody decl))
   totalSlots <- getFrameSlots
-  whenVerbose $ debug ("Total frame slots " <> prettyPrint totalSlots)
+  whenVerbose $ debug ("Total frame slots for " <> prettyPrint name <> ": " <> prettyPrint totalSlots)
   let takeArgs = [ TakeArgI totalSlots (length args) ]
-  saveCodeBlock (declName decl) (takeArgs <> bodyInstrs)
+  saveCodeBlock name (takeArgs <> bodyInstrs)
 
 ----------------------------------------
 -- Expressions
@@ -192,23 +202,29 @@ translateCall :: MonadArepa m => Name -> [CoreExpr] -> Translate m CodeBlock
 translateCall name args = do
   whenVerbose $ dump "Translating primitive call" (prettyPrint (name, args))
   prim <- lookupPrimOp name
-  when (prim_arity prim /= length args) $ do
-    throwInternalError ("translateCall: primitive " <> prettyPrint name <> " must take exactly " <> prettyPrint (prim_arity prim) <> " arguments")
-  translateCallArgs args [ CallI name, ReturnI ]
+  let arity = prim_arity prim
+  when (arity /= length args) $ do
+    throwInternalError ("translateCall: " <> prettyPrint name <> " must take exactly " <> prettyPrint arity <> " arguments")
+  let argCode arg cont = withIsolatedFrameSlots (translateCallArg arg cont)
+  let callCode = return [ CallI name, ReturnI ]
+  (slots, code) <- chainAccumCPS (argCode <$> args) callCode
+  setFrameSlots (maximum slots)
+  return code
 
-translateCallArgs :: MonadArepa m => [CoreExpr] -> CodeBlock -> Translate m CodeBlock
-translateCallArgs args cont = do
-  case args of
-    [] -> do
-      return cont
-    LitE lit : rest -> do
+-- Primitive calls' arguments can safely reuse each other's frame slots because
+-- we force their evaluation to happen sequentially.
+
+translateCallArg :: MonadArepa m => CoreExpr -> CodeBlock -> Translate m CodeBlock
+translateCallArg arg cont = do
+  case arg of
+    LitE lit -> do
       mode <- translateValueMode lit
-      translateCallArgs rest ([ PushValueI mode ] <> cont)
-    expr : rest -> do
+      return ([ PushValueI mode ] <> cont)
+    expr -> do
       label <- freshName "cont"
       saveCodeBlock label cont
       code <- translateExpr expr
-      translateCallArgs rest ([ PushArgI (LabelM label) ] <> code)
+      return ([ PushArgI (LabelM label) ] <> code)
 
 ----------------------------------------
 -- Let binds
@@ -289,3 +305,17 @@ isCallE expr =
   case collectArgs expr of
     (VarE name, args) | name `isPrimOp` primitives -> Just (name, args)
     _ -> Nothing
+
+-- Thread a list of CPS monadic computations into a single result with an
+-- accumulator. This operation is right associative, meaning that the `a`
+-- obtained from the `m a` input is passed to the last computation.
+chainAccumCPS :: Monad m => [a -> m (b, a)] -> m a -> m ([b], a)
+chainAccumCPS = go . reverse
+  where
+    go [] k = do
+      a <- k
+      return ([], a)
+    go (m:ms) k = do
+      (bs, a')  <- go ms k
+      (b,  a'') <- m a'
+      return (b : bs, a'')

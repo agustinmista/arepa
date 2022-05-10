@@ -5,7 +5,8 @@
   (fun foo (x y)
     (+ y
        (* x
-          (+  (let ((a 10) (b 20))
+          (__prim_add_int__
+              (let ((a 10) (b 20))
                 (* x (+ a b)))
               (letrec ((a 20) (b (+ a a)) (c (* a a)) (d (+ x y)))
                 (+ a (- b (* d (+ x y)))))))))
