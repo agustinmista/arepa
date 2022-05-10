@@ -42,7 +42,7 @@ ex4 = (,,) "ex4" (IntV 5) <$> compileTestFromMain "(fun main () (s k s k 5 0))"
 
 runTimTest :: (Text,Value,CodeStore) -> IO ()
 runTimTest (testName,res,code)= do
-  valueStack <- runCodeStore "output.txt" code
+  valueStack <- runCodeStore "input.txt" "output.txt" code
   let finalValue = head valueStack
       errorMsg n e a = unpack $
                              "ERROR (" <> n <> "):" <>
