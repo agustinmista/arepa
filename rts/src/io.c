@@ -4,6 +4,8 @@
 #include "io.h"
 #include "debug.h"
 
+FILE* rts_stdout;
+
 void set_rts_stdout(FILE* stream) {
     debug_msg("Setting RTS stdout stream to %p", stream);
     rts_stdout = stream;
