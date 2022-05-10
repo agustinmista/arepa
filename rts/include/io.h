@@ -7,8 +7,6 @@
 /* Redirecting stdout                */
 /* --------------------------------- */
 
-FILE* rts_stdout;
-
 void set_rts_stdout(FILE* stream);
 
 void new_rts_stdout(char* path);
