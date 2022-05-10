@@ -19,19 +19,81 @@ parseCliOpts = do
 
 cliOpts :: OptParse.Parser ArepaOpts
 cliOpts = ArepaOpts <$>
-  optionalStr (long "input"     <> short 'i' <> metavar "PATH" <>                    help "Input file") <*>
-  optionalStr (long "output"    <> short 'o' <> metavar "PATH" <>                    help "Output binary") <*>
-  switch      (                    short 'c' <>                                      help "Compile and assemble, but do not link") <*>
-  dumpOpts    (long "dump"      <> short 'd' <> metavar "DUMP" <>                    help "Dump an internal structure (ast,ppr,tim,llvm)") <*>
-  switch      (long "verbose"   <> short 'v'                   <>                    help "Show extra debug information") <*>
-  switch      (long "interpret" <> short 'x'                   <>                    help "Interpret the input instead of compiling it") <*>
-  strOption   (long "stdout"    <>                                value "out.txt" <> help "Interpret the input instead of compiling it") <*>
-  optionalStr (long "entry"     <> short 'e' <> metavar "NAME" <>                    help "Set the module's entry point") <*>
-  option auto (                    short 'O' <> metavar "NUM"  <> value 0 <>         help "Set the optimization level") <*>
-  switch      (long "strict"    <> short 's' <>                                      help "Disable implicit externs") <*>
-  switch      (long "emit-main" <> short 'm' <>                                      help "Always emit a compiled main()") <*>
-  manyStr     (long "include"   <> short 'I' <> metavar "PATH" <>                    help "Include extra LLVM/C files during linking") <*>
-  switch      (long "debug"     <> short 'D' <>                                      help "Enable debug messages in the compiled binary")
+  optionalStr (
+    long "input" <>
+    short 'i' <>
+    metavar "PATH" <>
+    help "Input file"
+  ) <*>
+  optionalStr (
+    long "output" <>
+    short 'o' <>
+    metavar "PATH" <>
+    help "Output binary"
+  ) <*>
+  switch (
+    short 'c' <>
+    help "Compile and assemble, but do not link"
+  ) <*>
+  dumpOpts (
+    long "dump" <>
+    short 'd' <>
+    metavar "DUMP" <>
+    help "Dump an internal structure (ast,ppr,tim,llvm)"
+  ) <*>
+  switch (
+    long "verbose" <>
+    short 'v' <>
+    help "Show extra debug information"
+  ) <*>
+  switch (
+    long "interpret" <>
+    short 'x' <>
+    help "Interpret the input instead of compiling it"
+  ) <*>
+  strOption (
+    long "stdin" <>
+    value "/dev/stdin" <>
+    help "Interpret the input instead of compiling it"
+  ) <*>
+  strOption (
+    long "stdout" <>
+    value "/dev/stdout" <>
+    help "Interpret the input instead of compiling it"
+  ) <*>
+  optionalStr (
+    long "entry" <>
+    short 'e' <>
+    metavar "NAME" <>
+    help "Set the module's entry point"
+  ) <*>
+  option auto (
+    short 'O' <>
+    metavar "NUM" <>
+    value 0 <>
+    help "Set the optimization level"
+  ) <*>
+  switch (
+    long "strict" <>
+    short 's' <>
+    help "Disable implicit externs"
+  ) <*>
+  switch (
+    long "emit-main" <>
+    short 'm' <>
+    help "Always emit a compiled main()"
+  ) <*>
+  manyStr (
+    long "include" <>
+    short 'I' <>
+    metavar "PATH" <>
+    help "Include extra LLVM/C files during linking"
+  ) <*>
+  switch (
+    long "debug" <>
+    short 'D' <>
+    help "Enable debug messages in the compiled binary"
+  )
 
 optionalStr :: Mod OptionFields String -> OptParse.Parser (Maybe String)
 optionalStr = optional . strOption
