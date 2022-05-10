@@ -26,9 +26,10 @@ void move_n_stack_arguments_to_frame(long n, frame_t frame) {
     assert(n <= argument_stack->current_size);
     assert(frame != current_frame); // Sanity check!
     for (int i = 0; i < n; i++){
-        closure_t* argument = (closure_t*) dump_peek(argument_stack);
+        closure_t* closure = (closure_t*) dump_peek(argument_stack);
         dump_pop(argument_stack);
-        rts_memcpy(&frame->arguments[i], argument, sizeof(closure_t));
+        rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
+        rts_free(closure);
     }
 }
 
@@ -39,7 +40,7 @@ void tim_enter_closure(closure_t *closure) {
 }
 
 void tim_update_closure(long offset, closure_t *closure) {
-    debug_msg("Copying closure %p to current frame slot #%li at %p", closure, offset, &current_frame->arguments[offset]);
+    debug_msg("Copying closure %p to current frame slot $%li at %p", closure, offset, &current_frame->arguments[offset]);
     rts_memcpy(&current_frame->arguments[offset], closure, sizeof(closure_t));
 }
 
@@ -92,6 +93,13 @@ closure_t* tim_nil_closure() {
     return make_closure(*tim_nil_code, NULL);
 }
 
+closure_t* argument_closure(long argument) {
+    debug_msg("Creating new argument closure from current frame slot $%li", argument);
+    assert(argument < current_frame->length);
+    closure_t* closure = &current_frame->arguments[argument];
+    return make_closure(closure->code, closure->frame);
+}
+
 closure_t* int_closure(Int value) {
     debug_msg("Creating new int value closure for %li", value);
     int* int_ptr_as_frame = rts_malloc(sizeof(int));
@@ -111,6 +119,11 @@ closure_t* string_closure(String value) {
     String* string_ptr_as_frame = rts_malloc(sizeof(String));
     *string_ptr_as_frame = value;
     return make_closure(*tim_string_code, string_ptr_as_frame);
+}
+
+closure_t* label_closure(void (*code)()) {
+    debug_msg("Creating new label closure for code at %p", code);
+    return make_closure(code, current_frame);
 }
 
 /*****************/
@@ -154,10 +167,9 @@ void tim_take(long total, long n) {
     current_frame = frame;
 }
 
-void tim_push_argument_argument(long offset) {
-    debug_msg("Pushing argument %li from frame %p", offset, current_frame);
-    assert(offset < current_frame->length);
-    return dump_push(argument_stack, &current_frame->arguments[offset]);
+void tim_push_argument_argument(long argument) {
+    debug_msg("Pushing argument $%li from frame %p", argument, current_frame);
+    return dump_push(argument_stack, argument_closure(argument));
 }
 
 void tim_push_argument_int(Int value) {
@@ -177,7 +189,7 @@ void tim_push_argument_string(String value) {
 
 void tim_push_argument_label(void (* code)()) {
     debug_msg("Pushing code %p", code);
-    return dump_push(argument_stack, make_closure(code, current_frame));
+    return dump_push(argument_stack, label_closure(code));
 }
 
 void tim_push_value_int(Int value) {
@@ -249,32 +261,32 @@ void tim_enter_string(String value) {
 
 void tim_enter_label(void (*code)()) {
     debug_msg("Entering function closure %p", code);
-    return tim_enter_closure(make_closure(code, current_frame));
+    return tim_enter_closure(label_closure(code));
 }
 
 void tim_move_argument(long offset, long argument) {
-    debug_msg("Moving argument %li to frame current slot #%li", argument, offset);
-    return tim_update_closure(offset, &current_frame->arguments[argument]);
+    debug_msg("Moving argument %li to frame current slot $%li", argument, offset);
+    return tim_update_closure(offset, argument_closure(argument));
 }
 
 void tim_move_int(long offset, Int value) {
-    debug_msg("Moving int value %li to current frame slot #%li", value, offset);
+    debug_msg("Moving int value %li to current frame slot $%li", value, offset);
     return tim_update_closure(offset, int_closure(value));
 }
 
 void tim_move_double(long offset, Double value) {
-    debug_msg("Moving double value %f to current frame slot #%li", value, offset);
+    debug_msg("Moving double value %f to current frame slot $%li", value, offset);
     return tim_update_closure(offset, double_closure(value));
 }
 
 void tim_move_string(long offset, String value) {
-    debug_msg("Moving string value \"%s\" to current frame slot #%li", value, offset);
+    debug_msg("Moving string value \"%s\" to current frame slot $%li", value, offset);
     return tim_update_closure(offset, string_closure(value));
 }
 
 void tim_move_label(long offset, void (*code)()) {
-    debug_msg("Moving function closure %p to current frame slot #%li", code, offset);
-    return tim_update_closure(offset, make_closure(code, current_frame));
+    debug_msg("Moving function closure %p to current frame slot $%li", code, offset);
+    return tim_update_closure(offset, label_closure(code));
 }
 
 void tim_return() {
