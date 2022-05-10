@@ -11,7 +11,7 @@ import Data.Text.Lazy (Text)
 import Data.Stack (Stack)
 import Data.Stack qualified as Stack
 
-import Data.Heap (Heap)
+import Data.Heap (Heap, Addr)
 import Data.Heap qualified as Heap
 
 import Data.Map qualified as Map
@@ -19,6 +19,8 @@ import Data.Map qualified as Map
 import Language.TIM.Syntax
 import Language.TIM.Prim
 import Language.TIM.Interpreter.Types
+import Data.Maybe (fromJust)
+import Control.Monad.Extra (whenM)
 
 
 ----------------------------------------
@@ -149,6 +151,65 @@ lookupCodeBlock name = do
   case lookupCodeStore name store of
     Nothing -> throwTIMError ("lookupCodeBlock: variable " <> fromName name <> " not in the store")
     Just code -> return code
+
+-- Empty the stack
+clearStack :: TIM ()
+clearStack = modify' $ \st -> st { tim_arg_stack = Stack.empty }
+
+-- Push dump element into the dump
+pushArgDump :: Dump -> TIM ()
+pushArgDump dump = modify' $ \st ->
+  st { tim_arg_dump = Stack.push dump (tim_arg_dump st) }
+
+-- Pushes the current stack into the dump and clears it
+pushStackToDump :: Int -> TIM ()
+pushStackToDump index = do
+  s <- gets tim_arg_stack
+  f <- gets tim_curr_frame
+  let oldStack = Dump {dump_index = index, dump_frame = f,dump_stack = s }
+  pushArgDump oldStack
+  clearStack
+
+isCurrentFramePartial :: TIM Bool
+isCurrentFramePartial = do
+  frame_is_partial <$>  getCurrentFrame
+
+-- Loads all the arguments of a partial frame into the argument stack
+populateArgumentStack :: TIM ()
+populateArgumentStack = do
+  frame <- getCurrentFrame
+  unless (frame_is_partial frame)
+    (throwTIMError "populateArgumentStack: frame is not partial")
+  mapM_ pushArgStack <$> reverse $ frame_closures frame
+
+isArgumentStackBigEnough :: Int -> TIM Bool
+isArgumentStackBigEnough n = do
+  stack_size <- gets (Stack.size . tim_arg_stack)
+  return $ n <= stack_size
+
+popDump :: TIM Dump
+popDump = do
+  whenM (gets (Stack.isEmpty . tim_arg_dump))
+    (throwTIMError "popDump: the stack dump is empty")
+  dump <- gets (fromJust . Stack.peek . tim_arg_dump)
+  modify' $
+    \st -> st { tim_arg_stack =
+                  Stack.append (tim_arg_stack st) (dump_stack dump),
+                tim_arg_dump  =
+                  fromJust $ Stack.pop (tim_arg_dump st) }
+  return dump
+
+-- Pop the stack dump and updates the corresponding closure at the offset of the
+-- frame saved in the removed dump to have a partial frame with all the arguments
+-- currently in the argument stack.
+handlePartialApp :: TIM ()
+handlePartialApp = do
+  Dump framePtr _ index <- popDump
+  closures  <- gets (Stack.toList . tim_arg_stack)
+  newPartialFrame <- allocFrame $ mkPartialFrame closures
+  let updateClosure c = mkClosure (closure_code c) newPartialFrame
+  manipulateFramePtr framePtr (manipulateFrame index updateClosure)
+  return ()
 
 -- Lookup for a primitive operation
 lookupPrimOp :: Name -> TIM Prim

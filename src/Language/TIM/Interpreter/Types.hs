@@ -5,6 +5,7 @@ import Data.Heap
 import Prettyprinter
 
 import Language.TIM.Syntax
+import Data.Stack (Stack)
 
 ----------------------------------------
 -- TIM interpreter types
@@ -23,6 +24,7 @@ instance Pretty FramePtr where
 
 data Frame = Frame {
   frame_size :: Int,
+  frame_is_partial :: Bool,
   frame_closures :: [Closure]
 } deriving (Show, Read, Eq, Ord)
 
@@ -38,7 +40,15 @@ instance Pretty Frame where
 mkFrame :: [Closure] -> Frame
 mkFrame closures = Frame {
   frame_size = length closures,
-  frame_closures = closures
+  frame_closures = closures,
+  frame_is_partial = False
+}
+
+mkPartialFrame :: [Closure] -> Frame
+mkPartialFrame closures = Frame {
+  frame_size = length closures,
+  frame_closures = closures,
+  frame_is_partial = True
 }
 
 -- Offsets withing a frame

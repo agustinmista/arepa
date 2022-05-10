@@ -13,6 +13,7 @@ import Control.Monad.State
 import Language.TIM.Syntax
 import Language.TIM.Interpreter.Types
 import Language.TIM.Interpreter.Monad
+import qualified Data.Stack as Stack
 
 ----------------------------------------
 -- TIM interpreter
@@ -52,6 +53,7 @@ loopTIM = do
 
 stepTIM :: TIM ()
 stepTIM = do
+  code  <- gets tim_curr_codeblock
   instr <- fetchInstr
   case instr of
     TakeArgI t n -> do
@@ -64,6 +66,13 @@ stepTIM = do
       pushArgStack closure
     PushValueI mode -> do
       pushValueStack mode
+    PushMarkerI index -> do
+      pushStackToDump index
+    UpdateMarkersI n -> do
+      whenM isCurrentFramePartial populateArgumentStack
+      unlessM (isArgumentStackBigEnough n) $ do
+        handlePartialApp
+        setCode code
     EnterI mode -> do
       closure <- derefClosure mode
       setCode (closure_code closure)
