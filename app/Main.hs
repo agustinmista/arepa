@@ -58,5 +58,4 @@ codegen store = do
 link :: MonadArepa m => m ()
 link = unlessM hasLinkingDisabled $ do
   args <- mkClangArgs
-  whenVerbose $ dump "Calling clang with CLI argumnents" (prettyPrint args)
   runClang args

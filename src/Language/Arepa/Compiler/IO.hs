@@ -46,6 +46,7 @@ readRtsSrcDir = do
 
 runClang :: MonadArepa m => [String] ->  m ()
 runClang args = do
+  whenVerbose $ dump "Calling clang with CLI argumnents" (prettyPrint args)
   stdout <- Text.pack <$> liftIO (readProcess "clang" args [])
   unless (Text.null stdout) $ do
     warning stdout
