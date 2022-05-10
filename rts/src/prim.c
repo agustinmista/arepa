@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "prim.h"
 #include "mem.h"
+#include "io.h"
 
 
 // Int arithmetic
@@ -68,6 +69,6 @@ Void __prim_write_file__(String path, String data) {
 };
 
 // Printing
-Void __prim_print_int__(Int x)       { printf("%ld\n", x); fflush(stdout); };
-Void __prim_print_double__(Double x) { printf("%f\n", x);  fflush(stdout); };
-Void __prim_print_string__(String x) { printf("%s\n", x);  fflush(stdout); };
+Void __prim_print_int__(Int x)       { fprintf(rts_stdout, "%ld\n", x); };
+Void __prim_print_double__(Double x) { fprintf(rts_stdout, "%f\n",  x); };
+Void __prim_print_string__(String x) { fprintf(rts_stdout, "%s\n",  x); };

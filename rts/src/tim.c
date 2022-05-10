@@ -5,6 +5,7 @@
 #include "mem.h"
 #include "tim.h"
 #include "value.h"
+#include "io.h"
 
 frame_t current_frame;
 dump_t argument_stack;
@@ -147,11 +148,17 @@ void tim_init_value_stack() {
     value_stack = dump_new();
 }
 
+void tim_init_io_stream() {
+    debug_msg("Initializing IO stream");
+    set_rts_stdout(stdout);
+}
+
 void tim_start() {
     debug_msg("Initialization started");
     tim_init_current_frame();
     tim_init_argument_stack();
     tim_init_value_stack();
+    tim_init_io_stream();
     debug_msg("Initialization finished");
 }
 
