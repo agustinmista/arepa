@@ -20,9 +20,9 @@ import Language.TIM.Interpreter.Monad
 
 -- Like `runTIM` but loads the code store and invokes main.
 -- For debugging purposes mostly.
-runCodeStore :: CodeStore -> IO [Value]
-runCodeStore store = do
-  (res, _) <- runTIM store $ invokeFunction "main" []
+runCodeStore :: FilePath -> CodeStore -> IO [Value]
+runCodeStore stdout store = do
+  (res, _) <- runTIM stdout store $ invokeFunction "main" []
   case res of
     Left err     -> error (show err)
     Right values -> return values

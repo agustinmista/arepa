@@ -50,9 +50,11 @@ common common-arepa
   includes:
     rts/include/prim.h
     rts/include/mem.h
+    rts/include/io.h
   c-sources:
     rts/src/prim.c
     rts/src/mem.c
+    rts/src/io.c
 
 library arepa-lib
   import: common-arepa
@@ -77,6 +79,7 @@ library arepa-lib
     Language.Arepa.Types
     Language.TIM
     Language.TIM.Interpreter
+    Language.TIM.Interpreter.Foreign
     Language.TIM.Interpreter.Monad
     Language.TIM.Interpreter.Types
     Language.TIM.Prim
@@ -98,6 +101,7 @@ library arepa-lib
     , template-haskell
     , temporary
     , process
+    , silently
     , zenc
 
 
@@ -120,7 +124,6 @@ test-suite arepa-tests
   main-is: Main.hs
   other-modules:
     TIMTests
-    Golden
   build-depends:
       arepa-lib
     , text
@@ -130,4 +133,3 @@ test-suite arepa-tests
     , process
     , directory
     , bytestring
-    , silently
