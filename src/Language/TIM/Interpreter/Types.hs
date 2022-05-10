@@ -44,16 +44,19 @@ mkFrame closures = Frame {
 -- Offsets withing a frame
 type Offset = Int
 
-updateFrame :: Offset -> Closure -> Frame -> Maybe Frame
-updateFrame offset closure frame
+manipulateFrame :: Offset -> (Closure -> Closure) -> Frame -> Maybe Frame
+manipulateFrame offset f frame
   | offset >= 0 && offset < frame_size frame =
       Just frame {
         frame_closures =
           take offset (frame_closures frame) <>
-          [closure] <>
+          [f $ frame_closures frame !! offset] <>
           drop (offset+1) (frame_closures frame)
       }
   | otherwise = Nothing
+
+updateFrame :: Offset -> Closure -> Frame -> Maybe Frame
+updateFrame offset closure = manipulateFrame offset (const closure)
 
 frameOffset :: Int -> Frame -> Maybe Closure
 frameOffset offset frame

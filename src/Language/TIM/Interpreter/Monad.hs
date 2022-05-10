@@ -244,17 +244,61 @@ derefClosure mode = do
       let litCode = [PushValueI FramePtrM, ReturnI]
       return (mkClosure litCode (ValueP lit))
 
+-- Fetches a frame and updates it with the given function.
+-- Returns the updated frame or an error if anything goes wrong.
+manipulateFrameFromAddr :: Addr -> (Frame -> Maybe Frame) -> TIM Frame
+manipulateFrameFromAddr addr f = do
+  heap <- gets tim_heap
+  case Heap.deref addr heap of
+    Nothing -> do
+      throwTIMError "manipulateFrame: invalid frame address"
+    Just frame -> do
+      newFrame <- do
+        case f frame of
+          Nothing -> throwTIMError "manipulateFrame: update to frame failed (possible wrong offset)"
+          Just frm -> return frm
+      let newHeap = fromJust $ Heap.update (Just . const newFrame) addr heap
+      modify' $ \st -> st { tim_heap = newHeap }
+      return newFrame
+
+manipulateFramePtr :: FramePtr -> (Frame -> Maybe Frame) -> TIM Frame
+manipulateFramePtr fp f = do
+  case fp of
+    AddrP addr -> manipulateFrameFromAddr addr f
+    _ -> do
+      throwTIMError "derefFramePtr: The frame pointer is not to a frame"
+
+derefFramePtr :: FramePtr -> TIM Frame
+derefFramePtr fp = do
+  manipulateFramePtr fp Just
+
+
+-- Fetches the current frame and updates it with the given function.
+-- Returns the updated current frame or an error if anything goes wrong.
+manipulateCurrentFrame :: (Frame -> Maybe Frame) -> TIM Frame
+manipulateCurrentFrame f = do
+  framePtr <- gets tim_curr_frame
+  case framePtr of
+    AddrP addr -> manipulateFrameFromAddr addr f
+    _ -> do
+      throwTIMError "manipulateCurrentFrame: The current frame address is not to a frame pointer"
+
+-- Fetches the current frame
+getCurrentFrame :: TIM Frame
+getCurrentFrame = do
+  manipulateCurrentFrame Just
+
+-- Fetches the current frame
+getFrame :: Addr -> TIM Frame
+getFrame addr = do
+  manipulateFrameFromAddr addr Just
+
+-- Performs pure updates (no errors) to the current frame
+updateCurrentFrame :: (Frame -> Frame) -> TIM ()
+updateCurrentFrame f = do
+  void (manipulateCurrentFrame (Just . f))
+
 -- Update a closure in the current frame
 updateFrameSlot :: Offset -> Closure -> TIM ()
 updateFrameSlot offset closure = do
-  st <- get
-  let curr_frame = tim_curr_frame st
-  case curr_frame of
-    AddrP addr -> do
-      case Heap.update (updateFrame offset closure) addr (tim_heap st) of
-        Nothing -> do
-          throwTIMError "updateClosure: invalid frame address or frame offset"
-        Just heap -> do
-          put st { tim_heap = heap }
-    _ -> do
-      throwTIMError "updateClosure: updating a closure in the current frame requires an address frame pointer"
+  void . manipulateCurrentFrame $ updateFrame offset closure
