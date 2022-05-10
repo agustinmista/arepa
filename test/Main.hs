@@ -1,11 +1,13 @@
 module Main where
 
 import Test.Tasty
-import Golden
+
+import Good
 
 main :: IO ()
 main = do
-  goldenTests <- loadGoldenTests
-  defaultMain $ testGroup "all tests" [
-      goldenTests
+  goodTests <- loadGoodTests
+  defaultMain $
+    testGroup "all tests" [
+      goodTests
     ]
