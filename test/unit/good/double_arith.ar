@@ -1,0 +1,12 @@
+(module double_arith
+
+  (val main
+    (print_double (.- (./ 30.0 27.0) (.+ (./ 30.0 10.0) (.* 3.0 5.0)))))
+
+  (fun print_double    (x) (__prim_print_double__ x))
+
+  (fun .+ (x y)          (__prim_add_double__ x y))
+  (fun .- (x y)          (__prim_sub_double__ x y))
+  (fun .* (x y)          (__prim_mul_double__ x y))
+  (fun ./ (x y)          (__prim_div_double__ x y))
+)

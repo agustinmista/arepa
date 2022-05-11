@@ -77,6 +77,9 @@ notImplemented desc = throwInternalError (desc <> ": not yet implemented")
 ----------------------------------------
 -- Compiler options
 
+hasLinkingDisabled :: MonadArepa m => m Bool
+hasLinkingDisabled = lookupCompilerOption optNoLinking
+
 hasDumpEnabled :: MonadArepa m => DumpOpt -> m Bool
 hasDumpEnabled opt = (opt `elem`) <$> lookupCompilerOption optDump
 

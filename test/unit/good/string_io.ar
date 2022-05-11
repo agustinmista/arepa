@@ -1,0 +1,8 @@
+(module string_io
+
+  (val main echo)
+  (val echo (print_string read_line))
+
+  (fun print_string (x) (__prim_print_string__ x))
+  (val read_line __prim_read_line__)
+)

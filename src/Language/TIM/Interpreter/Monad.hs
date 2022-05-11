@@ -19,6 +19,7 @@ import Data.Map qualified as Map
 import Language.TIM.Syntax
 import Language.TIM.Prim
 import Language.TIM.Interpreter.Types
+import Language.TIM.Interpreter.Foreign
 
 
 ----------------------------------------
@@ -34,8 +35,9 @@ newtype TIM a = TIM (ExceptT TIMError (StateT TIMState (WriterT TIMTrace IO)) a)
            , MonadWriter TIMTrace
            , MonadFail )
 
-runTIM :: CodeStore -> TIM a -> IO (Either TIMError a, TIMTrace)
-runTIM code (TIM ma) = runWriterT (evalStateT (runExceptT ma) (initialTIMState code))
+runTIM :: FilePath -> FilePath -> CodeStore -> TIM a -> IO (Either TIMError a, TIMTrace)
+runTIM stdin stdout code (TIM ma) = withRTSIO stdin stdout $ do
+  runWriterT (evalStateT (runExceptT ma) (initialTIMState code))
 
 -- Machine exceptions
 
