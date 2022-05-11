@@ -13,7 +13,6 @@ import Control.Monad.State
 import Language.TIM.Syntax
 import Language.TIM.Interpreter.Types
 import Language.TIM.Interpreter.Monad
-import qualified Data.Stack as Stack
 
 ----------------------------------------
 -- TIM interpreter
@@ -69,7 +68,7 @@ stepTIM = do
     PushMarkerI index -> do
       pushStackToDump index
     UpdateMarkersI n -> do
-      whenM isCurrentFramePartial populateArgumentStack
+      whenM isCurrentFramePartial populateArgumentStackFromPartialFrame
       unlessM (isArgumentStackBigEnough n) $ do
         handlePartialApp
         setCode code
@@ -81,9 +80,10 @@ stepTIM = do
       closure <- derefClosure mode
       updateFrameSlot n closure
     ReturnI -> do
-      [closure] <- takeArgStack 1
-      setCode (closure_code closure)
-      setFramePtr (closure_frame closure)
+      emptyArgStack <- isArgumentStackEmpty
+      if emptyArgStack
+      then returnWithEmptyArgumentStack
+      else returnToContinuation
     CallI name -> do
       prim <- lookupPrimOp name
       operateOnValueStack prim

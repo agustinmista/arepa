@@ -174,9 +174,48 @@ isCurrentFramePartial :: TIM Bool
 isCurrentFramePartial = do
   frame_is_partial <$>  getCurrentFrame
 
--- Loads all the arguments of a partial frame into the argument stack
-populateArgumentStack :: TIM ()
-populateArgumentStack = do
+isArgumentStackEmpty :: TIM Bool
+isArgumentStackEmpty = do
+  gets (Stack.isEmpty . tim_arg_stack)
+
+isValueStackEmpty :: TIM Bool
+isValueStackEmpty = do
+  gets (Stack.isEmpty . tim_value_stack)
+
+peekValueStack :: TIM Value
+peekValueStack = do
+  whenM isValueStackEmpty $
+    throwTIMError "peekValueStack: the value stack is empty"
+  valueStack <- gets tim_value_stack
+  let value = fromJust . Stack.peek $ valueStack
+  return value
+
+-- Pop the stack dump and updates the corresponding closure at the offset of the
+-- frame saved in the removed dump to a value closure corresponding to the top
+-- of the value stack.
+returnWithEmptyArgumentStack :: TIM ()
+returnWithEmptyArgumentStack = do
+  Dump framePtr _ index <- popDump
+  value   <- peekValueStack
+  closure <- derefClosure (ValueM value)
+  void $ manipulateFramePtr framePtr (updateFrame index closure)
+
+returnToContinuation :: TIM ()
+returnToContinuation = do
+  [closure] <- takeArgStack 1
+  setCode (closure_code closure)
+  setFramePtr (closure_frame closure)
+
+popValueStack :: TIM Value
+popValueStack = do
+  valueStack <- gets tim_value_stack
+  value      <- peekValueStack
+  modify' $ \st -> st { tim_value_stack = fromJust . Stack.pop $ valueStack}
+  return value
+
+-- Loads all the arguments of a partial frame into the argument stack.
+populateArgumentStackFromPartialFrame :: TIM ()
+populateArgumentStackFromPartialFrame = do
   frame <- getCurrentFrame
   unless (frame_is_partial frame)
     (throwTIMError "populateArgumentStack: frame is not partial")
@@ -322,11 +361,11 @@ manipulateFrameFromAddr addr f = do
   heap <- gets tim_heap
   case Heap.deref addr heap of
     Nothing -> do
-      throwTIMError "manipulateFrame: invalid frame address"
+      throwTIMError "manipulateFrameFromAddr: invalid frame address"
     Just frame -> do
       newFrame <- do
         case f frame of
-          Nothing -> throwTIMError "manipulateFrame: update to frame failed (possible wrong offset)"
+          Nothing -> throwTIMError "manipulateFrameFromAddr: update to frame failed (possible wrong offset)"
           Just frm -> return frm
       let newHeap = fromJust $ Heap.update (Just . const newFrame) addr heap
       modify' $ \st -> st { tim_heap = newHeap }
