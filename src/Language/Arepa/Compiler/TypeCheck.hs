@@ -11,7 +11,7 @@ import Language.Arepa.Compiler.Monad
 
 typeCheckModule :: MonadArepa m => CoreModule -> m CoreModule
 typeCheckModule m = do
-  let name = mod_name m
+  let name = modName m
   whenVerbose $ debug ("Type checking module " <> prettyPrint name)
   return m
 

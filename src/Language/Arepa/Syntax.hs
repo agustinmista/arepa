@@ -18,8 +18,8 @@ import Data.Name
 
 data Module a =
   Module {
-    mod_name :: a,
-    mod_decls :: [Decl a]
+    modName :: a,
+    modDecls :: [Decl a]
   } deriving (Show, Read, Eq, Ord, Functor)
 
 type CoreModule = Module Name

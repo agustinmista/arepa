@@ -23,11 +23,11 @@ import Language.TIM
 -- Translate a core module into TIM code
 translateModule :: MonadArepa m => CoreModule -> m CodeStore
 translateModule m = do
-  let name = mod_name m
-  let globals = declName <$> mod_decls m
+  let name = modName m
+  let globals = declName <$> modDecls m
   whenVerbose $ debug ("Translating module " <> prettyPrint name)
   runTranslate name globals $ do
-    mapM_ translateDecl (mod_decls m)
+    mapM_ translateDecl (modDecls m)
 
 ----------------------------------------
 -- Internal translation state
