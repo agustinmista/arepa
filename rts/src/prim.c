@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "prim.h"
 #include "mem.h"
+#include "io.h"
 
 
 // Int arithmetic
@@ -31,7 +32,7 @@ String __prim_read_line__() {
     buffer[buffer_len] = '\0';
 
     char c;
-    while ((c = getchar()) != '\n' && c != EOF) {
+    while ((c = rts_getchar()) != '\n' && c != EOF) {
         buffer_len++;
         if (buffer_len % buffer_step == 0) {
             buffer = rts_realloc(buffer, buffer_len + buffer_step);
@@ -68,6 +69,6 @@ Void __prim_write_file__(String path, String data) {
 };
 
 // Printing
-Void __prim_print_int__(Int x)       { printf("%ld\n", x); };
-Void __prim_print_double__(Double x) { printf("%f\n", x);  };
-Void __prim_print_string__(String x) { printf("%s\n", x);  };
+Void __prim_print_int__(Int x)       { rts_printf("%ld\n", x); };
+Void __prim_print_double__(Double x) { rts_printf("%f\n",  x); };
+Void __prim_print_string__(String x) { rts_printf("%s\n",  x); };

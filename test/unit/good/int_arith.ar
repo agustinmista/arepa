@@ -1,0 +1,13 @@
+(module int_arith
+
+  (val main
+    (print_int (- (% 30 27) (+ (/ 30 10) (* 3 5)))))
+
+  (fun print_int    (x) (__prim_print_int__ x))
+
+  (fun + (x y)          (__prim_add_int__ x y))
+  (fun - (x y)          (__prim_sub_int__ x y))
+  (fun * (x y)          (__prim_mul_int__ x y))
+  (fun / (x y)          (__prim_div_int__ x y))
+  (fun % (x y)          (__prim_mod_int__ x y))
+)

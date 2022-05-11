@@ -50,9 +50,11 @@ common common-arepa
   includes:
     rts/include/prim.h
     rts/include/mem.h
+    rts/include/io.h
   c-sources:
     rts/src/prim.c
     rts/src/mem.c
+    rts/src/io.c
 
 library arepa-lib
   import: common-arepa
@@ -77,6 +79,7 @@ library arepa-lib
     Language.Arepa.Types
     Language.TIM
     Language.TIM.Interpreter
+    Language.TIM.Interpreter.Foreign
     Language.TIM.Interpreter.Monad
     Language.TIM.Interpreter.Types
     Language.TIM.Prim
@@ -90,11 +93,14 @@ library arepa-lib
     , pretty-simple
     , filepath
     , containers
+    , directory
     , prettyprinter
     , megaparsec
     , llvm-hs-pure
     , llvm-hs-pretty
     , template-haskell
+    , temporary
+    , process
     , zenc
 
 
@@ -104,15 +110,11 @@ executable arepa
   main-is: Main.hs
   other-modules:
     CLI
-    Clang
   build-depends:
       arepa-lib
     , text
     , optparse-applicative
-    , process
     , filepath
-    , directory
-    , temporary
 
 test-suite arepa-tests
   import: common-arepa
@@ -120,7 +122,14 @@ test-suite arepa-tests
   hs-source-dirs: test
   main-is: Main.hs
   other-modules:
+    Good
     TIMTests
   build-depends:
       arepa-lib
     , text
+    , tasty
+    , tasty-golden
+    , filepath
+    , process
+    , directory
+    , bytestring

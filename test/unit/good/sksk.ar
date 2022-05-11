@@ -1,0 +1,10 @@
+(module sk
+  (val main
+    (print_int (s k s k 5 "foo")))
+
+  (fun i (x) x)
+  (fun k (x y) x)
+  (fun s (f g x) (f x (g x)))
+
+  (fun print_int (x) (__prim_print_int__ x))
+)

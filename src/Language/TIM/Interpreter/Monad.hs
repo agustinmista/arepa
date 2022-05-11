@@ -21,7 +21,7 @@ import Language.TIM.Prim
 import Language.TIM.Interpreter.Types
 import Data.Maybe (fromJust)
 import Control.Monad.Extra (whenM)
-
+import Language.TIM.Interpreter.Foreign
 
 ----------------------------------------
 -- TIM interpreter monad
@@ -36,8 +36,9 @@ newtype TIM a = TIM (ExceptT TIMError (StateT TIMState (WriterT TIMTrace IO)) a)
            , MonadWriter TIMTrace
            , MonadFail )
 
-runTIM :: CodeStore -> TIM a -> IO (Either TIMError a, TIMTrace)
-runTIM code (TIM ma) = runWriterT (evalStateT (runExceptT ma) (initialTIMState code))
+runTIM :: FilePath -> FilePath -> CodeStore -> TIM a -> IO (Either TIMError a, TIMTrace)
+runTIM stdin stdout code (TIM ma) = withRTSIO stdin stdout $ do
+  runWriterT (evalStateT (runExceptT ma) (initialTIMState code))
 
 -- Machine exceptions
 
