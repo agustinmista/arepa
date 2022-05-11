@@ -78,18 +78,18 @@ lookupArgMode name = do
 -- Run the translation inside a local environment
 withExtendedEnv :: MonadArepa m => [(Name, ArgMode)] -> Translate m a -> Translate m a
 withExtendedEnv binds ma = do
-  whenVerbose $ dump "Extending the current environment with" (prettyPrint binds)
+  whenVerbose $ dump "Extending the current environment with" binds
   st <- get
   put (st { ts_env = foldr (uncurry Map.insert) (ts_env st) binds })
   a <- ma
   modify' $ \st' -> st' { ts_env = ts_env st }
-  whenVerbose $ dump "Restored the previous environment to" (prettyPrint (Map.toList (ts_env st)))
+  whenVerbose $ dump "Restored the previous environment to" (Map.toList (ts_env st))
   return a
 
 -- Insert a code bind in the internal code store
 saveCodeBlock :: MonadArepa m => Name -> CodeBlock -> Translate m ()
 saveCodeBlock name code = do
-  whenVerbose $ dump ("Saving code block " <> prettyPrint name) (prettyPrint code)
+  whenVerbose $ dump ("Saving code block " <> prettyPrint name) code
   modify $ \st -> st { ts_store = insertCodeStore name code (ts_store st) }
 
 -- Return a fresh name with a given prefix
@@ -105,7 +105,7 @@ lookupPrimOp name = do
     Nothing -> do
       throwInternalError ("lookupPrimOp: primitive " <> prettyPrint name <> " is missing")
     Just prim -> do
-      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyPrint (prim_arity prim, prim_type prim))
+      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prim_arity prim, prim_type prim)
       return prim
 
 -- Return the acummulated number of frame slots
@@ -123,7 +123,7 @@ reserveFrameSlots :: MonadArepa m => Int -> Translate m [Int]
 reserveFrameSlots n = do
   slots <- getFrameSlots
   let reserved = take n [ slots .. ]
-  whenVerbose $ dump "Reserving frame slots" (prettyPrint reserved)
+  whenVerbose $ dump "Reserving frame slots" reserved
   setFrameSlots (slots + n)
   return reserved
 
@@ -145,7 +145,7 @@ withIsolatedFrameSlots ma = do
 
 translateDecl :: MonadArepa m => CoreDecl -> Translate m ()
 translateDecl decl = do
-  whenVerbose $ dump "Translating declaration" (prettyPrint decl)
+  whenVerbose $ dump "Translating declaration" decl
   let name = declName decl
   let args = declArgs decl
   let extEnv = zip args (ArgM <$> [0..])
@@ -161,7 +161,7 @@ translateDecl decl = do
 
 translateExpr :: MonadArepa m => CoreExpr -> Translate m CodeBlock
 translateExpr expr = do
-  whenVerbose $ dump "Translating expression" (prettyPrint expr)
+  whenVerbose $ dump "Translating expression" expr
   case expr of
     -- Fully saturated primitive function calls
     -- NOTE: must be at top since this pattern overlaps VarE and AppE
@@ -201,7 +201,7 @@ translateExpr expr = do
 
 translateCall :: MonadArepa m => Name -> [CoreExpr] -> Translate m CodeBlock
 translateCall name args = do
-  whenVerbose $ dump "Translating primitive call" (prettyPrint (name, args))
+  whenVerbose $ dump "Translating primitive call" (name, args)
   prim <- lookupPrimOp name
   let arity = prim_arity prim
   when (arity /= length args) $ do
@@ -255,7 +255,7 @@ translateLet isRec binds body = do
 
 translateLetBind :: MonadArepa m => (Name, CoreExpr) -> Int -> Translate m CodeBlock
 translateLetBind bind slot = do
-  whenVerbose $ dump "Translating let bind" (prettyPrint bind)
+  whenVerbose $ dump "Translating let bind" bind
   rhsMode <- translateArgMode (snd bind)
   return [ MoveI slot rhsMode ]
 
@@ -264,7 +264,7 @@ translateLetBind bind slot = do
 
 translateArgMode :: MonadArepa m => CoreExpr -> Translate m ArgMode
 translateArgMode expr = do
-  whenVerbose $ dump "Translating address mode of expression" (prettyPrint expr)
+  whenVerbose $ dump "Translating address mode of expression" expr
   case expr of
     VarE name -> do
       lookupArgMode name
@@ -279,7 +279,7 @@ translateArgMode expr = do
 
 translateValueMode :: MonadArepa m => Lit -> Translate m ValueMode
 translateValueMode lit = do
-  whenVerbose $ dump "Translating value mode of literal" (prettyPrint lit)
+  whenVerbose $ dump "Translating value mode of literal" lit
   value <- translateLit lit
   return (InlineM value)
 
@@ -288,7 +288,7 @@ translateValueMode lit = do
 
 translateLit :: MonadArepa m => Lit -> Translate m Value
 translateLit lit = do
-  whenVerbose $ dump "Translating literal" (prettyPrint lit)
+  whenVerbose $ dump "Translating literal" lit
   case lit of
     IntL    n -> return (IntV n)
     DoubleL n -> return (DoubleV n)

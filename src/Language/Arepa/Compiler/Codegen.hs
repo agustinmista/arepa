@@ -28,7 +28,6 @@ import Language.Arepa.Syntax
 import Language.Arepa.Compiler.Monad
 import Language.TIM
 
-
 ----------------------------------------
 -- Code generation
 ----------------------------------------
@@ -112,7 +111,7 @@ lookupGlobalOperand name = do
 -- If it is already registered, then return the corresponding operand
 registerString :: MonadLLVM m => Text -> m LLVM.Operand
 registerString str = do
-  whenVerbose $ dump "Registering string" (prettyPrint str)
+  whenVerbose $ dump "Registering string" str
   strings <- gets cg_strings
   case Map.lookup str strings of
     Just op -> do
@@ -136,7 +135,7 @@ lookupPrim name = do
     Nothing -> do
       throwInternalError ("lookupPrim: cannot find primitive operation " <> prettyPrint name)
     Just prim -> do
-      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyPrint (prim_arity prim, prim_type prim))
+      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prim_arity prim, prim_type prim)
       return prim
 
 
@@ -257,7 +256,7 @@ emitCodeBlock name code = void $ do
 -- Instructions
 emitInstr :: (MonadIRBuilder m, MonadLLVM m) => Instr -> m ()
 emitInstr instr = do
-  whenVerbose $ dump "Emitting instruction" (prettyPrint instr)
+  whenVerbose $ dump "Emitting instruction" instr
   case instr of
     -- Take
     TakeArgI t n -> do

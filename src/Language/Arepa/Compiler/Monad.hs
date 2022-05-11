@@ -10,6 +10,8 @@ import Control.Monad.Compiler
 
 import Data.Text.Lazy (Text)
 
+import Prettyprinter
+
 import Language.Arepa.Compiler.Error
 import Language.Arepa.Compiler.Options
 
@@ -48,8 +50,8 @@ debug :: MonadArepa m => Text -> m ()
 debug msg = logCompilerMsg (DebugMsg msg Nothing)
 
 -- Log a debug message along with some dump values
-dump :: MonadArepa m => Text -> Text -> m ()
-dump msg obj = logCompilerMsg (DebugMsg msg (Just obj))
+dump :: (MonadArepa m, Pretty a) => Text -> a -> m ()
+dump msg obj = logCompilerMsg (DebugMsg msg (Just (prettyPrint obj)))
 
 -- Report a message only when in debug mode (-v/--verbose)
 whenVerbose :: MonadArepa m => m () -> m ()
