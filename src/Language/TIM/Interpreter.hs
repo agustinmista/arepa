@@ -83,7 +83,8 @@ stepTIM = do
     ReturnI -> do
       emptyArgStack <- isArgumentStackEmpty
       if emptyArgStack
-      then returnWithEmptyArgumentStack
+      then do returnWithEmptyArgumentStack
+              setCode code
       else returnToContinuation
     CallI name -> do
       prim <- lookupPrimOp name
