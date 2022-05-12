@@ -1,0 +1,15 @@
+(module lambda3
+  (val main
+    (print_int
+      (foo 10)))
+
+  (fun foo (x)
+    (let (( plus5   (lambda (n) (+ n 5))           ))
+    (let (( plus10  (lambda (n) (plus5 (plus5 n))) ))
+    (plus5 (plus10 x)))))
+
+  (fun twice (f x) (f (f x)))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+)
