@@ -184,8 +184,8 @@ translateExpr expr = do
       mode   <- translateArgMode e2
       return ([ PushArgI mode ] <> e1code)
     -- Lambda functions should be gone by now
-    LamE _var _body -> do
-      notImplemented "translateExpr/LamE"
+    LamE _ _ -> do
+      throwInternalError "translateInstr: impossible! lambda expressions should never appear here"
     -- Let bindings
     LetE isRec binds body -> do
       translateLet isRec binds body
