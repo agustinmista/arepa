@@ -11,6 +11,11 @@ frame_t current_frame;
 dump_t argument_stack;
 dump_t value_stack;
 
+/****************/
+/* Declarations */
+/****************/
+closure_t* argument_closure(long argument);
+
 /*********************/
 /* Utility functions */
 /*********************/
@@ -19,8 +24,27 @@ frame_t new_frame(long size) {
     debug_msg("Creating new frame of size %li", size);
     frame_t frame = rts_malloc(sizeof(struct frame_t));
     frame->length = size;
+    frame->is_partial = 0;
     frame->arguments = rts_malloc(size*sizeof(closure_t));
     return frame;
+}
+
+frame_t new_partial_frame(long size){
+    debug_msg("Creating new partial frame of size %li", size);
+    frame_t frame = new_frame(size);
+    frame->is_partial = 1;
+    return frame;
+}
+
+void copy_n_stack_arguments_to_frame(long start,long end,frame_t frame, stack_t stack) {
+    debug_msg("Coping all available closures int the stack as arguments");
+    assert(start <= 0 && start <= end);
+    assert(frame != current_frame); // Sanity check!
+    if (start==end) return;
+    assert(stack);
+    closure_t* closure = (closure_t*) stack_peek(stack);
+    rts_memcpy(&frame->arguments[start], closure, sizeof(closure_t));
+    return copy_n_stack_arguments_to_frame(start++,end,frame,stack->next);
 }
 
 void move_n_stack_arguments_to_frame(long n, frame_t frame) {
@@ -43,6 +67,31 @@ void tim_enter_closure(closure_t *closure) {
 void tim_update_closure(long offset, closure_t *closure) {
     debug_msg("Copying closure %p to current frame slot $%li at %p", closure, offset, &current_frame->arguments[offset]);
     rts_memcpy(&current_frame->arguments[offset], closure, sizeof(closure_t));
+}
+
+void tim_populate_partial_arguments() {
+    debug_msg("Filling the arguments stack with arguments of a partial frame");
+    if (!current_frame->is_partial) return;
+    for (int i=0; i < current_frame->length; i++){
+        dump_push(argument_stack,argument_closure(i));
+    }
+}
+
+void update_closure_in_target_frame(tim_metadata_t metadata, frame_t frame){
+    debug_msg("Updating the corresponding closure in the frame retrived from the dump");
+    frame_t target_frame    = metadata->frame;
+    long offset             = metadata->offset;
+    target_frame->arguments[offset].frame = frame;
+}
+
+void tim_handle_partial_application() {
+    debug_msg("Restorin gprevious stack from the dump");
+    dump_previous(argument_stack);
+    long argn   = argument_stack->current_size;
+    frame_t frame = new_partial_frame(argn);
+    copy_n_stack_arguments_to_frame(0,argn,frame,argument_stack->current);
+    tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
+    update_closure_in_target_frame(metadata, frame);
 }
 
 /*****************************/
@@ -219,6 +268,21 @@ void tim_push_value_string(String value) {
     String* p = rts_malloc(sizeof(String));
     *p = value;
     return dump_push(value_stack, p);
+}
+
+void tim_marker_push(long offset) {
+    tim_metadata_t metadata = rts_malloc(sizeof(struct tim_metadata_t));
+    metadata->offset = offset;
+    metadata->frame  = current_frame;
+    dump_freeze(argument_stack, metadata);
+}
+
+void tim_markers_update(long nargs) {
+    if (nargs == 0) return;
+    tim_populate_partial_arguments();
+    if (nargs <= argument_stack->current_size) return;
+    tim_handle_partial_application();
+    return tim_markers_update(nargs);
 }
 
 void* tim_pop_value() {

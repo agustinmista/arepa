@@ -98,6 +98,12 @@ void *dump_peek(dump_t dump) {
     return dump->current->data;
 }
 
+void *stack_peek(stack_t stack) {
+    // Sanity checks
+    assert(stack);
+    return stack->data;
+}
+
 
 void dump_freeze(dump_t dump, void *metadata) {
     // Sanity checks
@@ -180,4 +186,3 @@ void dump_restore(dump_t dump) {
     // Restore parent
     dump_restore_parent(dump);
 }
-

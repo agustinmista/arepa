@@ -8,6 +8,7 @@ struct closure_t;
 
 typedef struct frame_t {
   long length;
+  int is_partial;
   struct closure_t* arguments;
 } *frame_t;
 
@@ -16,10 +17,10 @@ typedef struct closure_t {
   void (*code)();
 } closure_t;
 
-typedef struct dump_metadata_t {
+typedef struct tim_metadata_t {
   int offset;
   frame_t frame;
-} dump_metadata_t;
+} *tim_metadata_t;
 
 void tim_start();
 
@@ -66,6 +67,10 @@ void tim_move_double(long offset, Double value);
 void tim_move_string(long offset, String value);
 
 void tim_move_label(long offset, void (*code)());
+
+void tim_marker_push(long offset);
+
+void tim_markers_update(long nargs);
 
 void tim_return();
 

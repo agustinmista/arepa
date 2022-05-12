@@ -35,6 +35,8 @@ void dump_pop(dump_t dump);
 // Peek the top element on the current stack (without freeing it)
 void *dump_peek(dump_t dump);
 
+void *stack_peek(stack_t stack);
+
 // Create a new stack on top of a given one
 void dump_freeze(dump_t dump, void *metadata);
 
