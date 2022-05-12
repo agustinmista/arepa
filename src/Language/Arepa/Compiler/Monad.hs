@@ -8,12 +8,16 @@ module Language.Arepa.Compiler.Monad
 import Control.Monad.Extra
 import Control.Monad.Compiler
 
+import Data.Maybe
+
 import Data.Text.Lazy (Text)
 
 import Prettyprinter
 
 import Language.Arepa.Compiler.Error
 import Language.Arepa.Compiler.Options
+
+import Language.TIM.Interpreter
 
 ----------------------------------------
 -- Compiler monad
@@ -37,21 +41,26 @@ testArepa = runCompiler' defaultOpts
 -- A concete instantiation of `MonadCompiler` with tasty errors and options.
 type MonadArepa m = MonadCompiler ArepaError ArepaOpts m
 
-
 ----------------------------------------
 -- Compilation messages
 
 -- Log a warning message
 warning :: MonadArepa m => Text -> m ()
-warning msg = logCompilerMsg (WarningMsg msg)
+warning msg = do
+  path <- getInputPath
+  logCompilerMsg (WarningMsg path msg)
 
 -- Log a debug message
 debug :: MonadArepa m => Text -> m ()
-debug msg = logCompilerMsg (DebugMsg msg Nothing)
+debug msg = do
+  path <- getInputPath
+  logCompilerMsg (DebugMsg path msg Nothing)
 
 -- Log a debug message along with some dump values
 dump :: (MonadArepa m, Pretty a) => Text -> a -> m ()
-dump msg obj = logCompilerMsg (DebugMsg msg (Just (prettyPrint obj)))
+dump msg obj = do
+  path <- getInputPath
+  logCompilerMsg (DebugMsg path msg (Just (prettyPrint obj)))
 
 -- Report a message only when in debug mode (-v/--verbose)
 whenVerbose :: MonadArepa m => m () -> m ()
@@ -67,13 +76,22 @@ whenDump flag = whenM (hasDumpEnabled flag)
 throwParserError :: MonadArepa m => ParserError -> m a
 throwParserError err = throwCompilerError (ParserError err)
 
-throwInterpreterError :: MonadArepa m => InterpreterError -> m a
-throwInterpreterError err = throwCompilerError (InterpreterError err)
+throwRenamerError :: MonadArepa m => Text -> m a
+throwRenamerError err = do
+  path <- getInputPath
+  throwCompilerError (RenamerError (path, err))
 
-throwInternalError :: MonadArepa m => InternalError -> m a
-throwInternalError err = throwCompilerError (InternalError err)
+throwInterpreterError :: MonadArepa m => TIMError -> m a
+throwInterpreterError err = do
+  path <- getInputPath
+  throwCompilerError (InterpreterError (path, err))
 
-notImplemented :: MonadArepa m => InternalError -> m a
+throwInternalError :: MonadArepa m => Text -> m a
+throwInternalError err = do
+  path <- getInputPath
+  throwCompilerError (InternalError (path, err))
+
+notImplemented :: MonadArepa m => Text -> m a
 notImplemented desc = throwInternalError (desc <> ": not yet implemented")
 
 ----------------------------------------
@@ -96,3 +114,9 @@ hasInterpretEnabled = lookupCompilerOption optInterpret
 
 hasStrictEnabled :: MonadArepa m => m Bool
 hasStrictEnabled = lookupCompilerOption optStrict
+
+----------------------------------------
+-- Utilities
+
+getInputPath :: MonadArepa m => m FilePath
+getInputPath = fromMaybe "<stdin>" <$> lookupCompilerOption optInput
