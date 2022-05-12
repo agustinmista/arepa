@@ -153,8 +153,9 @@ emitRTS = do
   -- RTS main wrapper (only when necessary or forced)
   whenVerbose $ debug "Emitting RTS main()"
   output <- lookupCompilerOption optOutput
-  forced <- lookupCompilerOption optEmitMain
-  when (isJust output || forced) $ do
+  forced <- hasEmitMainEnabled
+  linkingDisabled <- hasLinkingDisabled
+  when (isJust output || forced || not linkingDisabled) $ do
     entry <- lookupCompilerOption optEntryPoint
     emitMain (mkName (fromMaybe "main" entry))
 
