@@ -71,6 +71,7 @@ library arepa-lib
     Language.Arepa.Compiler.Interpret
     Language.Arepa.Compiler.IO
     Language.Arepa.Compiler.Options
+    Language.Arepa.Compiler.LambdaLift
     Language.Arepa.Compiler.Parser
     Language.Arepa.Compiler.Monad
     Language.Arepa.Compiler.Translate
