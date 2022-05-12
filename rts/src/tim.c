@@ -30,7 +30,7 @@ frame_t new_frame(long size) {
     return frame;
 }
 
-frame_t new_partial_frame(long size){
+frame_t new_partial_frame(long size) {
     debug_msg("Creating new partial frame of size %li", size);
     frame_t frame = new_frame(size);
     frame->is_partial = 1;
@@ -128,30 +128,6 @@ void tim_nil_code() {
     return;
 }
 
-void tim_int_code() {
-    debug_msg("Running int code");
-    Int* int_ptr_as_frame = (Int*) current_frame;
-    debug_msg("Pushing int value %li at %p into the value stack", *int_ptr_as_frame, int_ptr_as_frame);
-    dump_push(value_stack, int_ptr_as_frame);
-    return tim_return();
-}
-
-void tim_double_code() {
-    debug_msg("Running double code");
-    Double* double_ptr_as_frame = (Double*) current_frame;
-    debug_msg("Pushing double value %f at %p into the value stack", *double_ptr_as_frame, double_ptr_as_frame);
-    dump_push(value_stack, double_ptr_as_frame);
-    return tim_return();
-}
-
-void tim_string_code() {
-    debug_msg("Running string code");
-    String* string_ptr_as_frame = (String*) current_frame;
-    debug_msg("Pushing string value \"%s\" at %p into the value stack", *string_ptr_as_frame, string_ptr_as_frame);
-    dump_push(value_stack, string_ptr_as_frame);
-    return tim_return();
-}
-
 void tim_value_code() {
     debug_msg("Running value code");
     void* value_ptr_as_frame = (void*) current_frame;
@@ -188,21 +164,21 @@ closure_t* int_closure(Int value) {
     debug_msg("Creating new int value closure for %li", value);
     int* int_ptr_as_frame = rts_malloc(sizeof(int));
     *int_ptr_as_frame = value;
-    return make_closure(*tim_int_code, int_ptr_as_frame);
+    return make_closure(*tim_value_code, int_ptr_as_frame);
 }
 
 closure_t* double_closure(Double value) {
     debug_msg("Creating new double value closure for %f", value);
     Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
-    return make_closure(*tim_double_code, double_ptr_as_frame);
+    return make_closure(*tim_value_code, double_ptr_as_frame);
 }
 
 closure_t* string_closure(String value) {
     debug_msg("Creating new string value closure for \"%s\"", value);
     String* string_ptr_as_frame = rts_malloc(sizeof(String));
     *string_ptr_as_frame = value;
-    return make_closure(*tim_string_code, string_ptr_as_frame);
+    return make_closure(*tim_value_code, string_ptr_as_frame);
 }
 
 closure_t* label_closure(void (*code)()) {
