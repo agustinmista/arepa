@@ -1,0 +1,10 @@
+(module lambda1
+  (val main
+    (print_int
+      (foo 10 20 30)))
+
+  (fun foo (x) (lambda (y z) (+ z (+ y x))))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+)
