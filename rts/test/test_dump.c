@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     printf("x5=%d, &x5=%p\n", x5, &x5);
     printf("x6=%d, &x6=%p\n", x6, &x6);
     printf("\n");
-    
+
     printf("Create a new dump\n");
     printf("> dump<-dump_new()\n");
     dump_t dump = dump_new();
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     printf("> dump_push(%p, %p)\n", dump, &x3);
     dump_push(dump, &x3);
     printf("\n");
-    
+
     printf("Check if it is empty\n");
     printf("> empty<-dump_is_empty(%p)\n", dump);
     empty = dump_is_empty(dump);
@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
     printf("> dump_pop(%p)\n", dump);
     dump_pop(dump);
     printf("\n");
-    
+
     printf("Peek the top element\n");
     printf("> top<-dump_peek(%p)\n", dump);
     top = dump_peek(dump);
@@ -67,13 +67,13 @@ int main(int argc, char **argv) {
 
     printf("> Freeze the current stack\n");
     printf("> dump_freeze(%p)\n", dump);
-    dump_freeze(dump);
+    dump_freeze(dump,NULL);
 
     printf("Check if it is empty\n");
     printf("> empty<-dump_is_empty(%p)\n", dump);
     empty = dump_is_empty(dump);
     printf("> empty=%d\n", empty);
-    
+
     printf("Push some more values\n");
     printf("> dump_push(%p, %p)\n", dump, &x4);
     dump_push(dump, &x4);
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
     empty = dump_is_empty(dump);
     printf("> empty=%d\n", empty);
     printf("\n");
-    
+
     printf("Peek the top element\n");
     printf("> top<-dump_peek(%p)\n", dump);
     top = dump_peek(dump);
@@ -109,24 +109,59 @@ int main(int argc, char **argv) {
     top = dump_peek(dump);
     printf("> top=%p, *top=%d\n", top, *((int *) top));
     printf("\n");
-    
+
     printf("Push some more values\n");
+    printf("> dump_push(%p, %p)\n", dump, &x4);
+    dump_push(dump, &x4);
     printf("> dump_push(%p, %p)\n", dump, &x3);
     dump_push(dump, &x3);
-    printf("> dump_push(%p, %p)\n", dump, &x2);
-    dump_push(dump, &x2);
     printf("\n");
 
     printf("> Freeze the current stack\n");
     printf("> dump_freeze(%p)\n", dump);
-    dump_freeze(dump);
+    dump_freeze(dump,NULL);
     printf("\n");
-    
+
     printf("Push some more values\n");
-    printf("> dump_push(%p, %p)\n", dump, &x3);
-    dump_push(dump, &x3);
     printf("> dump_push(%p, %p)\n", dump, &x2);
     dump_push(dump, &x2);
+    printf("> dump_push(%p, %p)\n", dump, &x1);
+    dump_push(dump, &x1);
+    printf("\n");
+
+    printf("Dump the previous values\n");
+    printf("> dump_previous(%p)\n", dump);
+    dump_previous(dump);
+    printf("Print values in the stack\n");
+
+    printf("Expect: %p Got: %p\n", &x1, dump_peek(dump));
+    dump_pop(dump);
+    printf("Expect: %p Got: %p\n", &x2, dump_peek(dump));
+    dump_pop(dump);
+    printf("Expect: %p Got: %p\n", &x3, dump_peek(dump));
+    dump_pop(dump);
+    printf("Expect: %p Got: %p\n", &x4, dump_peek(dump));
+    dump_pop(dump);
+
+    printf("\n");
+
+    printf("Push some more values\n");
+    printf("> dump_push(%p, %p)\n", dump, &x4);
+    dump_push(dump, &x4);
+    printf("> dump_push(%p, %p)\n", dump, &x3);
+    dump_push(dump, &x3);
+    printf("\n");
+
+    printf("> Freeze the current stack\n");
+    printf("> dump_freeze(%p)\n", dump);
+    dump_freeze(dump,NULL);
+    printf("\n");
+
+    printf("Push some more values\n");
+    printf("> dump_push(%p, %p)\n", dump, &x2);
+    dump_push(dump, &x2);
+    printf("> dump_push(%p, %p)\n", dump, &x1);
+    dump_push(dump, &x1);
     printf("\n");
 
     printf("Destroy the dump\n");

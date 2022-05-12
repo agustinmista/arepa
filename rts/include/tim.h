@@ -16,6 +16,11 @@ typedef struct closure_t {
   void (*code)();
 } closure_t;
 
+typedef struct dump_metadata_t {
+  int offset;
+  frame_t frame;
+} dump_metadata_t;
+
 void tim_start();
 
 void tim_take(long total, long n);
