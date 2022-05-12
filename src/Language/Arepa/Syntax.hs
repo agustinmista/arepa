@@ -82,7 +82,7 @@ data Expr a =
   | LitE Lit                         -- ^ Literals
   | ConE Con                         -- ^ Data constructors
   | AppE (Expr a) (Expr a)           -- ^ Function application
-  | LamE a (Expr a)                  -- ^ Lambda expressions
+  | LamE [a] (Expr a)                -- ^ Lambda expressions
   | LetE Bool [(a, Expr a)] (Expr a) -- ^ Let expressions
   | CaseE (Expr a) [Alt a]           -- ^ Case expressions
   deriving (Show, Read, Eq, Ord, Functor)
@@ -100,9 +100,9 @@ instance Pretty CoreExpr where
     let (fun, args) = collectArgs expr in
     parens $
       pretty fun <+> hsep (pretty <$> args)
-  pretty (LamE var expr) =
+  pretty (LamE vars expr) =
     parens $
-      "lambda" <+> pretty var <+> pretty expr
+      "lambda" <+> parens (hsep (pretty <$> vars)) <+> pretty expr
   pretty (LetE isRec binds expr) =
     parens $ vsep
       [ (if isRec then "letrec" else "let") <+>
@@ -144,11 +144,6 @@ mkConAppE con = mkAppsE (ConE con)
 mkAppsE :: Expr a -> [Expr a] -> Expr a
 mkAppsE = foldl' AppE
 
--- Create a lambda expression by abstracting a list of variables from a body
--- expression
-mkLamsE :: [a] -> Expr a -> Expr a
-mkLamsE vars body = foldr LamE body vars
-
 ----------------------------------------
 -- Expression utilities
 
@@ -158,13 +153,6 @@ isAtomicExpr VarE {} = True
 isAtomicExpr LitE {} = True
 isAtomicExpr ConE {} = True
 isAtomicExpr _       = False
-
--- Collect all the leading lambdas from an expression
-collectBinders :: Expr a -> ([a], Expr a)
-collectBinders = go []
-  where
-    go bs (LamE b e) = go (b:bs) e
-    go bs e          = (reverse bs, e)
 
 -- Collect all the arguments from a function application
 collectArgs :: Expr a -> (Expr a, [Expr a])
