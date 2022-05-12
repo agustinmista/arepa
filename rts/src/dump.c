@@ -125,8 +125,8 @@ void dump_freeze(dump_t dump, void *metadata) {
     dump->parent = new_dump;
     dump->current_size = 0;
     dump->metadata = NULL;
-
 }
+
 
 void dump_restore_parent(dump_t dump) {
     // Sanity checks
@@ -145,6 +145,7 @@ void dump_restore_parent(dump_t dump) {
     // Free the (now old) parent dump
     rts_free(parent);
 }
+
 
 void dump_append(dump_t a, dump_t b){
     assert(a);
