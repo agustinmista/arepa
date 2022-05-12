@@ -68,10 +68,11 @@ stepTIM = do
     PushMarkerI index -> do
       pushStackToDump index
     UpdateMarkersI n -> do
-      whenM isCurrentFramePartial populateArgumentStackFromPartialFrame
-      unlessM (isArgumentStackBigEnough n) $ do
-        handlePartialApp
-        setCode code
+      unless (n == 0) $ do
+        whenM isCurrentFramePartial populateArgumentStackFromPartialFrame
+        unlessM (isArgumentStackBigEnough n) $ do
+          handlePartialApp
+          setCode code
     EnterI mode -> do
       closure <- derefClosure mode
       setCode (closure_code closure)
