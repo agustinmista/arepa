@@ -204,8 +204,8 @@ operandCode e@(LitE _) = do
 operandCode e          = do
   slots  <- getFrameSlots
   setFrameSlots (slots + 1)
-  mode  <- translateArgMode (slots + 1) e
-  return [MoveI (slots + 1) mode, PushArgI mode]
+  mode  <- translateArgMode slots e
+  return [MoveI slots mode, PushArgI mode]
 
 ----------------------------------------
 -- Primitive function calls
