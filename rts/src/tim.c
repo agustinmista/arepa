@@ -15,6 +15,7 @@ dump_t value_stack;
 /* Declarations */
 /****************/
 closure_t* argument_closure(long argument);
+void tim_value_code();
 
 /*********************/
 /* Utility functions */
@@ -77,21 +78,46 @@ void tim_populate_partial_arguments() {
     }
 }
 
-void update_closure_in_target_frame(tim_metadata_t metadata, frame_t frame){
+void update_closure_frame_in_metadata_frame(tim_metadata_t metadata, frame_t frame) {
     debug_msg("Updating the corresponding closure in the frame retrived from the dump");
     frame_t target_frame    = metadata->frame;
     long offset             = metadata->offset;
     target_frame->arguments[offset].frame = frame;
 }
 
+void update_closure_code_in_metadata_frame(tim_metadata_t metadata, void (*code)()) {
+    debug_msg("Updating the corresponding code in the frame retrived from the dump");
+    frame_t target_frame    = metadata->frame;
+    long offset             = metadata->offset;
+    target_frame->arguments[offset].code = code;
+}
+
 void tim_handle_partial_application() {
-    debug_msg("Restorin gprevious stack from the dump");
+    debug_msg("Restorin previous stack from the dump");
     dump_previous(argument_stack);
     long argn   = argument_stack->current_size;
     frame_t frame = new_partial_frame(argn);
     copy_n_stack_arguments_to_frame(0,argn,frame,argument_stack->current);
     tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
-    update_closure_in_target_frame(metadata, frame);
+    update_closure_frame_in_metadata_frame(metadata, frame);
+}
+
+void return_to_continuation() {
+    debug_msg("Returning the topmost closure in the argument stack");
+    closure_t* top_closure = (closure_t*) dump_peek(argument_stack);
+    dump_pop(argument_stack);
+    current_frame = top_closure->frame;
+    return top_closure->code();
+}
+
+void return_with_empty_argument_stack() {
+    debug_msg("Returning from an empty stack into the previous stack in the dump");
+    dump_previous(argument_stack);
+    void* value = dump_peek(value_stack);
+    tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
+    update_closure_code_in_metadata_frame(metadata,*tim_value_code);
+    update_closure_frame_in_metadata_frame(metadata,value);
+    return tim_return();
 }
 
 /*****************************/
@@ -123,6 +149,14 @@ void tim_string_code() {
     String* string_ptr_as_frame = (String*) current_frame;
     debug_msg("Pushing string value \"%s\" at %p into the value stack", *string_ptr_as_frame, string_ptr_as_frame);
     dump_push(value_stack, string_ptr_as_frame);
+    return tim_return();
+}
+
+void tim_value_code() {
+    debug_msg("Running value code");
+    void* value_ptr_as_frame = (void*) current_frame;
+    debug_msg("Pushing value at %p into the value stack", value_ptr_as_frame);
+    dump_push(value_stack, value_ptr_as_frame);
     return tim_return();
 }
 
@@ -362,11 +396,11 @@ void tim_move_label(long offset, void (*code)()) {
 }
 
 void tim_return() {
-    debug_msg("Returning the topmost closure in the argument stack");
-    closure_t* top_closure = (closure_t*) dump_peek(argument_stack);
-    dump_pop(argument_stack);
-    current_frame = top_closure->frame;
-    return top_closure->code();
+    if (dump_is_empty(argument_stack)) {
+        return return_with_empty_argument_stack();
+    } else {
+        return return_to_continuation();
+    }
 }
 
 Int get_int_result() {
