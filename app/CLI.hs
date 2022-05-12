@@ -108,6 +108,7 @@ dumpOpts desc = many (option dumpReader desc)
       case s of
         "ast"  -> Right AST
         "ppr"  -> Right PPR
+        "lift" -> Right LIFT
         "tim"  -> Right TIM
         "llvm" -> Right LLVM
         _      -> Left ("invalid dump option " <> s)

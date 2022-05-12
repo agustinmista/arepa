@@ -22,7 +22,8 @@ compiler = handleCompilerError printCompilerError $ do
   text  <- readArepaInput
   psMod <- parse text
   tcMod <- typecheck psMod
-  store <- translate tcMod
+  llMod <- lambdaLift tcMod
+  store <- translate llMod
   ifM hasInterpretEnabled
     (interpret store)
     (codegen store >> link)
@@ -37,6 +38,12 @@ parse text = do
 typecheck :: MonadArepa m => CoreModule -> m CoreModule
 typecheck psMod = do
   typeCheckModule psMod
+
+lambdaLift :: MonadArepa m => CoreModule -> m CoreModule
+lambdaLift tcMod = do
+  llMod <- lambdaLiftModule tcMod
+  whenDump LIFT $ dump "Lambda lifted module" (prettyPrint llMod)
+  return llMod
 
 translate :: MonadArepa m => CoreModule -> m CodeStore
 translate tcMod = do
