@@ -26,6 +26,7 @@ import Control.Monad.Except
 import Control.Monad.Reader
 
 import Data.Text.Lazy (Text)
+import Data.Text.Lazy    qualified as Text
 import Data.Text.Lazy.IO qualified as Text
 
 import Prettyprinter
@@ -115,15 +116,15 @@ writeToFile path = compilerIO . Text.writeFile path
 -- Compiler messages (written to stderr)
 
 data CompilerMsg where
-  WarningMsg :: Text -> CompilerMsg
-  DebugMsg   :: Text -> Maybe Text -> CompilerMsg
+  WarningMsg :: FilePath -> Text -> CompilerMsg
+  DebugMsg   :: FilePath -> Text -> Maybe Text -> CompilerMsg
 
 
 renderCompilerMsg :: CompilerMsg -> Text
-renderCompilerMsg (WarningMsg msg) =
-  "[WARNING] " <> msg
-renderCompilerMsg (DebugMsg msg mbobj) =
-  "[DEBUG] "   <> msg <> maybe "" (":\n" <>) mbobj
+renderCompilerMsg (WarningMsg path msg) =
+  "[WARNING] " <> Text.pack path <> ": " <> msg
+renderCompilerMsg (DebugMsg path msg mbobj) =
+  "[DEBUG] "   <> Text.pack path <> ": " <> msg <> maybe "" (":\n" <>) mbobj
 
 
 logCompilerMsg :: MonadCompiler err opt m => CompilerMsg -> m ()

@@ -28,7 +28,6 @@ import Language.Arepa.Syntax
 import Language.Arepa.Compiler.Monad
 import Language.TIM
 
-
 ----------------------------------------
 -- Code generation
 ----------------------------------------
@@ -54,13 +53,15 @@ renderLLVM m = do
 
 data CodegenState = CodegenState {
   cg_globals :: Map Name LLVM.Operand,  -- Global operands
-  cg_strings :: Map Text LLVM.Operand   -- Global strings
+  cg_strings :: Map Text LLVM.Operand,  -- Global strings
+  cg_externs :: Map Name LLVM.Operand
 }
 
 emptyCodegenState :: CodegenState
 emptyCodegenState = CodegenState {
   cg_globals = mempty,
-  cg_strings = mempty
+  cg_strings = mempty,
+  cg_externs = mempty
 }
 
 ----------------------------------------
@@ -99,8 +100,7 @@ lookupGlobalOperand name = do
     Nothing -> do
       whenM hasStrictEnabled $ do
         throwInternalError ("lookupGlobalOperand: missing operand for " <> prettyPrint name <> " (strict mode is enabled)")
-      warning $ "Emitting implicit extern for " <> prettyPrint name
-      IR.extern (mkMangledFunctionName name) [] voidType
+      registerExtern name
     Just op -> do
       whenVerbose $ debug ("Found operand for " <> prettyPrint name <> ": " <> prettyPrint op)
       return op
@@ -112,7 +112,7 @@ lookupGlobalOperand name = do
 -- If it is already registered, then return the corresponding operand
 registerString :: MonadLLVM m => Text -> m LLVM.Operand
 registerString str = do
-  whenVerbose $ dump "Registering string" (prettyPrint str)
+  whenVerbose $ dump "Registering string" str
   strings <- gets cg_strings
   case Map.lookup str strings of
     Just op -> do
@@ -123,7 +123,27 @@ registerString str = do
       con <- IR.globalStringPtr (Text.unpack str) name
       let op = LLVM.ConstantOperand con
       modify' $ \st -> st { cg_strings = Map.insert str op strings }
-      whenVerbose $ debug ("Created a new global operand: " <> prettyPrint op)
+      whenVerbose $ debug ("Created a new global string operand: " <> prettyPrint op)
+      return op
+
+----------------------------------------
+-- External code
+
+-- Register an extern for an out-of-scope variable
+-- If it is already registered, then return the corresponding operand
+registerExtern :: MonadLLVM m => Name -> m LLVM.Operand
+registerExtern name = do
+  whenVerbose $ dump "Registering extern" name
+  externs <- gets cg_externs
+  case Map.lookup name externs of
+    Just op -> do
+      whenVerbose $ debug ("The extern already had a global operand: " <> prettyPrint op)
+      return op
+    Nothing -> do
+      warning $ "Emitting implicit extern for " <> prettyPrint name
+      op <- IR.extern (mkMangledFunctionName name) [] voidType
+      modify' $ \st -> st { cg_externs = Map.insert name op externs }
+      whenVerbose $ debug ("Created a new global extern operand: " <> prettyPrint op)
       return op
 
 ----------------------------------------
@@ -136,9 +156,8 @@ lookupPrim name = do
     Nothing -> do
       throwInternalError ("lookupPrim: cannot find primitive operation " <> prettyPrint name)
     Just prim -> do
-      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prettyPrint (prim_arity prim, prim_type prim))
+      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prim_arity prim, prim_type prim)
       return prim
-
 
 ----------------------------------------
 -- Emitting RTS code
@@ -154,11 +173,11 @@ emitRTS = do
   -- RTS main wrapper (only when necessary or forced)
   whenVerbose $ debug "Emitting RTS main()"
   output <- lookupCompilerOption optOutput
-  forced <- lookupCompilerOption optEmitMain
-  when (isJust output || forced) $ do
+  forced <- hasEmitMainEnabled
+  linkingDisabled <- hasLinkingDisabled
+  when (isJust output || forced || not linkingDisabled) $ do
     entry <- lookupCompilerOption optEntryPoint
     emitMain (mkName (fromMaybe "main" entry))
-
 
 emitMain :: MonadLLVM m => Name -> m ()
 emitMain name = do
@@ -167,7 +186,6 @@ emitMain name = do
     fun <- lookupGlobalOperand name
     IR.call fun []
     IR.ret (IR.int32 0)
-
 
 rtsFunctions :: [(Name, [LLVM.Type], LLVM.Type)]
 rtsFunctions = [
@@ -198,7 +216,6 @@ rtsFunctions = [
     ("tim_move_label",             [longType, funPtrType],  voidType),
     ("tim_return",                 [],                      voidType)
   ]
-
 
 callRTS :: (MonadLLVM m, MonadIRBuilder m) => Name -> [LLVM.Operand] -> m LLVM.Operand
 callRTS name args = do
@@ -238,14 +255,12 @@ registerGlobals store = do
     let op = LLVM.ConstantOperand (Constant.GlobalReference funPtrType mangled)
     registerGlobalOperand name op
 
-
 -- Code stores
 emitCodeStore :: MonadLLVM m => CodeStore -> m ()
 emitCodeStore store = do
   whenVerbose $ debug ("Emitting code store " <> prettyPrint (store_name store))
   forM_ (Map.toList (store_blocks store)) $ \(name, code) -> do
     emitCodeBlock name code
-
 
 -- Code blocks
 emitCodeBlock :: MonadLLVM m => Name -> CodeBlock -> m ()
@@ -255,11 +270,10 @@ emitCodeBlock name code = void $ do
   IR.function funName [] voidType $ \[] -> do
     mapM_ emitInstr (toList code)
 
-
 -- Instructions
 emitInstr :: (MonadIRBuilder m, MonadLLVM m) => Instr -> m ()
 emitInstr instr = do
-  whenVerbose $ dump "Emitting instruction" (prettyPrint instr)
+  whenVerbose $ dump "Emitting instruction" instr
   case instr of
     -- Take
     TakeArgI t n -> do
@@ -360,7 +374,6 @@ emitInstr instr = do
           callVoidRTS "tim_push_value_string" [res]
         VoidT -> do
           return ()
-
 
 ----------------------------------------
 -- Low-level utilities

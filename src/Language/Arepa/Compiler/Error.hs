@@ -13,20 +13,25 @@ import Language.TIM
 
 data ArepaError =
     ParserError ParserError
+  | RenamerError RenamerError
   | InterpreterError InterpreterError
   | InternalError InternalError
   deriving Show
 
 instance Pretty ArepaError where
-  pretty (ParserError      err) = vsep ["Parser error:",      pretty (errorBundlePretty err)]
-  pretty (InterpreterError err) = vsep ["Interpreter error:", pretty err]
-  pretty (InternalError    err) = vsep ["Internal error:",    pretty err]
+  pretty (ParserError      err)         = vsep ["Parser error:",      pretty (errorBundlePretty err)]
+  pretty (RenamerError     (path, err)) = vsep ["Renamer error:",     pretty path <> ":", pretty err]
+  pretty (InterpreterError (path, err)) = vsep ["Interpreter error:", pretty path <> ":", pretty err]
+  pretty (InternalError    (path, err)) = vsep ["Internal error:",    pretty path <> ":", pretty err]
 
 -- Parse errors
 type ParserError = ParseErrorBundle Text Void
 
+-- Renamer errors
+type RenamerError = (FilePath, Text)
+
 -- Interpreter errors
-type InterpreterError = TIMError
+type InterpreterError = (FilePath, TIMError)
 
 -- Internal errors
-type InternalError = Text
+type InternalError = (FilePath, Text)

@@ -46,7 +46,12 @@ runInterpreterHook arepaFile = do
         optInterpretStdin = if hasStdin then stdinFile else "/dev/stdin"
       }
   runArepa' opts $ do
-    readArepaInput >>= parseModule >>= typeCheckModule >>= translateModule >>= interpretCodeStore
+    readArepaInput
+      >>= parseModule
+      >>= typeCheckModule
+      >>= lambdaLiftModule
+      >>= translateModule
+      >>= interpretCodeStore
   output <- readFile stdoutFile
   removeFile stdoutFile
   return (fromString output)
@@ -60,8 +65,16 @@ runCompilerHook arepaFile = do
         optOutput = Just binFile
       }
   runArepa' opts $ do
-    readArepaInput >>= parseModule >>= typeCheckModule >>= translateModule >>= emitLLVM >>= renderLLVM >>= writeLLVMOutput
-    mkClangArgs >>= runClang
+    readArepaInput
+      >>= parseModule
+      >>= typeCheckModule
+      >>= lambdaLiftModule
+      >>= translateModule
+      >>= emitLLVM
+      >>= renderLLVM
+      >>= writeLLVMOutput
+    mkClangArgs
+      >>= runClang
   let stdinFile = replaceExtension arepaFile "stdin"
   hasStdin <- doesFileExist stdinFile
   stdin <- if hasStdin then readFile stdinFile else return mempty
