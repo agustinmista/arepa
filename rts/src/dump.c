@@ -72,7 +72,7 @@ void dump_push(dump_t dump, void* data) {
     dump->current_size++;
 }
 
-void dump_pop(dump_t dump) {
+void* dump_pop(dump_t dump) {
     // Sanity checks
     assert(dump);
     assert(dump->current);
@@ -82,8 +82,13 @@ void dump_pop(dump_t dump) {
     dump->current = dump->current->next;
     dump->current_size--;
 
+    // Save the popped data for later
+    void* data = node->data;
+
     // Delete the unlinked stack node
     rts_free(node);
+
+    return data;
 }
 
 void* dump_peek(dump_t dump) {

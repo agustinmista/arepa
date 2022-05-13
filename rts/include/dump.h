@@ -30,7 +30,7 @@ int dump_is_empty(dump_t dump);
 void dump_push(dump_t dump, void* data);
 
 // Pop (and free) an element from the current stack
-void dump_pop(dump_t dump);
+void* dump_pop(dump_t dump);
 
 // Peek the top element on the current stack (without freeing it)
 void* dump_peek(dump_t dump);

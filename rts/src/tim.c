@@ -53,8 +53,7 @@ void move_n_stack_arguments_to_frame(long n, frame_t frame) {
     assert(n <= argument_stack->current_size);
     assert(frame != current_frame); // Sanity check!
     for (int i = 0; i < n; i++){
-        closure_t* closure = (closure_t*) dump_peek(argument_stack);
-        dump_pop(argument_stack);
+        closure_t* closure = (closure_t*) dump_pop(argument_stack);
         rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
         rts_free(closure);
     }
@@ -105,8 +104,7 @@ void tim_handle_partial_application() {
 
 void return_to_continuation() {
     debug_msg("Returning the topmost closure in the argument stack");
-    closure_t* top_closure = (closure_t*) dump_peek(argument_stack);
-    dump_pop(argument_stack);
+    closure_t* top_closure = (closure_t*) dump_pop(argument_stack);
     current_frame = top_closure->frame;
     return top_closure->code();
 }
@@ -298,8 +296,7 @@ void tim_markers_update(long nargs) {
 
 void* tim_pop_value() {
     debug_msg("Popping value from value stack");
-    void* value = dump_peek(value_stack);
-    dump_pop(value_stack);
+    void* value = dump_pop(value_stack);
     return value;
 }
 
