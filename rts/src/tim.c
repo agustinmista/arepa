@@ -45,7 +45,7 @@ void copy_n_stack_arguments_to_frame(long start,long end,frame_t frame, stack_t 
     assert(stack);
     closure_t* closure = (closure_t*) stack_peek(stack);
     rts_memcpy(&frame->arguments[start], closure, sizeof(closure_t));
-    return copy_n_stack_arguments_to_frame(start++,end,frame,stack->next);
+    return copy_n_stack_arguments_to_frame(start+1,end,frame,stack->next);
 }
 
 void move_n_stack_arguments_to_frame(long n, frame_t frame) {
