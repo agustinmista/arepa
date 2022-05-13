@@ -21,7 +21,9 @@ compiler :: MonadArepa m => m ()
 compiler = handleCompilerError printCompilerError $ do
   text  <- readArepaInput
   psMod <- parse text
-  tcMod <- typecheck psMod
+  rnMod <- rename psMod
+  llMod <- lambdaLift rnMod
+  tcMod <- typecheck llMod
   store <- translate tcMod
   ifM hasInterpretEnabled
     (interpret store)
@@ -34,9 +36,21 @@ parse text = do
   whenDump PPR $ dump "Pretty-printed AST" (prettyPrint psMod)
   return psMod
 
+rename :: MonadArepa m => CoreModule -> m CoreModule
+rename psMod = do
+  rnMod <- renameModule psMod
+  whenDump RENAME $ dump "Renamed module" (prettyPrint rnMod)
+  return rnMod
+
 typecheck :: MonadArepa m => CoreModule -> m CoreModule
 typecheck psMod = do
   typeCheckModule psMod
+
+lambdaLift :: MonadArepa m => CoreModule -> m CoreModule
+lambdaLift tcMod = do
+  llMod <- lambdaLiftModule tcMod
+  whenDump LIFT $ dump "Lambda lifted module" (prettyPrint llMod)
+  return llMod
 
 translate :: MonadArepa m => CoreModule -> m CodeStore
 translate tcMod = do

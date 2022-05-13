@@ -26,4 +26,4 @@ interpretCodeStore store = do
     Left err -> do
       throwInterpreterError err
     Right vals -> do
-      whenVerbose $ dump "Final value stack" (prettyPrint vals)
+      whenVerbose $ dump "Final value stack" vals

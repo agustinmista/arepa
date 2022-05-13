@@ -1,0 +1,17 @@
+(module lambda4
+  (val main
+    (print_int
+      (foo 10 (twice plus3) (twice plus5))))
+
+  (fun foo (x)
+    (lambda (f1)
+      (lambda (f2)
+        (f2 (f1 x)))))
+
+  (fun plus5 (x) (+ x 5))
+  (fun plus3 (x) (+ x 3))
+  (fun twice (f x) (f (f x)))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+)

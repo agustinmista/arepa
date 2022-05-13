@@ -123,9 +123,9 @@ conE = ConE <$> con
 lamE :: MonadArepa m => Parser m CoreExpr
 lamE = do
   keyword "lambda"
-  v <- name
+  vs <- parens $ name `sepBy1` whitespace
   b <- expr
-  return (LamE v b)
+  return (LamE vs b)
 
 letE :: MonadArepa m => Parser m CoreExpr
 letE = do

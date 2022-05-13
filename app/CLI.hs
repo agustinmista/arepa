@@ -106,8 +106,10 @@ dumpOpts desc = many (option dumpReader desc)
   where
     dumpReader = eitherReader $ \s -> do
       case s of
-        "ast"  -> Right AST
-        "ppr"  -> Right PPR
-        "tim"  -> Right TIM
-        "llvm" -> Right LLVM
-        _      -> Left ("invalid dump option " <> s)
+        "ast"    -> Right AST
+        "ppr"    -> Right PPR
+        "rename" -> Right RENAME
+        "lift"   -> Right LIFT
+        "tim"    -> Right TIM
+        "llvm"   -> Right LLVM
+        _        -> Left ("invalid dump option " <> s)
