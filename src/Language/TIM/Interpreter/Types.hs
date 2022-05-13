@@ -5,7 +5,6 @@ import Data.Heap
 import Prettyprinter
 
 import Language.TIM.Syntax
-import Data.Stack (Stack)
 
 ----------------------------------------
 -- TIM interpreter types
