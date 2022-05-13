@@ -10,6 +10,6 @@
 #endif
 
 #define debug_msg(fmt, ...) \
-    do { if (DEBUG_ENABLED) fprintf(stderr, "[DEBUG] %-9s | %3d | %-30s | " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
+    do { if (DEBUG_ENABLED) fprintf(stderr, "[DEBUG] %-15s | %3d | %-40s | " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 #endif

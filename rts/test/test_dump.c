@@ -144,8 +144,8 @@ int main(int argc, char **argv) {
     printf("\n");
 
     printf("Dump the previous values\n");
-    printf("> dump_previous(%p)\n", dump);
-    dump_previous(dump);
+    printf("> dump_overlay_previous(%p)\n", dump);
+    dump_overlay_previous(dump);
     printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("Print values in the stack\n");
 

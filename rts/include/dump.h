@@ -45,6 +45,6 @@ void dump_freeze(dump_t dump, void* metadata);
 void dump_restore(dump_t dump);
 
 // Restore the previous stack, by prepending it to the current one
-void dump_previous(dump_t dump);
+void dump_overlay_previous(dump_t dump);
 
 #endif

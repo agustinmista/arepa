@@ -156,7 +156,7 @@ void dump_append(dump_t a, dump_t b){
     dump_push(b, data);
 }
 
-void dump_previous(dump_t dump) {
+void dump_overlay_previous(dump_t dump) {
     // Sanity checks
     assert(dump);
     assert(dump->parent);

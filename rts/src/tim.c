@@ -38,18 +38,19 @@ frame_t new_partial_frame(long size) {
     return frame;
 }
 
-void copy_n_stack_arguments_to_frame(long start, long end, frame_t frame, stack_t stack) {
-    debug_msg("Coping all available closures int the stack as arguments");
-    assert(start >= 0 && start <= end);
+void copy_n_stack_arguments_to_frame(long n, frame_t frame, stack_t stack) {
+    debug_msg("Copying %lu closures from the stack at %p into the frame at %p", n, stack, frame);
     assert(frame != current_frame); // Sanity check!
-    if (start == end) return;
-    assert(stack);
-    closure_t* closure = (closure_t*) stack_peek(stack);
-    rts_memcpy(&frame->arguments[start], closure, sizeof(closure_t));
-    return copy_n_stack_arguments_to_frame(start+1, end, frame, stack->next);
+    for (int i = 0; i < n; i++) {
+        assert(stack);
+        closure_t* closure = (closure_t*) stack_peek(stack);
+        rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
+        stack = stack->next;
+    }
 }
 
 void move_n_stack_arguments_to_frame(long n, frame_t frame) {
+    debug_msg("Moving %lu closures from the current stack into the frame at %p", n, frame);
     assert(n <= argument_stack->current_size);
     assert(frame != current_frame); // Sanity check!
     for (int i = 0; i < n; i++){
@@ -93,11 +94,11 @@ void update_closure_code_in_metadata_frame(tim_metadata_t metadata, void (*code)
 }
 
 void tim_handle_partial_application() {
-    debug_msg("Restorin previous stack from the dump");
-    dump_previous(argument_stack);
+    debug_msg("Restoring previous stack from the dump");
+    dump_overlay_previous(argument_stack);
     long argn = argument_stack->current_size;
     frame_t frame = new_partial_frame(argn);
-    copy_n_stack_arguments_to_frame(0, argn, frame, argument_stack->current);
+    copy_n_stack_arguments_to_frame(argn, frame, argument_stack->current);
     tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
     update_closure_frame_in_metadata_frame(metadata, frame);
 }
@@ -111,7 +112,7 @@ void return_to_continuation() {
 
 void return_with_empty_argument_stack() {
     debug_msg("Returning from an empty stack into the previous stack in the dump");
-    dump_previous(argument_stack);
+    dump_overlay_previous(argument_stack);
     void* value = dump_peek(value_stack);
     tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
     update_closure_code_in_metadata_frame(metadata, *tim_value_code);
