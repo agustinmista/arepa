@@ -39,7 +39,7 @@ frame_t new_partial_frame(long size) {
 
 void copy_n_stack_arguments_to_frame(long start,long end,frame_t frame, stack_t stack) {
     debug_msg("Coping all available closures int the stack as arguments");
-    assert(start <= 0 && start <= end);
+    assert(start >= 0 && start <= end);
     assert(frame != current_frame); // Sanity check!
     if (start==end) return;
     assert(stack);

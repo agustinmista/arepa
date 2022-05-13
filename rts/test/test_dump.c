@@ -28,22 +28,25 @@ int main(int argc, char **argv) {
     printf("Check if it is empty\n");
     printf("> empty<-dump_is_empty(%p)\n", dump);
     empty = dump_is_empty(dump);
-    printf("> empty=%d\n", empty);
+    printf("> empty=%d, (current_size=%lu)\n", empty, dump->current_size);
     printf("\n");
 
     printf("Push some values\n");
     printf("> dump_push(%p, %p)\n", dump, &x1);
     dump_push(dump, &x1);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_push(%p, %p)\n", dump, &x2);
     dump_push(dump, &x2);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_push(%p, %p)\n", dump, &x3);
     dump_push(dump, &x3);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Check if it is empty\n");
     printf("> empty<-dump_is_empty(%p)\n", dump);
     empty = dump_is_empty(dump);
-    printf("> empty=%d\n", empty);
+    printf("> empty=%d, (current_size=%lu)\n", empty, dump->current_size);
     printf("\n");
 
     printf("Peek the top element\n");
@@ -55,8 +58,10 @@ int main(int argc, char **argv) {
     printf("Pop two elements\n");
     printf("> dump_pop(%p)\n", dump);
     dump_pop(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_pop(%p)\n", dump);
     dump_pop(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Peek the top element\n");
@@ -68,23 +73,26 @@ int main(int argc, char **argv) {
     printf("> Freeze the current stack\n");
     printf("> dump_freeze(%p)\n", dump);
     dump_freeze(dump,NULL);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
 
     printf("Check if it is empty\n");
     printf("> empty<-dump_is_empty(%p)\n", dump);
     empty = dump_is_empty(dump);
-    printf("> empty=%d\n", empty);
+    printf("> empty=%d, (current_size=%lu)\n", empty, dump->current_size);
 
     printf("Push some more values\n");
     printf("> dump_push(%p, %p)\n", dump, &x4);
     dump_push(dump, &x4);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_push(%p, %p)\n", dump, &x5);
     dump_push(dump, &x5);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Check if it is empty\n");
     printf("> empty<-dump_is_empty(%p)\n", dump);
     empty = dump_is_empty(dump);
-    printf("> empty=%d\n", empty);
+    printf("> empty=%d, (current_size=%lu)\n", empty, dump->current_size);
     printf("\n");
 
     printf("Peek the top element\n");
@@ -96,12 +104,13 @@ int main(int argc, char **argv) {
     printf("Restore the previous stack\n");
     printf("> dump_restore(%p)\n", dump);
     dump_restore(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Check if it is empty\n");
     printf("> empty<-dump_is_empty(%p)\n", dump);
     empty = dump_is_empty(dump);
-    printf("> empty=%d\n", empty);
+    printf("> empty=%d, (current_size=%lu)\n", empty, dump->current_size);
     printf("\n");
 
     printf("Peek the top element\n");
@@ -113,55 +122,77 @@ int main(int argc, char **argv) {
     printf("Push some more values\n");
     printf("> dump_push(%p, %p)\n", dump, &x4);
     dump_push(dump, &x4);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_push(%p, %p)\n", dump, &x3);
     dump_push(dump, &x3);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("> Freeze the current stack\n");
     printf("> dump_freeze(%p)\n", dump);
-    dump_freeze(dump,NULL);
+    dump_freeze(dump, NULL);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Push some more values\n");
     printf("> dump_push(%p, %p)\n", dump, &x2);
     dump_push(dump, &x2);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_push(%p, %p)\n", dump, &x1);
     dump_push(dump, &x1);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Dump the previous values\n");
     printf("> dump_previous(%p)\n", dump);
     dump_previous(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("Print values in the stack\n");
 
     printf("Expect: %p Got: %p\n", &x1, dump_peek(dump));
+    printf("> dump_pop(%p)\n", dump);
     dump_pop(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("Expect: %p Got: %p\n", &x2, dump_peek(dump));
+    printf("> dump_pop(%p)\n", dump);
     dump_pop(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("Expect: %p Got: %p\n", &x3, dump_peek(dump));
+    printf("> dump_pop(%p)\n", dump);
     dump_pop(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("Expect: %p Got: %p\n", &x4, dump_peek(dump));
+    printf("> dump_pop(%p)\n", dump);
     dump_pop(dump);
-
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
+    printf("Expect: %p Got: %p\n", &x1, dump_peek(dump));
+    printf("> dump_pop(%p)\n", dump);
+    dump_pop(dump);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Push some more values\n");
     printf("> dump_push(%p, %p)\n", dump, &x4);
     dump_push(dump, &x4);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_push(%p, %p)\n", dump, &x3);
     dump_push(dump, &x3);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("> Freeze the current stack\n");
     printf("> dump_freeze(%p)\n", dump);
     dump_freeze(dump,NULL);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Push some more values\n");
     printf("> dump_push(%p, %p)\n", dump, &x2);
     dump_push(dump, &x2);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("> dump_push(%p, %p)\n", dump, &x1);
     dump_push(dump, &x1);
+    printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
     printf("Destroy the dump\n");
