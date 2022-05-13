@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
 
     printf("Create a new dump\n");
     printf("> dump<-dump_new()\n");
-    dump_t dump = dump_new();
+    dump_t dump = dump_new(NULL);
     printf("> dump=%p\n", dump);
     printf("\n");
 
