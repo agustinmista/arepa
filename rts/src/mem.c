@@ -24,5 +24,5 @@ void* rts_realloc(void *ptr, size_t new_size) {
 
 void rts_memcpy(void *dest, const void *src, size_t size){
     debug_msg("Copied %zu bytes from %p to %p", size, src, dest);
-    memcpy(dest,src,size);
+    memcpy(dest, src, size);
 }

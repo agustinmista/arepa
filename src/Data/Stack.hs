@@ -6,8 +6,10 @@ module Data.Stack
   , peek
   , pop
   , take
+  , isEmpty
   , fromList
   , toList
+  , append
   ) where
 
 import Prelude hiding (take)
@@ -50,15 +52,18 @@ peek stack
       Just (head (stack_values stack))
 
 -- Remove the top element of the stack
-pop :: Stack a -> Maybe (Stack a)
+pop :: Stack a -> Maybe (a, Stack a)
 pop stack
   | stack_size stack == 0 =
       Nothing
   | otherwise =
-      Just stack {
-        stack_size = stack_size stack - 1,
-        stack_values = tail (stack_values stack)
-      }
+      Just (
+        head (stack_values stack),
+        stack {
+          stack_size = stack_size stack - 1,
+          stack_values = tail (stack_values stack)
+        }
+      )
 
 -- Take the top elements from the stack in one go
 take :: Int -> Stack a -> Maybe ([a], Stack a)
@@ -83,3 +88,10 @@ fromList xs = Stack {
 -- Forget the stack structure
 toList :: Stack a -> [a]
 toList = stack_values
+
+-- Append two stacks
+append :: Stack a -> Stack a -> Stack a
+append a b = fromList $ toList a ++ toList b
+
+isEmpty :: Stack a -> Bool
+isEmpty  = null . toList

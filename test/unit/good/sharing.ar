@@ -1,0 +1,10 @@
+(module let1
+  (val main
+    (let ((x (inc (inc (inc (inc (inc 10)))))))
+      (print_int (+ x x))))
+
+  (fun inc (x) (+ x 1))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+)

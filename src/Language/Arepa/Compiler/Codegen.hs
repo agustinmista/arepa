@@ -199,6 +199,8 @@ rtsFunctions = [
     ("tim_push_value_int",         [intVType],              voidType),
     ("tim_push_value_double",      [doubleVType],           voidType),
     ("tim_push_value_string",      [stringVType],           voidType),
+    ("tim_marker_push",            [longType],              voidType),
+    ("tim_markers_update",         [longType],              voidType),
     ("tim_pop_value_int",          [],                      ptrType intVType),
     ("tim_pop_value_double",       [],                      ptrType doubleVType),
     ("tim_pop_value_string",       [],                      ptrType stringVType),
@@ -303,6 +305,11 @@ emitInstr instr = do
       callVoidRTS "tim_push_value_string" [string]
     PushValueI (InlineM (VoidV _)) -> do
       throwInternalError "emitInstr: impossible! cannot push a void value"
+    -- Markers
+    PushMarkerI offset -> do
+      callVoidRTS "tim_marker_push" [mkLong offset]
+    UpdateMarkersI n -> do
+      callVoidRTS "tim_markers_update" [mkLong n]
     -- Enter
     EnterI (ArgM n) -> do
       callVoidRTS "tim_enter_argument" [mkLong n]

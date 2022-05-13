@@ -23,6 +23,7 @@ instance Pretty FramePtr where
 
 data Frame = Frame {
   frame_size :: Int,
+  frame_is_partial :: Bool,
   frame_closures :: [Closure]
 } deriving (Show, Read, Eq, Ord)
 
@@ -38,22 +39,33 @@ instance Pretty Frame where
 mkFrame :: [Closure] -> Frame
 mkFrame closures = Frame {
   frame_size = length closures,
-  frame_closures = closures
+  frame_closures = closures,
+  frame_is_partial = False
+}
+
+mkPartialFrame :: [Closure] -> Frame
+mkPartialFrame closures = Frame {
+  frame_size = length closures,
+  frame_closures = closures,
+  frame_is_partial = True
 }
 
 -- Offsets withing a frame
 type Offset = Int
 
-updateFrame :: Offset -> Closure -> Frame -> Maybe Frame
-updateFrame offset closure frame
+manipulateFrame :: Offset -> (Closure -> Closure) -> Frame -> Maybe Frame
+manipulateFrame offset f frame
   | offset >= 0 && offset < frame_size frame =
       Just frame {
         frame_closures =
           take offset (frame_closures frame) <>
-          [closure] <>
+          [f $ frame_closures frame !! offset] <>
           drop (offset+1) (frame_closures frame)
       }
   | otherwise = Nothing
+
+updateFrame :: Offset -> Closure -> Frame -> Maybe Frame
+updateFrame offset closure = manipulateFrame offset (const closure)
 
 frameOffset :: Int -> Frame -> Maybe Closure
 frameOffset offset frame

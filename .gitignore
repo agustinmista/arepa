@@ -31,3 +31,5 @@ cabal.project.local~
 .ghc.environment.*
 # LLVM stuff
 *.ll
+# Development tools
+.vscode/

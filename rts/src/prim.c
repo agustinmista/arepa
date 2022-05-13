@@ -42,7 +42,7 @@ String __prim_read_line__() {
         buffer[buffer_len]   = '\0';
     }
   return buffer;
-};
+}
 
 String __prim_read_file__(String path) {
     FILE* f = fopen(path, "rb");
@@ -59,16 +59,16 @@ String __prim_read_file__(String path) {
 
     fclose(f);
     return data;
-};
+}
 
 Void __prim_write_file__(String path, String data) {
     FILE *f = fopen(path, "ab");
     assert(f);
     fputs(data, f);
     fclose(f);
-};
+}
 
 // Printing
-Void __prim_print_int__(Int x)       { rts_printf("%ld\n", x); };
-Void __prim_print_double__(Double x) { rts_printf("%f\n",  x); };
-Void __prim_print_string__(String x) { rts_printf("%s\n",  x); };
+Void __prim_print_int__(Int x)       { rts_printf("%ld\n", x); }
+Void __prim_print_double__(Double x) { rts_printf("%f\n",  x); }
+Void __prim_print_string__(String x) { rts_printf("%s\n",  x); }

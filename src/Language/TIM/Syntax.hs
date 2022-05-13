@@ -84,6 +84,8 @@ data Instr =
     TakeArgI Int Int
   | PushArgI ArgMode
   | PushValueI ValueMode
+  | PushMarkerI Int
+  | UpdateMarkersI Int
   | EnterI ArgMode
   | MoveI Int ArgMode
   | ReturnI
@@ -97,6 +99,10 @@ instance Pretty Instr where
     "push arg" <+> pretty mode
   pretty (PushValueI mode) =
     "push value" <+> pretty mode
+  pretty (PushMarkerI n) =
+    "push marker" <+> pretty n
+  pretty (UpdateMarkersI n) =
+    "update marker" <+> pretty n
   pretty (EnterI mode) =
     "enter" <+> pretty mode
   pretty (MoveI n mode) =

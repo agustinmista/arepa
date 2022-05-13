@@ -11,6 +11,13 @@ frame_t current_frame;
 dump_t argument_stack;
 dump_t value_stack;
 
+/****************/
+/* Declarations */
+/****************/
+
+closure_t* argument_closure(long argument);
+void tim_value_code();
+
 /*********************/
 /* Utility functions */
 /*********************/
@@ -19,16 +26,35 @@ frame_t new_frame(long size) {
     debug_msg("Creating new frame of size %li", size);
     frame_t frame = rts_malloc(sizeof(struct frame_t));
     frame->length = size;
+    frame->is_partial = 0;
     frame->arguments = rts_malloc(size*sizeof(closure_t));
     return frame;
 }
 
+frame_t new_partial_frame(long size) {
+    debug_msg("Creating new partial frame of size %li", size);
+    frame_t frame = new_frame(size);
+    frame->is_partial = 1;
+    return frame;
+}
+
+void copy_n_stack_arguments_to_frame(long n, frame_t frame, stack_t stack) {
+    debug_msg("Copying %lu closures from the stack at %p into the frame at %p", n, stack, frame);
+    assert(frame != current_frame); // Sanity check!
+    for (int i = 0; i < n; i++) {
+        assert(stack);
+        closure_t* closure = (closure_t*) stack_peek(stack);
+        rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
+        stack = stack->next;
+    }
+}
+
 void move_n_stack_arguments_to_frame(long n, frame_t frame) {
+    debug_msg("Moving %lu closures from the current stack into the frame at %p", n, frame);
     assert(n <= argument_stack->current_size);
     assert(frame != current_frame); // Sanity check!
     for (int i = 0; i < n; i++){
-        closure_t* closure = (closure_t*) dump_peek(argument_stack);
-        dump_pop(argument_stack);
+        closure_t* closure = (closure_t*) dump_pop(argument_stack);
         rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
         rts_free(closure);
     }
@@ -45,6 +71,55 @@ void tim_update_closure(long offset, closure_t *closure) {
     rts_memcpy(&current_frame->arguments[offset], closure, sizeof(closure_t));
 }
 
+void tim_populate_partial_arguments() {
+    debug_msg("Filling the arguments stack with arguments of a partial frame");
+    if (!current_frame->is_partial) return;
+    for (int i=0; i < current_frame->length; i++){
+        dump_push(argument_stack, argument_closure(i));
+    }
+}
+
+void update_closure_frame_in_metadata_frame(tim_metadata_t metadata, frame_t frame) {
+    debug_msg("Updating the corresponding closure in the frame retrived from the dump");
+    frame_t target_frame = metadata->frame;
+    long offset          = metadata->offset;
+    target_frame->arguments[offset].frame = frame;
+}
+
+void update_closure_code_in_metadata_frame(tim_metadata_t metadata, void (*code)()) {
+    debug_msg("Updating the corresponding code in the frame retrived from the dump");
+    frame_t target_frame = metadata->frame;
+    long offset          = metadata->offset;
+    target_frame->arguments[offset].code = code;
+}
+
+void tim_handle_partial_application() {
+    debug_msg("Restoring previous stack from the dump");
+    dump_overlay_previous(argument_stack);
+    long argn = argument_stack->current_size;
+    frame_t frame = new_partial_frame(argn);
+    copy_n_stack_arguments_to_frame(argn, frame, argument_stack->current);
+    tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
+    update_closure_frame_in_metadata_frame(metadata, frame);
+}
+
+void return_to_continuation() {
+    debug_msg("Returning the topmost closure in the argument stack");
+    closure_t* top_closure = (closure_t*) dump_pop(argument_stack);
+    current_frame = top_closure->frame;
+    return top_closure->code();
+}
+
+void return_with_empty_argument_stack() {
+    debug_msg("Returning from an empty stack into the previous stack in the dump");
+    dump_overlay_previous(argument_stack);
+    void* value = dump_peek(value_stack);
+    tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
+    update_closure_code_in_metadata_frame(metadata, *tim_value_code);
+    update_closure_frame_in_metadata_frame(metadata, value);
+    return tim_return();
+}
+
 /*****************************/
 /* Predefined code/functions */
 /*****************************/
@@ -53,27 +128,11 @@ void tim_nil_code() {
     return;
 }
 
-void tim_int_code() {
-    debug_msg("Running int code");
-    Int* int_ptr_as_frame = (Int*) current_frame;
-    debug_msg("Pushing int value %li at %p into the value stack", *int_ptr_as_frame, int_ptr_as_frame);
-    dump_push(value_stack, int_ptr_as_frame);
-    return tim_return();
-}
-
-void tim_double_code() {
-    debug_msg("Running double code");
-    Double* double_ptr_as_frame = (Double*) current_frame;
-    debug_msg("Pushing double value %f at %p into the value stack", *double_ptr_as_frame, double_ptr_as_frame);
-    dump_push(value_stack, double_ptr_as_frame);
-    return tim_return();
-}
-
-void tim_string_code() {
-    debug_msg("Running string code");
-    String* string_ptr_as_frame = (String*) current_frame;
-    debug_msg("Pushing string value \"%s\" at %p into the value stack", *string_ptr_as_frame, string_ptr_as_frame);
-    dump_push(value_stack, string_ptr_as_frame);
+void tim_value_code() {
+    debug_msg("Running value code");
+    void* value_ptr_as_frame = (void*) current_frame;
+    debug_msg("Pushing value at %p into the value stack", value_ptr_as_frame);
+    dump_push(value_stack, value_ptr_as_frame);
     return tim_return();
 }
 
@@ -105,21 +164,21 @@ closure_t* int_closure(Int value) {
     debug_msg("Creating new int value closure for %li", value);
     int* int_ptr_as_frame = rts_malloc(sizeof(int));
     *int_ptr_as_frame = value;
-    return make_closure(*tim_int_code, int_ptr_as_frame);
+    return make_closure(*tim_value_code, int_ptr_as_frame);
 }
 
 closure_t* double_closure(Double value) {
     debug_msg("Creating new double value closure for %f", value);
     Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
-    return make_closure(*tim_double_code, double_ptr_as_frame);
+    return make_closure(*tim_value_code, double_ptr_as_frame);
 }
 
 closure_t* string_closure(String value) {
     debug_msg("Creating new string value closure for \"%s\"", value);
     String* string_ptr_as_frame = rts_malloc(sizeof(String));
     *string_ptr_as_frame = value;
-    return make_closure(*tim_string_code, string_ptr_as_frame);
+    return make_closure(*tim_value_code, string_ptr_as_frame);
 }
 
 closure_t* label_closure(void (*code)()) {
@@ -138,14 +197,14 @@ void tim_init_current_frame() {
 
 void tim_init_argument_stack() {
     debug_msg("Initializing argument stack");
-    argument_stack = dump_new();
+    argument_stack = dump_new(NULL);
     debug_msg("Creating a nil closure for main to land to");
     return dump_push(argument_stack, tim_nil_closure());
 }
 
 void tim_init_value_stack() {
     debug_msg("Initializing value stack");
-    value_stack = dump_new();
+    value_stack = dump_new(NULL);
 }
 
 void tim_init_io_streams() {
@@ -221,10 +280,24 @@ void tim_push_value_string(String value) {
     return dump_push(value_stack, p);
 }
 
+void tim_marker_push(long offset) {
+    tim_metadata_t metadata = rts_malloc(sizeof(struct tim_metadata_t));
+    metadata->offset = offset;
+    metadata->frame  = current_frame;
+    dump_freeze(argument_stack, metadata);
+}
+
+void tim_markers_update(long nargs) {
+    if (nargs == 0) return;
+    tim_populate_partial_arguments();
+    if (nargs <= argument_stack->current_size) return;
+    tim_handle_partial_application();
+    return tim_markers_update(nargs);
+}
+
 void* tim_pop_value() {
     debug_msg("Popping value from value stack");
-    void* value = dump_peek(value_stack);
-    dump_pop(value_stack);
+    void* value = dump_pop(value_stack);
     return value;
 }
 
@@ -298,11 +371,11 @@ void tim_move_label(long offset, void (*code)()) {
 }
 
 void tim_return() {
-    debug_msg("Returning the topmost closure in the argument stack");
-    closure_t* top_closure = (closure_t*) dump_peek(argument_stack);
-    dump_pop(argument_stack);
-    current_frame = top_closure->frame;
-    return top_closure->code();
+    if (dump_is_empty(argument_stack)) {
+        return return_with_empty_argument_stack();
+    } else {
+        return return_to_continuation();
+    }
 }
 
 Int get_int_result() {

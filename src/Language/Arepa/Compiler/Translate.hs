@@ -153,7 +153,8 @@ translateDecl decl = do
   bodyInstrs <- withExtendedEnv extEnv (translateExpr (declBody decl))
   totalSlots <- getFrameSlots
   whenVerbose $ debug ("Total frame slots for " <> prettyPrint name <> ": " <> prettyPrint totalSlots)
-  let takeArgs = [ TakeArgI totalSlots (length args) ]
+  let n = length args
+  let takeArgs = [UpdateMarkersI n, TakeArgI totalSlots n]
   saveCodeBlock name (takeArgs <> bodyInstrs)
 
 ----------------------------------------
@@ -169,7 +170,7 @@ translateExpr expr = do
       translateCall name args
     -- Variables
     VarE name -> do
-      mode <- translateArgMode (VarE name)
+      mode <- translateArgMode 0 (VarE name)
       return [ EnterI mode ]
     -- Literal values
     LitE lit -> do
@@ -180,9 +181,9 @@ translateExpr expr = do
       notImplemented "translateExpr/ConE"
     -- Function application
     AppE e1 e2 -> do
+      e2code <- operandCode e2
       e1code <- translateExpr    e1
-      mode   <- translateArgMode e2
-      return ([ PushArgI mode ] <> e1code)
+      return $ e2code <> e1code
     -- Lambda functions should be gone by now
     LamE _ _ -> do
       throwInternalError "translateInstr: impossible! lambda expressions should never appear here"
@@ -192,6 +193,19 @@ translateExpr expr = do
     -- Case expressions
     CaseE _scrut _alts -> do
       notImplemented "translateExpr/CaseE"
+
+operandCode :: MonadArepa m => CoreExpr -> Translate m CodeBlock
+operandCode e@(VarE _) = do
+  mode <- translateArgMode 0 e
+  return [PushArgI mode]
+operandCode e@(LitE _) = do
+  mode <- translateArgMode 0 e
+  return [PushArgI mode]
+operandCode e          = do
+  slots  <- getFrameSlots
+  setFrameSlots (slots + 1)
+  mode  <- translateArgMode slots e
+  return [MoveI slots mode, PushArgI mode]
 
 ----------------------------------------
 -- Primitive function calls
@@ -256,14 +270,14 @@ translateLet isRec binds body = do
 translateLetBind :: MonadArepa m => (Name, CoreExpr) -> Int -> Translate m CodeBlock
 translateLetBind bind slot = do
   whenVerbose $ dump "Translating let bind" bind
-  rhsMode <- translateArgMode (snd bind)
+  rhsMode <- translateArgMode slot (snd bind)
   return [ MoveI slot rhsMode ]
 
 ----------------------------------------
 -- Addressing modes
 
-translateArgMode :: MonadArepa m => CoreExpr -> Translate m ArgMode
-translateArgMode expr = do
+translateArgMode :: MonadArepa m => Offset -> CoreExpr -> Translate m ArgMode
+translateArgMode offset expr = do
   whenVerbose $ dump "Translating address mode of expression" expr
   case expr of
     VarE name -> do
@@ -274,7 +288,7 @@ translateArgMode expr = do
     _ -> do
       label <- freshName "arg"
       code <- translateExpr expr
-      saveCodeBlock label code
+      saveCodeBlock label $ [PushMarkerI offset] <> code
       return (LabelM label)
 
 translateValueMode :: MonadArepa m => Lit -> Translate m ValueMode

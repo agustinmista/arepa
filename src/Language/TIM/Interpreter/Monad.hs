@@ -1,17 +1,51 @@
-module Language.TIM.Interpreter.Monad where
+module Language.TIM.Interpreter.Monad
+  ( TIM
+  , TIMError
+  , TIMState
+  , allocFrame
+  , derefClosure
+  , fetchInstr
+  , finalTIMState
+  , getArgumentStack
+  , getCurrentFrame
+  , getValueStack
+  , isArgumentStackBigEnough
+  , isArgumentStackEmpty
+  , isCurrentFramePartial
+  , logTIMState
+  , lookupPrim
+  , manipulateFramePtr
+  , nextInstr
+  , operateOnValueStack
+  , peekValueStack
+  , popArgumentStack
+  , popDumpIntoArgumentStack
+  , pushArgumentStack
+  , pushArgumentStackToDump
+  , pushValueStack
+  , runTIM
+  , setCode
+  , setCurrentFramePtr
+  , takeArgumentStack
+  , throwTIMError
+  , updateCurrentFrameSlot
+  ) where
 
+import Control.Monad.Extra
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Writer
 
 import Prettyprinter
 
+import Data.Maybe
+
 import Data.Text.Lazy (Text)
 
 import Data.Stack (Stack)
 import Data.Stack qualified as Stack
 
-import Data.Heap (Heap)
+import Data.Heap (Heap, Addr)
 import Data.Heap qualified as Heap
 
 import Data.Map qualified as Map
@@ -20,7 +54,6 @@ import Language.TIM.Syntax
 import Language.TIM.Prim
 import Language.TIM.Interpreter.Types
 import Language.TIM.Interpreter.Foreign
-
 
 ----------------------------------------
 -- TIM interpreter monad
@@ -56,6 +89,14 @@ newtype TIMTrace = TIMTrace [TIMState]
 instance Pretty TIMTrace where
   pretty (TIMTrace states) = vsep (pretty <$> states)
 
+-- Dump elements
+
+data Dump = Dump {
+  dump_stack :: Stack Closure,
+  dump_frame :: FramePtr,
+  dump_index :: Int
+}
+
 -- Machine state
 
 data TIMState = TIMState {
@@ -64,7 +105,7 @@ data TIMState = TIMState {
   tim_curr_frame :: FramePtr,
   tim_heap :: Heap Frame,
   tim_arg_stack :: Stack Closure,
-  tim_arg_dump :: (),
+  tim_dump :: Stack Dump,
   tim_value_stack :: Stack Value
 }
 
@@ -98,9 +139,18 @@ instance Pretty TIMState where
           then [ indent 2 "empty" ]
           else [ indent 2 (pretty closure) | closure <- reverse stack ]
       showDump =
+        let dump = Stack.toList (tim_dump st) in
         vsep $
           [ "Argument dump:" ] <>
-          [ indent 2 (pretty (tim_arg_dump st)) ]
+          if null dump
+          then [ indent 2 "empty" ]
+          else [ indent 2 $ vsep $
+                  [ "stack:" <+>
+                    brackets ("frame ptr=" <> pretty ptr) <+>
+                    brackets ("frame index=" <> pretty idx) ] <>
+                  [ indent 2 (pretty closure)
+                  | closure <- reverse (Stack.toList stack) ]
+               | Dump stack ptr idx <- reverse dump ]
       showValueStack =
         let stack = Stack.toList (tim_value_stack st) in
         vsep $
@@ -116,7 +166,7 @@ initialTIMState code = TIMState {
   tim_curr_frame = NullP,
   tim_heap = Heap.empty,
   tim_arg_stack = Stack.empty,
-  tim_arg_dump = (),
+  tim_dump = Stack.empty,
   tim_value_stack = Stack.empty
 }
 
@@ -125,14 +175,10 @@ finalTIMState st = isNullCodeBlock (tim_curr_codeblock st)
 
 ----------------------------------------
 -- Monad operations
+----------------------------------------
 
--- Throw an error
-throwTIMError :: Text -> TIM a
-throwTIMError msg = throwError (TIMError msg)
-
--- Log the current TIM state
-logTIMState :: TIM ()
-logTIMState = get >>= tell . TIMTrace . pure
+----------------------------------------
+-- Code blocks
 
 -- Lookup the code of a compiled label
 lookupCodeBlock :: Name -> TIM CodeBlock
@@ -142,40 +188,115 @@ lookupCodeBlock name = do
     Nothing -> throwTIMError ("lookupCodeBlock: variable " <> fromName name <> " not in the store")
     Just code -> return code
 
--- Lookup for a primitive operation
-lookupPrimOp :: Name -> TIM Prim
-lookupPrimOp name = do
-  case Map.lookup name primitives of
-    Nothing -> throwTIMError ("lookupPrimOp: primitive " <> fromName name <> " does not exist")
-    Just prim -> return prim
-
--- Fetch the next instruction to execute
-fetchInstr :: TIM Instr
-fetchInstr = state $ \st ->
-  let (next, rest) = splitCodeBlock (tim_curr_codeblock st) in
-  (next, st { tim_curr_codeblock = rest })
-
 -- Set the code to execute next
 setCode :: CodeBlock -> TIM ()
 setCode code = modify' $ \st ->
   st { tim_curr_codeblock = code }
 
--- Push a closure to the current stack
-pushArgStack :: Closure -> TIM ()
-pushArgStack closure = modify' $ \st ->
+-- Fetch the next instruction to execute
+fetchInstr :: TIM Instr
+fetchInstr = do
+  code <- gets tim_curr_codeblock
+  return (fst (splitCodeBlock code))
+
+-- Advance to the next instruction
+nextInstr :: TIM ()
+nextInstr = modify' $ \st ->
+  st { tim_curr_codeblock = snd (splitCodeBlock (tim_curr_codeblock st)) }
+
+----------------------------------------
+-- Argument stack
+
+isArgumentStackEmpty :: TIM Bool
+isArgumentStackEmpty = do
+  Stack.isEmpty <$> gets tim_arg_stack
+
+isArgumentStackBigEnough :: Int -> TIM Bool
+isArgumentStackBigEnough n = do
+  stack_size <- Stack.size <$> gets tim_arg_stack
+  return (n <= stack_size)
+
+getArgumentStack :: TIM [Closure]
+getArgumentStack = do
+  Stack.toList <$> gets tim_arg_stack
+
+-- Empty the argument stack
+clearArgumentStack :: TIM ()
+clearArgumentStack = modify' $ \st ->
+  st { tim_arg_stack = Stack.empty }
+
+pushArgumentStack :: Closure -> TIM ()
+pushArgumentStack closure = modify' $ \st ->
   st { tim_arg_stack = Stack.push closure (tim_arg_stack st) }
 
+popArgumentStack :: TIM Closure
+popArgumentStack = do
+  st <- get
+  case Stack.pop (tim_arg_stack st) of
+    Nothing -> do
+      throwTIMError "popArgumentStack: empty argument stack"
+    Just (closure, stack) -> do
+      put st { tim_arg_stack = stack }
+      return closure
+
 -- Take the first `n` elements from the current arg stack
-takeArgStack :: Int -> TIM [Closure]
-takeArgStack n = do
+takeArgumentStack :: Int -> TIM [Closure]
+takeArgumentStack n = do
   st <- get
   case Stack.take n (tim_arg_stack st) of
-    Nothing -> throwTIMError "takeArgStack: not enough elements"
+    Nothing -> do
+      throwTIMError "takeArgumentStack: not enough elements"
     Just (closures, stack) -> do
       put st { tim_arg_stack = stack }
       return closures
 
--- Push a value to the value stack
+-- Pushes the current stack into the dump and clears it
+pushArgumentStackToDump :: Int -> TIM ()
+pushArgumentStackToDump index = do
+  s <- gets tim_arg_stack
+  f <- gets tim_curr_frame
+  let oldStack = Dump { dump_index = index, dump_frame = f, dump_stack = s }
+  pushDump oldStack
+  clearArgumentStack
+
+----------------------------------------
+-- Argument dump
+
+pushDump :: Dump -> TIM ()
+pushDump dump = modify' $ \st ->
+  st { tim_dump = Stack.push dump (tim_dump st) }
+
+-- Pops and prepends the previous dump into the argument stack.
+-- Returns the saved frame pointer and closure index
+popDumpIntoArgumentStack :: TIM (FramePtr, Int)
+popDumpIntoArgumentStack = do
+  stack_dump <- gets tim_dump
+  case Stack.pop stack_dump of
+    Nothing -> do
+      throwTIMError "popDumpIntoArgumentStack: empty dump"
+    Just (dump, stack_dump') -> do
+      modify' $ \st -> st {
+        tim_arg_stack = Stack.append (tim_arg_stack st) (dump_stack dump),
+        tim_dump = stack_dump'
+      }
+      return (dump_frame dump, dump_index dump)
+
+----------------------------------------
+-- Value stack
+
+getValueStack :: TIM [Value]
+getValueStack = do
+  Stack.toList <$> gets tim_value_stack
+
+peekValueStack :: TIM Value
+peekValueStack = do
+  vstack <- gets tim_value_stack
+  case Stack.peek vstack of
+    Nothing -> do
+      throwTIMError "peekValueStack: empty value stack"
+    Just value -> do
+      return value
+
 pushValueStack :: ValueMode -> TIM ()
 pushValueStack mode = do
   st <- get
@@ -200,17 +321,70 @@ operateOnValueStack prim = do
       res <- liftIO (prim_runner prim args)
       put st { tim_value_stack = Stack.push res rest }
 
--- Get the current value stack (only used to return the final values in the
--- interpreter)
-getValueStack :: TIM [Value]
-getValueStack = do
-  st <- get
-  return (Stack.toList (tim_value_stack st))
+----------------------------------------
+-- Frames
 
 -- Set the current frame pointer
-setFramePtr :: FramePtr -> TIM ()
-setFramePtr ptr = modify' $ \st ->
+setCurrentFramePtr :: FramePtr -> TIM ()
+setCurrentFramePtr ptr = modify' $ \st ->
   st { tim_curr_frame = ptr }
+
+isCurrentFramePartial :: TIM Bool
+isCurrentFramePartial = do
+  frame_is_partial <$> getCurrentFrame
+
+-- Fetches the current frame
+getCurrentFrame :: TIM Frame
+getCurrentFrame = do
+  manipulateCurrentFrame Just
+
+-- Update a closure in the current frame
+updateCurrentFrameSlot :: Offset -> Closure -> TIM ()
+updateCurrentFrameSlot offset closure = void $ do
+  manipulateCurrentFrame (updateFrame offset closure)
+
+-- Generic frame manipulations
+
+-- Fetches a frame and updates it with the given function.
+-- Returns the updated frame or an error if anything goes wrong.
+manipulateFrameFromAddr :: Addr -> (Frame -> Maybe Frame) -> TIM Frame
+manipulateFrameFromAddr addr f = do
+  heap <- gets tim_heap
+  case Heap.deref addr heap of
+    Nothing -> do
+      throwTIMError "manipulateFrameFromAddr: invalid frame address"
+    Just frame -> do
+      newFrame <- do
+        case f frame of
+          Nothing -> do
+            throwTIMError "manipulateFrameFromAddr: update to frame failed (possible wrong offset)"
+          Just frame' -> do
+            return frame'
+      let newHeap = fromJust (Heap.update (Just . const newFrame) addr heap)
+      modify' $ \st -> st { tim_heap = newHeap }
+      return newFrame
+
+-- Fetches the current frame and updates it with the given function.
+-- Returns the updated current frame or an error if anything goes wrong.
+manipulateCurrentFrame :: (Frame -> Maybe Frame) -> TIM Frame
+manipulateCurrentFrame f = do
+  framePtr <- gets tim_curr_frame
+  case framePtr of
+    AddrP addr -> do
+      manipulateFrameFromAddr addr f
+    _ -> do
+      throwTIMError "manipulateCurrentFrame: the current frame address is not to a frame pointer"
+
+manipulateFramePtr :: FramePtr -> (Frame -> Maybe Frame) -> TIM Frame
+manipulateFramePtr fp f = do
+  case fp of
+    AddrP addr -> do
+      manipulateFrameFromAddr addr f
+    _ -> do
+      throwTIMError "derefFramePtr: the frame pointer is not to a frame"
+
+----------------------------------------
+-- Heap operations
 
 -- Allocate a frame in the heap
 allocFrame :: Frame -> TIM FramePtr
@@ -246,17 +420,22 @@ derefClosure mode = do
       let litCode = [PushValueI FramePtrM, ReturnI]
       return (mkClosure litCode (ValueP lit))
 
--- Update a closure in the current frame
-updateFrameSlot :: Offset -> Closure -> TIM ()
-updateFrameSlot offset closure = do
-  st <- get
-  let curr_frame = tim_curr_frame st
-  case curr_frame of
-    AddrP addr -> do
-      case Heap.update (updateFrame offset closure) addr (tim_heap st) of
-        Nothing -> do
-          throwTIMError "updateClosure: invalid frame address or frame offset"
-        Just heap -> do
-          put st { tim_heap = heap }
-    _ -> do
-      throwTIMError "updateClosure: updating a closure in the current frame requires an address frame pointer"
+----------------------------------------
+-- Utilities
+
+-- Throw an error
+throwTIMError :: Text -> TIM a
+throwTIMError msg = throwError (TIMError msg)
+
+-- Log the current TIM state
+logTIMState :: TIM ()
+logTIMState = get >>= tell . TIMTrace . pure
+
+-- Lookup for a primitive operation
+lookupPrim :: Name -> TIM Prim
+lookupPrim name = do
+  case Map.lookup name primitives of
+    Nothing -> do
+      throwTIMError ("lookupPrim: primitive " <> fromName name <> " does not exist")
+    Just prim -> do
+      return prim
