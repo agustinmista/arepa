@@ -14,6 +14,7 @@ dump_t value_stack;
 /****************/
 /* Declarations */
 /****************/
+
 closure_t* argument_closure(long argument);
 void tim_value_code();
 
@@ -37,15 +38,15 @@ frame_t new_partial_frame(long size) {
     return frame;
 }
 
-void copy_n_stack_arguments_to_frame(long start,long end,frame_t frame, stack_t stack) {
+void copy_n_stack_arguments_to_frame(long start, long end, frame_t frame, stack_t stack) {
     debug_msg("Coping all available closures int the stack as arguments");
     assert(start >= 0 && start <= end);
     assert(frame != current_frame); // Sanity check!
-    if (start==end) return;
+    if (start == end) return;
     assert(stack);
     closure_t* closure = (closure_t*) stack_peek(stack);
     rts_memcpy(&frame->arguments[start], closure, sizeof(closure_t));
-    return copy_n_stack_arguments_to_frame(start+1,end,frame,stack->next);
+    return copy_n_stack_arguments_to_frame(start+1, end, frame, stack->next);
 }
 
 void move_n_stack_arguments_to_frame(long n, frame_t frame) {
@@ -74,30 +75,30 @@ void tim_populate_partial_arguments() {
     debug_msg("Filling the arguments stack with arguments of a partial frame");
     if (!current_frame->is_partial) return;
     for (int i=0; i < current_frame->length; i++){
-        dump_push(argument_stack,argument_closure(i));
+        dump_push(argument_stack, argument_closure(i));
     }
 }
 
 void update_closure_frame_in_metadata_frame(tim_metadata_t metadata, frame_t frame) {
     debug_msg("Updating the corresponding closure in the frame retrived from the dump");
-    frame_t target_frame    = metadata->frame;
-    long offset             = metadata->offset;
+    frame_t target_frame = metadata->frame;
+    long offset          = metadata->offset;
     target_frame->arguments[offset].frame = frame;
 }
 
 void update_closure_code_in_metadata_frame(tim_metadata_t metadata, void (*code)()) {
     debug_msg("Updating the corresponding code in the frame retrived from the dump");
-    frame_t target_frame    = metadata->frame;
-    long offset             = metadata->offset;
+    frame_t target_frame = metadata->frame;
+    long offset          = metadata->offset;
     target_frame->arguments[offset].code = code;
 }
 
 void tim_handle_partial_application() {
     debug_msg("Restorin previous stack from the dump");
     dump_previous(argument_stack);
-    long argn   = argument_stack->current_size;
+    long argn = argument_stack->current_size;
     frame_t frame = new_partial_frame(argn);
-    copy_n_stack_arguments_to_frame(0,argn,frame,argument_stack->current);
+    copy_n_stack_arguments_to_frame(0, argn, frame, argument_stack->current);
     tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
     update_closure_frame_in_metadata_frame(metadata, frame);
 }
@@ -115,8 +116,8 @@ void return_with_empty_argument_stack() {
     dump_previous(argument_stack);
     void* value = dump_peek(value_stack);
     tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
-    update_closure_code_in_metadata_frame(metadata,*tim_value_code);
-    update_closure_frame_in_metadata_frame(metadata,value);
+    update_closure_code_in_metadata_frame(metadata, *tim_value_code);
+    update_closure_frame_in_metadata_frame(metadata, value);
     return tim_return();
 }
 
@@ -197,14 +198,14 @@ void tim_init_current_frame() {
 
 void tim_init_argument_stack() {
     debug_msg("Initializing argument stack");
-    argument_stack = dump_new();
+    argument_stack = dump_new(NULL);
     debug_msg("Creating a nil closure for main to land to");
     return dump_push(argument_stack, tim_nil_closure());
 }
 
 void tim_init_value_stack() {
     debug_msg("Initializing value stack");
-    value_stack = dump_new();
+    value_stack = dump_new(NULL);
 }
 
 void tim_init_io_streams() {

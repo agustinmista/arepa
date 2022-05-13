@@ -7,7 +7,7 @@
 /* Dumps (stacks of stacks)          */
 /* --------------------------------- */
 
-dump_t dump_new() {
+dump_t dump_new(void* metadata) {
     // Allocate memory for a new dump
     dump_t dump = rts_malloc(sizeof(struct dump_t));
 
@@ -15,10 +15,10 @@ dump_t dump_new() {
     dump->current = NULL;
     dump->parent = NULL;
     dump->current_size = 0;
+    dump->metadata = metadata;
 
     return dump;
 }
-
 
 void dump_destroy(dump_t dump) {
     // Sanity checks
@@ -48,7 +48,6 @@ void dump_destroy(dump_t dump) {
 
 }
 
-
 int dump_is_empty(dump_t dump) {
     // Sanity checks
     assert(dump);
@@ -56,8 +55,7 @@ int dump_is_empty(dump_t dump) {
     return (dump->current == NULL);
 }
 
-
-void dump_push(dump_t dump, void *data) {
+void dump_push(dump_t dump, void* data) {
     // Sanity checks
     assert(dump);
 
@@ -74,7 +72,6 @@ void dump_push(dump_t dump, void *data) {
     dump->current_size++;
 }
 
-
 void dump_pop(dump_t dump) {
     // Sanity checks
     assert(dump);
@@ -89,8 +86,7 @@ void dump_pop(dump_t dump) {
     rts_free(node);
 }
 
-
-void *dump_peek(dump_t dump) {
+void* dump_peek(dump_t dump) {
     // Sanity checks
     assert(dump);
     assert(dump->current);
@@ -98,14 +94,13 @@ void *dump_peek(dump_t dump) {
     return dump->current->data;
 }
 
-void *stack_peek(stack_t stack) {
+void* stack_peek(stack_t stack) {
     // Sanity checks
     assert(stack);
     return stack->data;
 }
 
-
-void dump_freeze(dump_t dump, void *metadata) {
+void dump_freeze(dump_t dump, void* metadata) {
     // Sanity checks
     assert(dump);
 
@@ -119,14 +114,12 @@ void dump_freeze(dump_t dump, void *metadata) {
     new_dump->current_size = dump->current_size;
     new_dump->metadata     = metadata;
 
-
     // Rewire the current dump to be the new one
     dump->current = NULL;
     dump->parent = new_dump;
     dump->current_size = 0;
     dump->metadata = NULL;
 }
-
 
 void dump_restore_parent(dump_t dump) {
     // Sanity checks
@@ -146,7 +139,6 @@ void dump_restore_parent(dump_t dump) {
     rts_free(parent);
 }
 
-
 void dump_append(dump_t a, dump_t b){
     assert(a);
     assert(b);
@@ -155,24 +147,22 @@ void dump_append(dump_t a, dump_t b){
 
     void* data = dump_peek(a);
     dump_pop(a);
-    dump_append(a,b);
-    dump_push(b,data);
+    dump_append(a, b);
+    dump_push(b, data);
 }
-
 
 void dump_previous(dump_t dump) {
     // Sanity checks
     assert(dump);
     assert(dump->parent);
 
-    // Append the current stack in top of the previous one
-    dump_append(dump,dump->parent);
+    // Append the current stack on top of the previous one
+    dump_append(dump, dump->parent);
     assert(dump_is_empty(dump));
 
     // Restore parent
     dump_restore_parent(dump);
 }
-
 
 void dump_restore(dump_t dump) {
     // Sanity checks

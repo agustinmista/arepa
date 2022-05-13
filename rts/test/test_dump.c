@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 
     printf("> Freeze the current stack\n");
     printf("> dump_freeze(%p)\n", dump);
-    dump_freeze(dump,NULL);
+    dump_freeze(dump, NULL);
     printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
 
     printf("Check if it is empty\n");
@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
 
     printf("> Freeze the current stack\n");
     printf("> dump_freeze(%p)\n", dump);
-    dump_freeze(dump,NULL);
+    dump_freeze(dump, NULL);
     printf("> (%p)->current_size=%lu\n", dump, dump->current_size);
     printf("\n");
 
