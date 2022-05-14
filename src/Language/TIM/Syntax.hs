@@ -90,6 +90,8 @@ data Instr =
   | MoveI Int ArgMode
   | ReturnI
   | CallI Name
+  | DataI Int Int
+  | SwitchI [(Int, ArgMode)]
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty Instr where
@@ -111,6 +113,10 @@ instance Pretty Instr where
     "return"
   pretty (CallI prim) =
     "call" <+> pretty prim
+  pretty (DataI tag arity) =
+    braces (pretty tag <> "," <> pretty arity)
+  pretty (SwitchI alts) =
+    "switch" <+> pretty alts
 
 -- Argument addressing modes
 
@@ -155,7 +161,6 @@ instance Pretty ValueMode where
     "fp"
   pretty (InlineM value) =
     "inline" <+> pretty value
-
 
 -- Map values to types
 
