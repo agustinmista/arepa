@@ -139,7 +139,7 @@ caseE :: MonadArepa m => Parser m CoreExpr
 caseE = do
   keyword "case"
   scrut <- expr
-  alts <- parens $ many alt
+  alts <- many alt
   return (CaseE scrut alts)
 
 -- Alternatives
@@ -147,25 +147,9 @@ caseE = do
 alt :: MonadArepa m => Parser m CoreAlt
 alt = label "case alternative" $ do
   parens $ do
-    try litA <|> conA <|> defA
-
-litA :: MonadArepa m => Parser m CoreAlt
-litA = do
-  l <- lit
-  e <- expr
-  return (LitA l e)
-
-conA :: MonadArepa m => Parser m CoreAlt
-conA = do
-  (c, vars) <- parens $ (,) <$> con <*> many name
-  e <- expr
-  return (ConA c vars e)
-
-defA :: MonadArepa m => Parser m CoreAlt
-defA = do
-  symbol "_"
-  e <- expr
-  return (DefA e)
+    (c, vars) <- parens $ (,) <$> con <*> many name
+    e <- expr
+    return (Alt c vars e)
 
 -- Literals
 
@@ -190,23 +174,11 @@ stringL = StringL <$> stringLiteral
 
 con :: MonadArepa m => Parser m Con
 con = label "data constructor" $ do
-  try unboxedC <|> boxedC
-
-boxedC :: MonadArepa m => Parser m Con
-boxedC = do
   braces $ do
     tag <- decimal
     comma
     arity <- decimal
-    return (BoxedC tag arity)
-
-unboxedC :: MonadArepa m => Parser m Con
-unboxedC = do
-  braces $ do
-    tag <- decimal
-    comma
-    sizes <- brackets (decimal `sepBy` comma)
-    return (UnboxedC tag sizes)
+    return (Con tag arity)
 
 -- Variables
 
@@ -282,9 +254,6 @@ parens = between (symbol "(") (symbol ")")
 
 braces :: MonadArepa m => Parser m a -> Parser m a
 braces = between (symbol "{") (symbol "}")
-
-brackets :: MonadArepa m => Parser m a -> Parser m a
-brackets = between (symbol "[") (symbol "]")
 
 comma :: MonadArepa m => Parser m ()
 comma = void $ symbol ","
