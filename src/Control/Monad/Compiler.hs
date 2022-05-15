@@ -142,5 +142,5 @@ prettyShow = pShowOpt defaultOutputOptionsDarkBg {
    outputOptionsCompact = True,
    outputOptionsCompactParens = True,
    outputOptionsIndentAmount = 2,
-   outputOptionsPageWidth = 120
+   outputOptionsPageWidth = 140
  }
