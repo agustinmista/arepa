@@ -112,7 +112,7 @@ instance Pretty CoreExpr where
   pretty (CaseE expr alts) =
     parens $ vsep
       [ "case" <+> pretty expr
-      , indent 2 $ parens $ align $ vsep $ pretty <$> alts
+      , indent 2 $ align $ vsep $ pretty <$> alts
       ]
 
 ----------------------------------------
@@ -165,29 +165,20 @@ collectArgs = go []
 -- Alternatives
 ----------------------------------------
 
--- We only support literal and flat constructor alternatives, with the addition
--- of the wildcard pattern `_` for convenience. The language frontend is the one
--- in charge of desugaring nested patterns into flat ones.
-
-data Alt a =
-    LitA Lit (Expr a)     -- ^ Literal alternative: 'case e of { 1 -> ... }'
-  | ConA Con [a] (Expr a) -- ^ Constructor alternative: 'case e of { C x y -> ... }'
-  | DefA (Expr a)         -- ^ Default alternative: 'case e of { _ -> ... }'
+data Alt a = Alt Con [a] (Expr a)
   deriving (Show, Read, Eq, Ord, Functor)
 
 type CoreAlt = Alt Name
 
 instance Pretty CoreAlt where
-  pretty (LitA lit expr) =
+  pretty (Alt con [] expr) =
     parens $
-      pretty lit <+> pretty expr
-  pretty (ConA con vars expr) =
-    parens $
-      parens (pretty con <> cat (intersperse space (pretty <$> vars))) <+>
+      parens (pretty con) <+>
       pretty expr
-  pretty (DefA expr) =
+  pretty (Alt con vars expr) =
     parens $
-      "_" <+> pretty expr
+      parens (pretty con <+> cat (intersperse space (pretty <$> vars))) <+>
+      pretty expr
 
 ----------------------------------------
 -- Literals
@@ -208,13 +199,11 @@ instance Pretty Lit where
 -- Data constructors
 ----------------------------------------
 
-data Con =
-    BoxedC   Int Int    -- ^ Boxed constructor:  { tag, arity }
-  | UnboxedC Int [Int]  -- ^ Unboxed constructor { tag, [size] }
-  deriving (Show, Read, Eq, Ord)
+data Con = Con {
+  con_tag :: Int,
+  con_arity :: Int
+} deriving (Show, Read, Eq, Ord)
 
 instance Pretty Con where
-  pretty (BoxedC tag arity) =
+  pretty (Con tag arity) =
     braces (pretty tag <> comma <> pretty arity)
-  pretty (UnboxedC tag sizes) =
-    braces (pretty tag <> comma <> brackets (cat (intersperse comma (pretty <$> sizes))))
