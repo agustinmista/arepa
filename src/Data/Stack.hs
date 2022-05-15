@@ -91,7 +91,10 @@ toList = stack_values
 
 -- Append two stacks
 append :: Stack a -> Stack a -> Stack a
-append a b = fromList $ toList a ++ toList b
+append stk1 stk2 = Stack {
+  stack_size = stack_size stk1 + stack_size stk2,
+  stack_values = stack_values stk1 <> stack_values stk2
+}
 
 isEmpty :: Stack a -> Bool
 isEmpty  = null . toList
