@@ -10,6 +10,7 @@ import Language.TIM.Prim.Types
 import Language.TIM.Prim.TH
 
 ----------------------------------------
--- Mining primitive operations from the RTS
+-- Primitive operations
+----------------------------------------
 
 mkPrimitives "primitives" ("rts" </> "include" </> "prim.h")
