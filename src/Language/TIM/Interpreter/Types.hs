@@ -95,4 +95,10 @@ mkClosure :: CodeBlock -> FramePtr -> Closure
 mkClosure = Closure
 
 dummyClosure :: Closure
-dummyClosure = Closure [] NullP
+dummyClosure = mkClosure [] NullP
+
+valueClosure :: Value -> Closure
+valueClosure value = mkClosure [ PushValueI FramePtrM, ReturnI ] (ValueP value)
+
+dataClosure :: Int -> Int -> FramePtr -> Closure
+dataClosure tag arity = mkClosure [ DataI tag arity ]
