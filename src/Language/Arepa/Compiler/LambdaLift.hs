@@ -55,26 +55,15 @@ runLifter globals ma = do
 ----------------------------------------
 -- Monad operations
 
-mkUniqueTopLevelName :: MonadArepa m => Name -> Lifter m Name
-mkUniqueTopLevelName template = do
-  globals <- gets ls_globals
-  newDecls <- gets ls_new_decls
-  let avoid     = globals <> Set.fromList (declName <$> newDecls)
-  let rename ss = mkName (fromName template <> head ss)
-  let go ss | rename ss `notElem` avoid = rename ss
-            | otherwise = go (tail ss)
-  let uname = go [ "#" <> show n | n <- [0 :: Int ..] ]
-  return uname
-
 -- Lift an expression into a top-level declaration
 makeTopLevel :: MonadArepa m => Name -> [Name] -> CoreExpr -> Lifter m Name
-makeTopLevel name vars expr = do
+makeTopLevel prefix vars expr = do
   st <- get
-  uname <- mkUniqueTopLevelName name
-  let decl = FunD uname vars expr
+  name' <- liftIO (mkUniqueName prefix)
+  let decl = FunD name' vars expr
   put st { ls_new_decls = decl : ls_new_decls st }
-  whenVerbose $ dump ("Lifted lambda to top-level declaration " <> prettyPrint uname) decl
-  return uname
+  whenVerbose $ dump ("Lifted lambda to top-level declaration " <> prettyPrint name') decl
+  return name'
 
 isGlobalVar :: MonadArepa m => Name -> Lifter m Bool
 isGlobalVar name = (name `elem`) <$> gets ls_globals
@@ -153,15 +142,9 @@ liftAlt :: MonadArepa m => CoreAlt -> Lifter m (Set Name, CoreAlt)
 liftAlt alt = do
   whenVerbose $ dump "Lambda lifting alternative" alt
   case alt of
-    ConA con vars body -> do
+    Alt con vars body -> do
       (fvsAlt, body') <- liftExpr body
-      return (fvsAlt `closedOver` vars, ConA con vars body')
-    LitA lit body -> do
-      (fvsAlt, body') <- liftExpr body
-      return (fvsAlt, LitA lit body')
-    DefA body -> do
-      (fvsAlt, body') <- liftExpr body
-      return (fvsAlt, DefA body')
+      return (fvsAlt `closedOver` vars, Alt con vars body')
 
 ----------------------------------------
 -- Utilities
