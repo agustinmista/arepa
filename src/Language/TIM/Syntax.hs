@@ -90,9 +90,11 @@ data Instr =
   | MoveI Int ArgMode
   | ReturnI
   | CallI Name
-  | DataI Int Int
-  | SwitchI [(Int, ArgMode)]
+  | DataI Tag Int
+  | SwitchI (Map Tag ArgMode)
   deriving (Show, Read, Eq, Ord)
+
+type Tag = Int
 
 instance Pretty Instr where
   pretty (TakeArgI t n) =
@@ -104,7 +106,7 @@ instance Pretty Instr where
   pretty (PushMarkerI n) =
     "push marker" <+> pretty n
   pretty (UpdateMarkersI n) =
-    "update marker" <+> pretty n
+    "update markers" <+> pretty n
   pretty (EnterI mode) =
     "enter" <+> pretty mode
   pretty (MoveI n mode) =
@@ -114,9 +116,13 @@ instance Pretty Instr where
   pretty (CallI prim) =
     "call" <+> pretty prim
   pretty (DataI tag arity) =
-    braces (pretty tag <> "," <> pretty arity)
+    "data" <+> braces (pretty tag <> "," <> pretty arity)
   pretty (SwitchI alts) =
-    "switch" <+> pretty alts
+    "switch" <+>
+    brackets (hcat (intersperse ","
+      [ "tag" <+> pretty tag <+> "=>" <+> pretty mode
+      | (tag, mode) <- Map.toList alts
+      ]))
 
 -- Argument addressing modes
 
@@ -124,15 +130,18 @@ data ArgMode =
     ArgM Int
   | ValueM Value
   | LabelM Name
+  | DataM Int
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty ArgMode where
   pretty (ArgM n) =
     "$" <> pretty n
   pretty (ValueM value) =
-    pretty value
+    "value" <+> pretty value
   pretty (LabelM var) =
-    pretty var
+    "label" <+> pretty var
+  pretty (DataM tag) =
+    "data" <+> pretty tag
 
 -- Values (akin to literals, but not always the same)
 
@@ -141,6 +150,7 @@ data Value =
   | DoubleV Double
   | StringV Text
   | VoidV ()
+  | TagV Tag
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty Value where
@@ -148,6 +158,7 @@ instance Pretty Value where
   pretty (DoubleV n) = angles (pretty n)
   pretty (StringV s) = angles (pretty (show s))
   pretty (VoidV _)   = angles "void"
+  pretty (TagV n)   =  angles ("tag" <+> pretty n)
 
 -- Values addressing modes
 
@@ -169,3 +180,4 @@ typeOfValue IntV    {} = IntT
 typeOfValue DoubleV {} = DoubleT
 typeOfValue StringV {} = StringT
 typeOfValue VoidV   {} = VoidT
+typeOfValue TagV    {} = TagT
