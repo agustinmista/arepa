@@ -141,12 +141,14 @@ typeToHsType IntT    = TH.ConT ''Int
 typeToHsType DoubleT = TH.ConT ''Double
 typeToHsType StringT = TH.ConT ''CString
 typeToHsType VoidT   = TH.TupleT 0
+typeToHsType ty      = error ("typeToHsType: impossible type " <> show ty)
 
 typeToTypeConName :: Type -> TH.Name
 typeToTypeConName IntT    = 'IntT
 typeToTypeConName DoubleT = 'DoubleT
 typeToTypeConName StringT = 'StringT
 typeToTypeConName VoidT   = 'VoidT
+typeToTypeConName TagT    = 'TagT
 
 -- Marshalling arguments
 
@@ -155,6 +157,7 @@ marshallArgName IntT    = 'marshallArgInt
 marshallArgName DoubleT = 'marshallArgDouble
 marshallArgName StringT = 'marshallArgString
 marshallArgName VoidT   = 'marshallArgVoid
+marshallArgName ty      = error ("marshallArgName: impossible type " <> show ty)
 
 marshallArgInt :: Value -> (Int -> IO a) -> IO a
 marshallArgInt (IntV n) = \f -> f n
@@ -179,6 +182,7 @@ marshallResName IntT    = 'marshallResInt
 marshallResName DoubleT = 'marshallResDouble
 marshallResName StringT = 'marshallResString
 marshallResName VoidT   = 'marshallResVoid
+marshallResName ty      = error ("marshallResName: impossible type " <> show ty)
 
 marshallResInt :: IO Int -> IO Value
 marshallResInt = fmap IntV
