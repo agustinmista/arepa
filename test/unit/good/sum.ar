@@ -1,0 +1,16 @@
+(module sum
+  (val main
+    (print_int
+      (sum (cons 10 (cons 20 (cons 30 nil))))))
+
+  (fun sum (xs)
+    (case xs
+      (({0,0})       0)
+      (({1,2} x xs)  (+ x (sum xs)))))
+
+  (val nil {0,0})
+  (fun cons (x xs) ({1,2} x xs))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+)
