@@ -51,7 +51,6 @@ mkPartialFrame closures = Frame {
 }
 
 -- Offsets withing a frame
-type Offset = Int
 
 manipulateFrame :: Offset -> (Closure -> Closure) -> Frame -> Maybe Frame
 manipulateFrame offset f frame
@@ -100,5 +99,5 @@ dummyClosure = mkClosure [] NullP
 valueClosure :: Value -> Closure
 valueClosure value = mkClosure [ PushValueI FramePtrM, ReturnI ] (ValueP value)
 
-dataClosure :: Int -> Int -> FramePtr -> Closure
-dataClosure tag arity = mkClosure [ DataI tag arity ]
+dataClosure :: Int -> FramePtr -> Closure
+dataClosure tag = mkClosure [ DataI tag ]

@@ -84,7 +84,7 @@ instance Pretty TIMState where
       showDiv,
       showCode,
       showCurrentFrame,
-      showDataFrame,
+      showCurrentDataFrame,
       showArgStack,
       showDump,
       showValueStack,
@@ -102,9 +102,9 @@ instance Pretty TIMState where
             AddrP addr ->
               let Just frame = Heap.deref addr (tim_heap st) in [ pretty frame ]
             _ -> []
-      showDataFrame =
+      showCurrentDataFrame =
         vsep $
-          [ "Current data frame pointer:" <+> pretty (tim_curr_data_frame st) ] <>
+          [ "Current data constructor frame pointer:" <+> pretty (tim_curr_data_frame st) ] <>
           case tim_curr_data_frame st of
             AddrP addr ->
               let Just frame = Heap.deref addr (tim_heap st) in [ pretty frame ]
@@ -312,18 +312,18 @@ operateOnValueStack prim = do
 
 -- Push/pop constructor tags
 
-pushDataTagToValueStack :: Tag -> TIM ()
-pushDataTagToValueStack tag = do
+pushConTagToValueStack :: Tag -> TIM ()
+pushConTagToValueStack tag = do
   pushValueStack (InlineM (TagV tag))
 
-popDataTagFromValueStack :: TIM Tag
-popDataTagFromValueStack = do
+popConTagFromValueStack :: TIM Tag
+popConTagFromValueStack = do
   value <- popValueStack
   case value of
     TagV tag -> do
       return tag
     _ -> do
-      throwTIMError "popDataTagFromValueStack: top value is not a tag"
+      throwTIMError "popConTagFromValueStack: top value is not a tag"
 
 ----------------------------------------
 -- Frames and frame pointers
@@ -355,12 +355,12 @@ isCurrentFramePartial :: TIM Bool
 isCurrentFramePartial = do
   frame_is_partial <$> getCurrentFrame
 
--- Data frames
+-- Data constructor frames
 
 -- Get the current frame pointer
 getCurrentDataFramePtr :: TIM FramePtr
 getCurrentDataFramePtr = do
-  gets tim_curr_frame
+  gets tim_curr_data_frame
 
 -- Set the current frame pointer
 setCurrentDataFramePtr :: FramePtr -> TIM ()
@@ -372,7 +372,7 @@ getCurrentDataFrame :: TIM Frame
 getCurrentDataFrame = do
   manipulateCurrentDataFrame Just
 
--- Update a closure in the current data frame
+-- Update a closure in the current data constructor frame
 updateCurrentDataFrameSlot :: Offset -> Closure -> TIM ()
 updateCurrentDataFrameSlot offset closure = void $ do
   manipulateCurrentDataFrame (updateFrame offset closure)
@@ -399,7 +399,7 @@ manipulateCurrentDataFrame f = do
     AddrP addr -> do
       manipulateFrameFromAddr addr f
     _ -> do
-      throwTIMError "manipulateCurrentDataFrame: the current data frame address is not to a frame pointer"
+      throwTIMError "manipulateCurrentDataFrame: the current data constructor frame address is not to a frame pointer"
 
 manipulateFramePtr :: FramePtr -> (Frame -> Maybe Frame) -> TIM Frame
 manipulateFramePtr fp f = do
@@ -443,7 +443,7 @@ derefClosure mode = do
   st <- get
   let heap = tim_heap st
   let curr_frame_ptr = tim_curr_frame st
-  let data_frame_ptr = tim_curr_data_frame st
+  let curr_con_frame_ptr = tim_curr_data_frame st
   case mode of
     ArgM offset -> do
       case curr_frame_ptr of
@@ -464,14 +464,14 @@ derefClosure mode = do
       return (mkClosure code curr_frame_ptr)
     ValueM value -> do
       return (valueClosure value)
-    DataM offset -> do
-      case data_frame_ptr of
+    DataM field -> do
+      case curr_con_frame_ptr of
         AddrP addr -> do
           case Heap.deref addr heap of
             Nothing -> do
               throwTIMError "derefClosure: cannot find data frame"
             Just frame -> do
-              case frameOffset offset frame of
+              case frameOffset field frame of
                 Nothing -> do
                   throwTIMError "derefClosure: invalid data frame offset"
                 Just closure -> do

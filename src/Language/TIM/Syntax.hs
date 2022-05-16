@@ -90,10 +90,11 @@ data Instr =
   | MoveI Int ArgMode
   | ReturnI
   | CallI Name
-  | DataI Tag Int
-  | SwitchI (Map Tag ArgMode)
+  | DataI Tag
+  | SwitchI (Map Tag Label)
   deriving (Show, Read, Eq, Ord)
 
+type Label = Name
 type Tag = Int
 
 instance Pretty Instr where
@@ -115,8 +116,8 @@ instance Pretty Instr where
     "return"
   pretty (CallI prim) =
     "call" <+> pretty prim
-  pretty (DataI tag arity) =
-    "data" <+> braces (pretty tag <> "," <> pretty arity)
+  pretty (DataI tag) =
+    "con" <+> pretty tag
   pretty (SwitchI alts) =
     "switch" <+>
     brackets (hcat (intersperse ","
@@ -126,11 +127,13 @@ instance Pretty Instr where
 
 -- Argument addressing modes
 
+type Offset = Int
+
 data ArgMode =
-    ArgM Int
+    ArgM Offset
   | ValueM Value
-  | LabelM Name
-  | DataM Int
+  | LabelM Label
+  | DataM Offset
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty ArgMode where

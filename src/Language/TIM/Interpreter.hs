@@ -92,22 +92,19 @@ stepTIM instr = do
       updateCurrentFrameSlot n closure
       nextInstr
     ReturnI -> do
-      let fetchUpdated = valueClosure <$> peekValueStack
-      withUpdates fetchUpdated $ do
+      withUpdateHandler (valueClosure <$> peekValueStack) $ do
         returnToContinuation
     CallI name -> do
       prim <- lookupPrim name
       operateOnValueStack prim
       nextInstr
-    DataI tag arity -> do
-      let fetchUpdated = dataClosure tag arity <$> getCurrentFramePtr
-      withUpdates fetchUpdated $ do
-        framePtr <- getCurrentFramePtr
-        setCurrentDataFramePtr framePtr
-        pushDataTagToValueStack tag
+    DataI tag -> do
+      withUpdateHandler (dataClosure tag <$> getCurrentFramePtr) $ do
+        setCurrentDataFramePtr =<< getCurrentFramePtr
+        pushConTagToValueStack tag
         returnToContinuation
     SwitchI alts -> do
-      tag <- popDataTagFromValueStack
+      tag <- popConTagFromValueStack
       jumpToAlternative tag alts
 
 ----------------------------------------
@@ -133,10 +130,10 @@ restoreDumpAndUpdate closure = void $ do
 -- A combinator to handle updating operations more conveniently. Takes a
 -- computation that fetches the "updated" closure when the argument stack is
 -- empty. Otherwise it only runs the default behavior.
-withUpdates :: TIM Closure -> TIM () -> TIM ()
-withUpdates fetchUpdated defaultBehavior = do
+withUpdateHandler :: TIM Closure -> TIM () -> TIM ()
+withUpdateHandler updatedClosure defaultBehavior = do
   ifM isArgumentStackEmpty
-    (restoreDumpAndUpdate =<< fetchUpdated)
+    (restoreDumpAndUpdate =<< updatedClosure)
     defaultBehavior
 
 -- Loads all the arguments of a partial frame into the argument stack.
@@ -159,10 +156,10 @@ handlePartialApp = void $ do
   manipulateFramePtr framePtr (manipulateFrame index updateClosure)
 
 -- Jump to a corresponding switch branch
-jumpToAlternative :: Tag -> Map Tag ArgMode -> TIM ()
+jumpToAlternative :: Tag -> Map Tag Label -> TIM ()
 jumpToAlternative tag alts = do
   case Map.lookup tag alts of
     Nothing -> do
       throwTIMError ("jumpToAlternative: non-exhaustive alternatives for tag " <> Text.pack (show tag))
-    Just mode -> do
-      setCode [ EnterI mode ]
+    Just label -> do
+      setCode [ EnterI (LabelM label) ]
