@@ -145,8 +145,10 @@ translateDecl decl = do
   totalSlots <- getFrameSlots
   whenVerbose $ debug ("Total frame slots for " <> prettyPrint name <> ": " <> prettyPrint totalSlots)
   let n = length args
-  let takeCode = [ UpdateMarkersI n, TakeArgI totalSlots n ]
-  saveCodeBlock name (takeCode <> bodyCode)
+  let updateCode | n > 0     = [ UpdateMarkersI n ]
+                 | otherwise = []
+  let takeCode = [ TakeArgI totalSlots n ]
+  saveCodeBlock name (updateCode <> takeCode <> bodyCode)
 
 ----------------------------------------
 -- Expressions
@@ -264,7 +266,9 @@ translateCon con = do
   whenVerbose $ dump "Translating data constructor" con
   let tag = con_tag con
   let arity = con_arity con
-  return [ UpdateMarkersI arity, TakeArgI arity arity, DataI tag arity ]
+  let updateCode | arity > 0 = [ UpdateMarkersI arity ]
+                 | otherwise = []
+  return (updateCode <> [ TakeArgI arity arity, DataI tag ])
 
 ----------------------------------------
 -- Let binds
@@ -316,10 +320,10 @@ translateCase scrut alts = do
     return [ SwitchI altsMap ]
   -- Translate the scrutinee
   scrutCode <- translateExpr scrut
-  -- TODO: write comment
+  -- Push the switch continuation and run the code for the scrutinee
   return ([ PushArgI (LabelM label) ] <> scrutCode)
 
-translateAlt :: MonadArepa m => CoreAlt -> Translate m (Int, ArgMode)
+translateAlt :: MonadArepa m => CoreAlt -> Translate m (Int, Label)
 translateAlt alt = do
   whenVerbose $ dump "Translate case alternative" alt
   case alt of
@@ -336,7 +340,7 @@ translateAlt alt = do
           let moveCode = CodeBlock [ MoveI slot (DataM (slot-oldSlots)) | slot <- slots ]
           exprCode <- translateExpr expr
           return (moveCode <> exprCode)
-      return (con_tag con, LabelM label)
+      return (con_tag con, label)
 
 ----------------------------------------
 -- Addressing modes
