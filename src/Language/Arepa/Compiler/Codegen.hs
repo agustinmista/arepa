@@ -20,7 +20,7 @@ import LLVM.AST          qualified as LLVM
 import LLVM.AST.Type     qualified as LLVM
 import LLVM.AST.Constant qualified as Constant
 
-import LLVM.IRBuilder(MonadModuleBuilder, MonadIRBuilder, ModuleBuilderT, buildModuleT)
+import LLVM.IRBuilder(MonadModuleBuilder, MonadIRBuilder, ModuleBuilderT, buildModuleT, named)
 import LLVM.IRBuilder qualified as IR
 import LLVM.Pretty
 
@@ -54,14 +54,16 @@ renderLLVM m = do
 data CodegenState = CodegenState {
   cg_globals :: Map Name LLVM.Operand,  -- Global operands
   cg_strings :: Map Text LLVM.Operand,  -- Global strings
-  cg_externs :: Map Name LLVM.Operand
+  cg_externs :: Map Name LLVM.Operand,
+  cg_constrs :: Map Tag  LLVM.Operand
 }
 
 emptyCodegenState :: CodegenState
 emptyCodegenState = CodegenState {
   cg_globals = mempty,
   cg_strings = mempty,
-  cg_externs = mempty
+  cg_externs = mempty,
+  cg_constrs = mempty
 }
 
 ----------------------------------------
@@ -75,7 +77,8 @@ type LLVM m a = ModuleBuilderT (StateT CodegenState m) a
 type MonadLLVM m = (
     MonadArepa m,
     MonadState CodegenState m,
-    MonadModuleBuilder m
+    MonadModuleBuilder m,
+    MonadFix m
   )
 
 runLLVM :: MonadArepa m => String -> LLVM m a -> m LLVMModule
@@ -120,8 +123,7 @@ registerString str = do
       return op
     Nothing -> do
       let name = mkGlobalStringName (Map.size strings)
-      con <- IR.globalStringPtr (Text.unpack str) name
-      let op = LLVM.ConstantOperand con
+      op <- LLVM.ConstantOperand <$> IR.globalStringPtr (Text.unpack str) name
       modify' $ \st -> st { cg_strings = Map.insert str op strings }
       whenVerbose $ debug ("Created a new global string operand: " <> prettyPrint op)
       return op
@@ -144,6 +146,28 @@ registerExtern name = do
       op <- IR.extern (mkFunctionName name) [] voidType
       modify' $ \st -> st { cg_externs = Map.insert name op externs }
       whenVerbose $ debug ("Created a new global extern operand: " <> prettyPrint op)
+      return op
+
+----------------------------------------
+-- Data constructors code
+
+-- Register a data constructor code
+-- If it is already registered, then return the corresponding operand
+registerConstructorCode :: MonadLLVM m => Tag -> m LLVM.Operand
+registerConstructorCode tag = do
+  whenVerbose $ debug ("Registering data constructor " <> prettyPrint tag)
+  constrs <- gets cg_constrs
+  case Map.lookup tag constrs of
+    Just op -> do
+      whenVerbose $ debug ("The data constructor already had a global operand: " <> prettyPrint op)
+      return op
+    Nothing -> do
+      let funName = mkConCodeName tag
+      let op = mkGlobalOperand funPtrType funName
+      IR.function funName [] voidType $ \[] -> do
+        callVoidRTS "tim_data" [mkTag tag, op]
+      modify' $ \st -> st { cg_constrs = Map.insert tag op constrs }
+      whenVerbose $ debug ("Created a new global data constructor operand: " <> prettyPrint op)
       return op
 
 ----------------------------------------
@@ -196,25 +220,32 @@ rtsFunctions = [
     ("tim_push_argument_double",   [doubleVType],           voidType),
     ("tim_push_argument_string",   [stringVType],           voidType),
     ("tim_push_argument_label",    [funPtrType],            voidType),
+    ("tim_push_argument_data",     [longType],              voidType),
     ("tim_push_value_int",         [intVType],              voidType),
     ("tim_push_value_double",      [doubleVType],           voidType),
     ("tim_push_value_string",      [stringVType],           voidType),
-    ("tim_marker_push",            [longType],              voidType),
-    ("tim_markers_update",         [longType],              voidType),
+    ("tim_push_value_data",        [tagVType],              voidType),
     ("tim_pop_value_int",          [],                      ptrType intVType),
     ("tim_pop_value_double",       [],                      ptrType doubleVType),
     ("tim_pop_value_string",       [],                      ptrType stringVType),
+    ("tim_pop_value_data",         [],                      ptrType tagVType),
     ("tim_enter_argument",         [longType],              voidType),
     ("tim_enter_int",              [intVType],              voidType),
     ("tim_enter_double",           [doubleVType],           voidType),
     ("tim_enter_string",           [stringVType],           voidType),
     ("tim_enter_label",            [funPtrType],            voidType),
+    ("tim_enter_data",             [longType],              voidType),
     ("tim_move_argument",          [longType, longType],    voidType),
     ("tim_move_int",               [longType, intVType],    voidType),
     ("tim_move_double",            [longType, doubleVType], voidType),
     ("tim_move_string",            [longType, stringVType], voidType),
     ("tim_move_label",             [longType, funPtrType],  voidType),
-    ("tim_return",                 [],                      voidType)
+    ("tim_move_data",              [longType, longType],    voidType),
+    ("tim_marker_push",            [longType],              voidType),
+    ("tim_markers_update",         [longType],              voidType),
+    ("tim_return",                 [],                      voidType),
+    ("tim_data",                   [tagVType, funPtrType],  voidType),
+    ("tim_switch_error",           [tagVType],              voidType)
   ]
 
 callRTS :: (MonadLLVM m, MonadIRBuilder m) => Name -> [LLVM.Operand] -> m LLVM.Operand
@@ -252,7 +283,7 @@ registerGlobals store = do
   whenVerbose $ debug "Registering global definitions"
   forM_ (Map.keys (store_blocks store)) $ \name -> do
     let mangled = mkFunctionName name
-    let op = LLVM.ConstantOperand (Constant.GlobalReference funPtrType mangled)
+    let op = mkGlobalOperand funPtrType mangled
     registerGlobalOperand name op
 
 -- Code stores
@@ -293,8 +324,8 @@ emitInstr instr = do
     PushArgI (LabelM name) -> do
       fun <- lookupGlobalOperand name
       callVoidRTS "tim_push_argument_label" [fun]
-    PushArgI (DataM tag) -> do
-      throwInternalError "emitInstr: not implemented PushArgI/DataM"
+    PushArgI (DataM field) -> do
+      callVoidRTS "tim_push_argument_data" [mkLong field]
     -- Push values
     PushValueI FramePtrM -> do
       throwInternalError "emitInstr: impossible! we never generate instructions masking the frame pointer"
@@ -327,8 +358,8 @@ emitInstr instr = do
     EnterI (LabelM name) -> do
       fun <- lookupGlobalOperand name
       callVoidRTS "tim_enter_label" [fun]
-    EnterI (DataM tag) -> do
-      throwInternalError "emitInstr: not implemented EnterI/DataM"
+    EnterI (DataM field) -> do
+      callVoidRTS "tim_enter_data" [mkLong field]
     -- Move arguments
     MoveI slot (ArgM n) -> do
       callVoidRTS "tim_move_argument" [mkLong slot, mkLong n]
@@ -344,8 +375,8 @@ emitInstr instr = do
     MoveI slot (LabelM name) -> do
       fun <- lookupGlobalOperand name
       callVoidRTS "tim_move_label" [mkLong slot, fun]
-    MoveI slot (DataM tag) -> do
-      throwInternalError "emitInstr: not implemented MoveI/DataM"
+    MoveI slot (DataM field) -> do
+      callVoidRTS "tim_move_data" [mkLong slot, mkLong field]
     -- Return
     ReturnI -> do
       callVoidRTS "tim_return" []
@@ -383,11 +414,26 @@ emitInstr instr = do
         ty -> do
           throwInternalError ("emitInstr: impossible! trying to push a value of type " <> prettyPrint ty)
     -- Returning a data constructor
-    DataI tag arity -> do
-      throwInternalError "emitInstr: not implemented DataI"
+    DataI tag -> do
+      conCode <- registerConstructorCode tag
+      callVoidRTS "tim_data" [mkTag tag, conCode]
     -- Switch statements
-    SwitchI alts -> do
-      throwInternalError "emitInstr: not implemented SwitchI"
+    SwitchI alts -> mdo
+      IR.block `named` "switch.entry"
+      -- Pop and load the tag from the value stack
+      scrutTagPtr <- callRTS "tim_pop_value_data" []
+      scrutTag <- IR.load scrutTagPtr 0
+      -- Jump to the alternative corresponding to the tag we just popped
+      IR.switch scrutTag errorAlt altsTable
+      -- Each case alternative simply calls its corresponding function
+      altsTable <- forM (Map.toList alts) $ \(altTag, altLabel) -> do
+        altBlock <- IR.block `named` ("switch." <> fromName altLabel)
+        altCode <- lookupGlobalOperand altLabel
+        IR.call altCode []
+        return (mkTagConstant altTag, altBlock)
+      -- The default alternative simply calls the error handler
+      errorAlt <- IR.block `named` "switch.error"
+      callVoidRTS "tim_switch_error" [scrutTag]
 
 ----------------------------------------
 -- Low-level utilities
@@ -400,6 +446,14 @@ mkGlobalStringName n = LLVM.mkName ("__string_" <> show n <> "__")
 
 mkFunctionName :: Name -> LLVM.Name
 mkFunctionName name = LLVM.mkName ("__block_" <> fromName name <> "__")
+
+mkConCodeName :: Tag -> LLVM.Name
+mkConCodeName tag = LLVM.mkName ("__con_" <> show tag <> "_code__")
+
+-- Operands
+
+mkGlobalOperand :: LLVM.Type -> LLVM.Name -> LLVM.Operand
+mkGlobalOperand ty name = LLVM.ConstantOperand (Constant.GlobalReference ty name)
 
 -- Creating literal values
 
@@ -415,6 +469,12 @@ mkIntV n = IR.int64 (fromIntegral n)
 
 mkDoubleV :: Double -> LLVM.Operand
 mkDoubleV = IR.double
+
+mkTag :: Int -> LLVM.Operand
+mkTag n = IR.int64 (fromIntegral n)
+
+mkTagConstant :: Integral a => a -> Constant.Constant
+mkTagConstant n = Constant.Int 64 (fromIntegral n)
 
 ----------------------------------------
 -- LLVM types
