@@ -100,14 +100,22 @@ instance Pretty TIMState where
           [ "Current frame pointer:" <+> pretty (tim_curr_frame st) ] <>
           case tim_curr_frame st of
             AddrP addr ->
-              let Just frame = Heap.deref addr (tim_heap st) in [ pretty frame ]
+              case Heap.deref addr (tim_heap st) of
+                 Nothing ->
+                   [ indent 2 "Missing frame" ]
+                 Just frame ->
+                   [ indent 2 (pretty frame) ]
             _ -> []
       showCurrentDataFrame =
         vsep $
           [ "Current data constructor frame pointer:" <+> pretty (tim_curr_data_frame st) ] <>
           case tim_curr_data_frame st of
             AddrP addr ->
-              let Just frame = Heap.deref addr (tim_heap st) in [ pretty frame ]
+              case Heap.deref addr (tim_heap st) of
+                 Nothing ->
+                   [ indent 2 "Missing frame" ]
+                 Just frame ->
+                   [ indent 2 (pretty frame) ]
             _ -> []
       showArgStack =
         let stack = Stack.toList (tim_arg_stack st) in
