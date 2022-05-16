@@ -41,6 +41,11 @@ Void __prim_print_int__(Int);
 Void __prim_print_double__(Double);
 Void __prim_print_string__(String);
 
+// Debugging
+Int    __prim_trace_int__(Int);
+Double __prim_trace_double__(Double);
+String __prim_trace_string__(String);
+
 // END PROTOTYPES
 
 #endif

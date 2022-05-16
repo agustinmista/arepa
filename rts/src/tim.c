@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 
 #include "debug.h"
 #include "dump.h"
@@ -8,6 +9,8 @@
 #include "io.h"
 
 frame_t current_frame;
+frame_t current_data_frame;
+
 dump_t argument_stack;
 dump_t value_stack;
 
@@ -110,14 +113,12 @@ void return_to_continuation() {
     return top_closure->code();
 }
 
-void return_with_empty_argument_stack() {
+void restore_dump_and_update(void (*code)(), void* frame) {
     debug_msg("Returning from an empty stack into the previous stack in the dump");
     dump_overlay_previous(argument_stack);
-    void* value = dump_peek(value_stack);
     tim_metadata_t metadata = (tim_metadata_t) argument_stack->metadata;
-    update_closure_code_in_metadata_frame(metadata, *tim_value_code);
-    update_closure_frame_in_metadata_frame(metadata, value);
-    return tim_return();
+    update_closure_code_in_metadata_frame(metadata, code);
+    update_closure_frame_in_metadata_frame(metadata, frame);
 }
 
 /*****************************/
@@ -141,7 +142,6 @@ void tim_value_code() {
 /************************/
 
 closure_t* make_closure(void (*code)(), void* frame) {
-    debug_msg("Creating new closure");
     closure_t* closure = rts_malloc(sizeof(closure_t));
     closure->code  = code;
     closure->frame = (frame_t) frame;
@@ -184,6 +184,13 @@ closure_t* string_closure(String value) {
 closure_t* label_closure(void (*code)()) {
     debug_msg("Creating new label closure for code at %p", code);
     return make_closure(code, current_frame);
+}
+
+closure_t* con_closure(long field) {
+    debug_msg("Creating new closure for current constructor field %lu", field);
+    assert(field < current_data_frame->length);
+    closure_t* closure = &current_data_frame->arguments[field];
+    return make_closure(closure->code, closure->frame);
 }
 
 /*****************/
@@ -240,59 +247,56 @@ void tim_push_argument_argument(long argument) {
 }
 
 void tim_push_argument_int(Int value) {
-    debug_msg("Pushing int value %li into the stack", value);
+    debug_msg("Pushing int value %li into the argument stack", value);
     return dump_push(argument_stack, int_closure(value));
 }
 
 void tim_push_argument_double(Double value) {
-    debug_msg("Pushing double value %f into the stack", value);
+    debug_msg("Pushing double value %f into the argument stack", value);
     return dump_push(argument_stack, double_closure(value));
 }
 
 void tim_push_argument_string(String value) {
-    debug_msg("Pushing string value \"%s\" into the stack", value);
+    debug_msg("Pushing string value \"%s\" into the argument stack", value);
     return dump_push(argument_stack, string_closure(value));
 }
 
-void tim_push_argument_label(void (* code)()) {
-    debug_msg("Pushing code %p", code);
+void tim_push_argument_label(void (*code)()) {
+    debug_msg("Pushing function at %p into the argument stack", code);
     return dump_push(argument_stack, label_closure(code));
+}
+
+void tim_push_argument_data(long field) {
+    debug_msg("Pushing data constructor field %lu into the argument stack", field);
+    return dump_push(argument_stack, con_closure(field));
 }
 
 void tim_push_value_int(Int value) {
     debug_msg("Pushing int %li into the value stack", value);
-    Int* p = rts_malloc(sizeof(Int));
-    *p = value;
-    return dump_push(value_stack, p);
+    Int* ptr = rts_malloc(sizeof(Int));
+    *ptr = value;
+    return dump_push(value_stack, ptr);
 }
 
 void tim_push_value_double(Double value) {
     debug_msg("Pushing double %f into the value stack", value);
-    Double* p = rts_malloc(sizeof(Double));
-    *p = value;
-    return dump_push(value_stack, p);
+    Double* ptr = rts_malloc(sizeof(Double));
+    *ptr = value;
+    return dump_push(value_stack, ptr);
 }
 
 void tim_push_value_string(String value) {
     debug_msg("Pushing string \"%s\" into the value stack", value);
-    String* p = rts_malloc(sizeof(String));
-    *p = value;
-    return dump_push(value_stack, p);
+    String* ptr = rts_malloc(sizeof(String));
+    *ptr = value;
+    return dump_push(value_stack, ptr);
 }
 
-void tim_marker_push(long offset) {
-    tim_metadata_t metadata = rts_malloc(sizeof(struct tim_metadata_t));
-    metadata->offset = offset;
-    metadata->frame  = current_frame;
-    dump_freeze(argument_stack, metadata);
-}
-
-void tim_markers_update(long nargs) {
-    if (nargs == 0) return;
-    tim_populate_partial_arguments();
-    if (nargs <= argument_stack->current_size) return;
-    tim_handle_partial_application();
-    return tim_markers_update(nargs);
+void tim_push_value_data(tag_t tag) {
+    debug_msg("Pushing data constructor tag %lu into the value stack", tag);
+    tag_t* ptr = rts_malloc(sizeof(tag_t));
+    *ptr = tag;
+    return dump_push(value_stack, ptr);
 }
 
 void* tim_pop_value() {
@@ -319,6 +323,12 @@ String* tim_pop_value_string() {
     return ptr;
 }
 
+tag_t* tim_pop_value_data() {
+    tag_t* ptr = tim_pop_value();
+    debug_msg("Popped data constructor tag %lu from the value stack", *ptr);
+    return ptr;
+}
+
 void tim_enter_argument(long argument) {
     debug_msg("Entering argument %li from current frame %p", argument, current_frame);
     assert(argument < current_frame->length);
@@ -341,8 +351,13 @@ void tim_enter_string(String value) {
 }
 
 void tim_enter_label(void (*code)()) {
-    debug_msg("Entering function closure %p", code);
+    debug_msg("Entering function at %p", code);
     return tim_enter_closure(label_closure(code));
+}
+
+void tim_enter_data(long field) {
+    debug_msg("Entering data constructor field %lu", field);
+    return tim_enter_closure(con_closure(field));
 }
 
 void tim_move_argument(long offset, long argument) {
@@ -366,16 +381,54 @@ void tim_move_string(long offset, String value) {
 }
 
 void tim_move_label(long offset, void (*code)()) {
-    debug_msg("Moving function closure %p to current frame slot $%li", code, offset);
+    debug_msg("Moving function at %p to current frame slot $%li", code, offset);
     return tim_update_closure(offset, label_closure(code));
+}
+
+void tim_move_data(long offset, long field) {
+    debug_msg("Moving data constructor field %lu to current frame slot $%li", field, offset);
+    return tim_update_closure(offset, con_closure(field));
+}
+
+void tim_marker_push(long offset) {
+    tim_metadata_t metadata = rts_malloc(sizeof(struct tim_metadata_t));
+    metadata->offset = offset;
+    metadata->frame  = current_frame;
+    dump_freeze(argument_stack, metadata);
+}
+
+void tim_markers_update(long nargs) {
+    if (nargs == 0) return;
+    tim_populate_partial_arguments();
+    if (nargs <= argument_stack->current_size) return;
+    tim_handle_partial_application();
+    return tim_markers_update(nargs);
 }
 
 void tim_return() {
     if (dump_is_empty(argument_stack)) {
-        return return_with_empty_argument_stack();
+        void* value = dump_peek(value_stack);
+        restore_dump_and_update(*tim_value_code, value);
+        return tim_return();
     } else {
         return return_to_continuation();
     }
+}
+
+void tim_data(tag_t tag, void (*code)()) {
+    if (dump_is_empty(argument_stack)) {
+        restore_dump_and_update(code, current_frame);
+        return tim_data(tag, code);
+    } else {
+        current_data_frame = current_frame;
+        tim_push_value_data(tag);
+        return return_to_continuation();
+    }
+}
+
+void tim_switch_error(tag_t tag) {
+    rts_printf("non-exhaustive alternatives for tag %lu\n", tag);
+    exit(EXIT_FAILURE);
 }
 
 Int get_int_result() {
