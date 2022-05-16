@@ -1,5 +1,6 @@
 module Data.Name where
 
+import GHC.IO (unsafePerformIO)
 
 import Control.Monad
 
@@ -15,7 +16,6 @@ import Data.Set qualified as Set
 import Test.RandomStrings
 import Prettyprinter
 import Text.Encoding.Z
-import GHC.IO (unsafePerformIO)
 
 ----------------------------------------
 -- Names
@@ -34,7 +34,6 @@ mkNameWithNum prefix n = Name (prefix <> Text.pack (show n))
 
 fromName :: IsString a => Name -> a
 fromName (Name t) = fromString (Text.unpack t)
-
 
 -- This instance let us write variables directly as strings
 instance IsString Name where
