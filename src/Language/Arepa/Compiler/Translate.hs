@@ -307,7 +307,7 @@ translateLetBind bind slot = do
 
 translateCase :: MonadArepa m => CoreExpr -> [CoreAlt] -> Translate m CodeBlock
 translateCase scrut alts = do
-  whenVerbose $ dump "Translate case expression" (scrut, alts)
+  whenVerbose $ dump "Translating case expression" (scrut, alts)
   -- Create the code for the switch
   label <- inNewCodeBlock "switch" $ do
     -- Translate the case alternatives each one in an isolated environment
@@ -325,7 +325,7 @@ translateCase scrut alts = do
 
 translateAlt :: MonadArepa m => CoreAlt -> Translate m (Int, Label)
 translateAlt alt = do
-  whenVerbose $ dump "Translate case alternative" alt
+  whenVerbose $ dump "Translating case alternative" alt
   case alt of
     Alt con vars expr -> do
       -- Old slots are needed to calculate the move insructions
