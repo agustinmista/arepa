@@ -90,11 +90,19 @@ inLocalScopeWith subst ma = do
 inLocalScope :: MonadArepa m => Renamer m a -> Renamer m a
 inLocalScope = inLocalScopeWith []
 
--- Check that a list of names only contains uniques
-checkDuplicates :: MonadArepa m => [Name] -> Renamer m ()
-checkDuplicates names = do
+-- Check for invalid duplicates
+
+checkDuplicateNames :: MonadArepa m => [Name] -> Renamer m ()
+checkDuplicateNames names = do
   when (hasDuplicates names) $ do
     throwRenamerError ("duplicated occurrence of names " <> prettyPrint (findDuplicates names))
+
+checkDuplicateTags :: MonadArepa m => [CoreAlt] -> Renamer m ()
+checkDuplicateTags alts = do
+  let tags = [ con_tag con | Alt con _ _ <- alts ]
+  when (hasDuplicates tags) $ do
+    throwRenamerError ("duplicated occurrence of tags " <> prettyPrint (findDuplicates tags))
+
 
 -- Check the arity of an operation
 
@@ -110,7 +118,6 @@ checkConArity con args = do
   let arity = con_arity con
   when (arity /= length args) $ do
     throwRenamerError ("pattern for " <> prettyPrint con <> " must take exactly " <> prettyPrint arity <> " arguments")
-
 
 -- Create the top-level substitution of names.
 -- NOTE: this makes sure to avoid renaming the entry point, as well as taking
@@ -153,7 +160,7 @@ renameDecl decl = do
     let name = declName decl
     let args = declArgs decl
     let body = declBody decl
-    checkDuplicates args
+    checkDuplicateNames args
     name' <- getName name
     args' <- mapM renameName args
     let subst = zip args args'
@@ -212,7 +219,7 @@ renameApp fun op = do
 renameLambda :: MonadArepa m => [Name] -> CoreExpr -> Renamer m CoreExpr
 renameLambda args body = do
   whenVerbose $ dump "Renaming lambda expression" (args, body)
-  checkDuplicates args
+  checkDuplicateNames args
   args' <- mapM renameName args
   let subst = zip args args'
   body' <- inLocalScopeWith subst $ do
@@ -225,7 +232,7 @@ renameLet :: MonadArepa m => Bool -> [(Name, CoreExpr)] -> CoreExpr -> Renamer m
 renameLet isRec binds body = do
   whenVerbose $ dump "Renaming let expression" (isRec, binds, body)
   let (letVars, letRhss) = unzip binds
-  checkDuplicates letVars
+  checkDuplicateNames letVars
   letVars' <- mapM renameName letVars
   let subst = zip letVars letVars'
   letRhss' <- forM letRhss $ \expr -> do
@@ -241,6 +248,7 @@ renameLet isRec binds body = do
 renameCase :: MonadArepa m => CoreExpr -> [CoreAlt] -> Renamer m CoreExpr
 renameCase scrut alts = do
   whenVerbose $ dump "Renaming case expression" (scrut, alts)
+  checkDuplicateTags alts
   scrut' <- renameExpr scrut
   alts'  <- mapM renameAlt alts
   return (CaseE scrut' alts')
@@ -251,7 +259,7 @@ renameAlt alt = do
   case alt of
     Alt con vars body -> do
       checkConArity con vars
-      checkDuplicates vars
+      checkDuplicateNames vars
       vars' <- mapM renameName vars
       let subst = zip vars vars'
       body' <- inLocalScopeWith subst $ do
