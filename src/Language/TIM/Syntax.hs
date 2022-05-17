@@ -152,16 +152,19 @@ data Value =
     IntV Int
   | DoubleV Double
   | StringV Text
+  | BoolV Bool
   | VoidV ()
   | TagV Tag
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty Value where
-  pretty (IntV n)    = angles (pretty n)
-  pretty (DoubleV n) = angles (pretty n)
-  pretty (StringV s) = angles (pretty (show s))
-  pretty (VoidV _)   = angles "void"
-  pretty (TagV n)   =  angles ("tag" <+> pretty n)
+  pretty (IntV n)      = angles (pretty n)
+  pretty (DoubleV n)   = angles (pretty n)
+  pretty (StringV s)   = angles (pretty (show s))
+  pretty (BoolV True)  = angles "true"
+  pretty (BoolV False) = angles "false"
+  pretty (VoidV _)     = angles "void"
+  pretty (TagV n)      =  angles ("tag" <+> pretty n)
 
 -- Values addressing modes
 
@@ -182,5 +185,6 @@ typeOfValue :: Value -> Type
 typeOfValue IntV    {} = IntT
 typeOfValue DoubleV {} = DoubleT
 typeOfValue StringV {} = StringT
+typeOfValue BoolV   {} = BoolT
 typeOfValue VoidV   {} = VoidT
 typeOfValue TagV    {} = TagT
