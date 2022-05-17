@@ -92,6 +92,7 @@ data Instr =
   | CallI Name
   | DataI Tag
   | SwitchI (Map Tag Label)
+  | CondI Label Label
   deriving (Show, Read, Eq, Ord)
 
 type Label = Name
@@ -124,6 +125,8 @@ instance Pretty Instr where
       [ "tag" <+> pretty tag <+> "=>" <+> pretty mode
       | (tag, mode) <- Map.toList alts
       ]))
+  pretty (CondI th el) =
+    "cond" <+> pretty th <+> pretty el
 
 -- Argument addressing modes
 

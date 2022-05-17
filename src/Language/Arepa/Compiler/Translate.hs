@@ -178,6 +178,9 @@ translateExpr expr = do
     -- Let bindings
     LetE isRec binds body -> do
       translateLet isRec binds body
+    -- Conditional expressions
+    CondE alts -> do
+      throwInternalError "translateInstr: not implemented CondE"
     -- Case expressions
     CaseE scrut alts -> do
       translateCase scrut alts
@@ -379,6 +382,7 @@ litValue lit = do
     IntL    n -> IntV n
     DoubleL n -> DoubleV n
     StringL s -> StringV s
+    BoolL   s -> BoolV s
 
 -- Thread a list of CPS monadic computations into a single result with an
 -- accumulator. This operation is right associative, meaning that the `a`
