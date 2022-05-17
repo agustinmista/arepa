@@ -84,6 +84,7 @@ data Expr a =
   | AppE (Expr a) (Expr a)           -- ^ Function application
   | LamE [a] (Expr a)                -- ^ Lambda expressions
   | LetE Bool [(a, Expr a)] (Expr a) -- ^ Let expressions
+  | CondE [(Expr a, Expr a)]         -- ^ Conditional expressions
   | CaseE (Expr a) [Alt a]           -- ^ Case expressions
   deriving (Show, Read, Eq, Ord, Functor)
 
@@ -108,6 +109,11 @@ instance Pretty CoreExpr where
       [ (if isRec then "letrec" else "let") <+>
           parens (align $ vsep $ [ parens (pretty v <+> pretty e) | (v, e) <- binds ])
       , indent 2 (pretty expr)
+      ]
+  pretty (CondE alts) =
+    parens $ vsep
+      [ "cond"
+      , indent 2 $ align $ vsep [ parens (pretty cond <+> pretty body) | (cond, body) <- alts ]
       ]
   pretty (CaseE expr alts) =
     parens $ vsep

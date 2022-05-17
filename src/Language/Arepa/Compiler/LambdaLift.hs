@@ -91,25 +91,43 @@ liftExpr :: MonadArepa m => CoreExpr -> Lifter m (Set Name, CoreExpr)
 liftExpr expr = do
   whenVerbose $ dump "Lambda lifting expression" expr
   case expr of
+    -- Variables
     VarE name -> do
-      isGlobal <- isGlobalVar name
-      let fvsVar | isGlobal  = Set.empty
-                 | otherwise = Set.singleton name
-      return (fvsVar, VarE name)
-    AppE e1 e2 -> do
-      (fvsE1, e1') <- liftExpr e1
-      (fvsE2, e2') <- liftExpr e2
-      return (fvsE1 <> fvsE2, AppE e1' e2')
+      liftVar name
+    -- Function applications
+    AppE fun op -> do
+      liftApp fun op
+    -- Lambda expressions
     LamE vars body -> do
       liftLambda vars body
+    -- Let expressions
     LetE isRec binds body -> do
       liftLet isRec binds body
+    -- Conditional expressions
+    CondE alts -> do
+      liftCond alts
+    -- Case expressions
     CaseE scrut alts -> do
-      (fvsScrut, scrut') <- liftExpr scrut
-      (fvsAlts,  alts') <- unzip <$> mapM liftAlt alts
-      return (fvsScrut <> mconcat fvsAlts, CaseE scrut' alts')
+      liftCase scrut alts
     _ -> do
       return (Set.empty, expr)
+
+-- Variables
+
+liftVar :: MonadArepa m => Name -> Lifter m (Set Name, CoreExpr)
+liftVar name = do
+  isGlobal <- isGlobalVar name
+  let fvsVar | isGlobal  = Set.empty
+             | otherwise = Set.singleton name
+  return (fvsVar, VarE name)
+
+-- Function applications
+
+liftApp :: MonadArepa m => CoreExpr -> CoreExpr -> Lifter m (Set Name, CoreExpr)
+liftApp fun op = do
+  (fvsFun, fun') <- liftExpr fun
+  (fvsOp, op')   <- liftExpr op
+  return (fvsFun <> fvsOp, AppE fun' op')
 
 -- Lambda expressions
 
@@ -136,7 +154,23 @@ liftLet isRec binds body = do
   let fvsLet = mconcat fvsBinds <> (fvsBody `closedOver` letVars)
   return (fvsLet, LetE isRec binds' body')
 
--- Alternatives
+-- Conditional expressions
+
+liftCond :: MonadArepa m => [(CoreExpr, CoreExpr)] -> Lifter m (Set Name, CoreExpr)
+liftCond alts = do
+  (fvsAlts, alts') <- fmap unzip <$> forM alts $ \(cond, body) -> do
+    (fvsCond, cond') <- liftExpr cond
+    (fvsBody, body') <- liftExpr body
+    return (fvsCond <> fvsBody, (cond', body'))
+  return (mconcat fvsAlts, CondE alts')
+
+-- Case expressions
+
+liftCase :: MonadArepa m => CoreExpr -> [CoreAlt] -> Lifter m (Set Name, CoreExpr)
+liftCase scrut alts = do
+  (fvsScrut, scrut') <- liftExpr scrut
+  (fvsAlts,  alts')  <- unzip <$> mapM liftAlt alts
+  return (fvsScrut <> mconcat fvsAlts, CaseE scrut' alts')
 
 liftAlt :: MonadArepa m => CoreAlt -> Lifter m (Set Name, CoreAlt)
 liftAlt alt = do
