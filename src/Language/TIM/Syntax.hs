@@ -117,7 +117,7 @@ instance Pretty Instr where
   pretty (CallI prim) =
     "call" <+> pretty prim
   pretty (DataI tag) =
-    "con" <+> pretty tag
+    "data" <+> pretty tag
   pretty (SwitchI alts) =
     "switch" <+>
     brackets (hcat (intersperse ","
