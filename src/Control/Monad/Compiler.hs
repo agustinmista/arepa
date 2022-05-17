@@ -41,7 +41,7 @@ import Text.Pretty.Simple
 -- Monad with exceptions and global read-only environment
 
 newtype Compiler err opt a = Compiler (ExceptT err (ReaderT opt IO) a)
-  deriving (Functor, Applicative, Monad, MonadIO, MonadError err, MonadReader opt)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadError err, MonadReader opt, MonadFix)
 
 runCompiler :: opt -> Compiler err opt a -> IO (Either err a)
 runCompiler opt (Compiler m) = runReaderT (runExceptT m) opt
@@ -67,7 +67,8 @@ runCompiler' opt ma = do
 type MonadCompiler err opt m = (
     MonadError err m,
     MonadReader opt m,
-    MonadIO m
+    MonadIO m,
+    MonadFix m
   )
 
 ----------------------------------------
@@ -142,5 +143,5 @@ prettyShow = pShowOpt defaultOutputOptionsDarkBg {
    outputOptionsCompact = True,
    outputOptionsCompactParens = True,
    outputOptionsIndentAmount = 2,
-   outputOptionsPageWidth = 120
+   outputOptionsPageWidth = 140
  }

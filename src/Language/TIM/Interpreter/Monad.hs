@@ -1,35 +1,4 @@
-module Language.TIM.Interpreter.Monad
-  ( TIM
-  , TIMError
-  , TIMState
-  , allocFrame
-  , derefClosure
-  , fetchInstr
-  , finalTIMState
-  , getArgumentStack
-  , getCurrentFrame
-  , getValueStack
-  , isArgumentStackBigEnough
-  , isArgumentStackEmpty
-  , isCurrentFramePartial
-  , logTIMState
-  , lookupPrim
-  , manipulateFramePtr
-  , nextInstr
-  , operateOnValueStack
-  , peekValueStack
-  , popArgumentStack
-  , popDumpIntoArgumentStack
-  , pushArgumentStack
-  , pushArgumentStackToDump
-  , pushValueStack
-  , runTIM
-  , setCode
-  , setCurrentFramePtr
-  , takeArgumentStack
-  , throwTIMError
-  , updateCurrentFrameSlot
-  ) where
+module Language.TIM.Interpreter.Monad where
 
 import Control.Monad.Extra
 import Control.Monad.Except
@@ -103,6 +72,7 @@ data TIMState = TIMState {
   tim_code_store :: CodeStore,
   tim_curr_codeblock :: CodeBlock,
   tim_curr_frame :: FramePtr,
+  tim_curr_data_frame :: FramePtr,
   tim_heap :: Heap Frame,
   tim_arg_stack :: Stack Closure,
   tim_dump :: Stack Dump,
@@ -113,7 +83,8 @@ instance Pretty TIMState where
   pretty st = vsep [
       showDiv,
       showCode,
-      showFrame,
+      showCurrentFrame,
+      showCurrentDataFrame,
       showArgStack,
       showDump,
       showValueStack,
@@ -124,12 +95,27 @@ instance Pretty TIMState where
         "======================="
       showCode =
         "Current code:" <+> pretty (tim_curr_codeblock st)
-      showFrame =
+      showCurrentFrame =
         vsep $
           [ "Current frame pointer:" <+> pretty (tim_curr_frame st) ] <>
           case tim_curr_frame st of
             AddrP addr ->
-              let Just frame = Heap.deref addr (tim_heap st) in [ pretty frame ]
+              case Heap.deref addr (tim_heap st) of
+                 Nothing ->
+                   [ indent 2 "Missing frame" ]
+                 Just frame ->
+                   [ indent 2 (pretty frame) ]
+            _ -> []
+      showCurrentDataFrame =
+        vsep $
+          [ "Current data constructor frame pointer:" <+> pretty (tim_curr_data_frame st) ] <>
+          case tim_curr_data_frame st of
+            AddrP addr ->
+              case Heap.deref addr (tim_heap st) of
+                 Nothing ->
+                   [ indent 2 "Missing frame" ]
+                 Just frame ->
+                   [ indent 2 (pretty frame) ]
             _ -> []
       showArgStack =
         let stack = Stack.toList (tim_arg_stack st) in
@@ -164,6 +150,7 @@ initialTIMState code = TIMState {
   tim_code_store = code,
   tim_curr_codeblock = mempty,
   tim_curr_frame = NullP,
+  tim_curr_data_frame = NullP,
   tim_heap = Heap.empty,
   tim_arg_stack = Stack.empty,
   tim_dump = Stack.empty,
@@ -310,6 +297,16 @@ pushValueStack mode = do
     InlineM value -> do
       put st { tim_value_stack = Stack.push value (tim_value_stack st) }
 
+popValueStack :: TIM Value
+popValueStack = do
+  st <- get
+  case Stack.pop (tim_value_stack st) of
+    Nothing -> do
+      throwTIMError "popValueStack: empty value stack"
+    Just (value, stack) -> do
+      put st { tim_value_stack = stack }
+      return value
+
 -- Transform the value stack (used by primitive operations)
 operateOnValueStack :: Prim -> TIM ()
 operateOnValueStack prim = do
@@ -321,17 +318,35 @@ operateOnValueStack prim = do
       res <- liftIO (prim_runner prim args)
       put st { tim_value_stack = Stack.push res rest }
 
+-- Push/pop constructor tags
+
+pushConTagToValueStack :: Tag -> TIM ()
+pushConTagToValueStack tag = do
+  pushValueStack (InlineM (TagV tag))
+
+popConTagFromValueStack :: TIM Tag
+popConTagFromValueStack = do
+  value <- popValueStack
+  case value of
+    TagV tag -> do
+      return tag
+    _ -> do
+      throwTIMError "popConTagFromValueStack: top value is not a tag"
+
 ----------------------------------------
--- Frames
+-- Frames and frame pointers
+
+-- Regular frames
+
+-- Get the current frame pointer
+getCurrentFramePtr :: TIM FramePtr
+getCurrentFramePtr = do
+  gets tim_curr_frame
 
 -- Set the current frame pointer
 setCurrentFramePtr :: FramePtr -> TIM ()
 setCurrentFramePtr ptr = modify' $ \st ->
   st { tim_curr_frame = ptr }
-
-isCurrentFramePartial :: TIM Bool
-isCurrentFramePartial = do
-  frame_is_partial <$> getCurrentFrame
 
 -- Fetches the current frame
 getCurrentFrame :: TIM Frame
@@ -343,7 +358,64 @@ updateCurrentFrameSlot :: Offset -> Closure -> TIM ()
 updateCurrentFrameSlot offset closure = void $ do
   manipulateCurrentFrame (updateFrame offset closure)
 
+-- Is the current frame partial?
+isCurrentFramePartial :: TIM Bool
+isCurrentFramePartial = do
+  frame_is_partial <$> getCurrentFrame
+
+-- Data constructor frames
+
+-- Get the current frame pointer
+getCurrentDataFramePtr :: TIM FramePtr
+getCurrentDataFramePtr = do
+  gets tim_curr_data_frame
+
+-- Set the current frame pointer
+setCurrentDataFramePtr :: FramePtr -> TIM ()
+setCurrentDataFramePtr ptr = modify' $ \st ->
+  st { tim_curr_data_frame = ptr }
+
+-- Fetches the current data frame
+getCurrentDataFrame :: TIM Frame
+getCurrentDataFrame = do
+  manipulateCurrentDataFrame Just
+
+-- Update a closure in the current data constructor frame
+updateCurrentDataFrameSlot :: Offset -> Closure -> TIM ()
+updateCurrentDataFrameSlot offset closure = void $ do
+  manipulateCurrentDataFrame (updateFrame offset closure)
+
 -- Generic frame manipulations
+
+-- Fetches the current frame and updates it with the given function.
+-- Returns the updated current frame or an error if anything goes wrong.
+manipulateCurrentFrame :: (Frame -> Maybe Frame) -> TIM Frame
+manipulateCurrentFrame f = do
+  framePtr <- gets tim_curr_frame
+  case framePtr of
+    AddrP addr -> do
+      manipulateFrameFromAddr addr f
+    _ -> do
+      throwTIMError "manipulateCurrentFrame: the current frame address is not to a frame pointer"
+
+-- Fetches the current data frame and updates it with the given function.
+-- Returns the updated current frame or an error if anything goes wrong.
+manipulateCurrentDataFrame :: (Frame -> Maybe Frame) -> TIM Frame
+manipulateCurrentDataFrame f = do
+  framePtr <- gets tim_curr_data_frame
+  case framePtr of
+    AddrP addr -> do
+      manipulateFrameFromAddr addr f
+    _ -> do
+      throwTIMError "manipulateCurrentDataFrame: the current data constructor frame address is not to a frame pointer"
+
+manipulateFramePtr :: FramePtr -> (Frame -> Maybe Frame) -> TIM Frame
+manipulateFramePtr fp f = do
+  case fp of
+    AddrP addr -> do
+      manipulateFrameFromAddr addr f
+    _ -> do
+      throwTIMError "manipulateFramePtr: the frame pointer is not to a frame"
 
 -- Fetches a frame and updates it with the given function.
 -- Returns the updated frame or an error if anything goes wrong.
@@ -364,25 +436,6 @@ manipulateFrameFromAddr addr f = do
       modify' $ \st -> st { tim_heap = newHeap }
       return newFrame
 
--- Fetches the current frame and updates it with the given function.
--- Returns the updated current frame or an error if anything goes wrong.
-manipulateCurrentFrame :: (Frame -> Maybe Frame) -> TIM Frame
-manipulateCurrentFrame f = do
-  framePtr <- gets tim_curr_frame
-  case framePtr of
-    AddrP addr -> do
-      manipulateFrameFromAddr addr f
-    _ -> do
-      throwTIMError "manipulateCurrentFrame: the current frame address is not to a frame pointer"
-
-manipulateFramePtr :: FramePtr -> (Frame -> Maybe Frame) -> TIM Frame
-manipulateFramePtr fp f = do
-  case fp of
-    AddrP addr -> do
-      manipulateFrameFromAddr addr f
-    _ -> do
-      throwTIMError "derefFramePtr: the frame pointer is not to a frame"
-
 ----------------------------------------
 -- Heap operations
 
@@ -397,10 +450,11 @@ derefClosure :: ArgMode -> TIM Closure
 derefClosure mode = do
   st <- get
   let heap = tim_heap st
-  let curr_frame = tim_curr_frame st
+  let curr_frame_ptr = tim_curr_frame st
+  let curr_con_frame_ptr = tim_curr_data_frame st
   case mode of
     ArgM offset -> do
-      case curr_frame of
+      case curr_frame_ptr of
         AddrP addr -> do
           case Heap.deref addr heap of
             Nothing -> do
@@ -415,10 +469,23 @@ derefClosure mode = do
           throwTIMError "derefClosure: dereferencing an argument offset requires an address frame pointer"
     LabelM v -> do
       code <- lookupCodeBlock v
-      return (mkClosure code curr_frame)
-    ValueM lit -> do
-      let litCode = [PushValueI FramePtrM, ReturnI]
-      return (mkClosure litCode (ValueP lit))
+      return (mkClosure code curr_frame_ptr)
+    ValueM value -> do
+      return (valueClosure value)
+    DataM field -> do
+      case curr_con_frame_ptr of
+        AddrP addr -> do
+          case Heap.deref addr heap of
+            Nothing -> do
+              throwTIMError "derefClosure: cannot find data frame"
+            Just frame -> do
+              case frameOffset field frame of
+                Nothing -> do
+                  throwTIMError "derefClosure: invalid data frame offset"
+                Just closure -> do
+                  return closure
+        _ -> do
+          throwTIMError "derefClosure: dereferencing a data frame requires and address frame pointer"
 
 ----------------------------------------
 -- Utilities

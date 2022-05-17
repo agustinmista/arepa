@@ -43,11 +43,13 @@ runInterpreterHook arepaFile = do
   let opts = defaultOpts {
         optInput = Just arepaFile,
         optInterpretStdout = stdoutFile,
-        optInterpretStdin = if hasStdin then stdinFile else "/dev/stdin"
+        optInterpretStdin = if hasStdin then stdinFile else "/dev/stdin",
+        optStrict = True
       }
   runArepa' opts $ do
     readArepaInput
       >>= parseModule
+      >>= renameModule
       >>= typeCheckModule
       >>= lambdaLiftModule
       >>= translateModule
@@ -62,11 +64,13 @@ runCompilerHook arepaFile = do
   let binFile  = replaceExtension arepaFile "elf"
   let opts = defaultOpts {
         optInput = Just arepaFile,
-        optOutput = Just binFile
+        optOutput = Just binFile,
+        optStrict = True
       }
   runArepa' opts $ do
     readArepaInput
       >>= parseModule
+      >>= renameModule
       >>= typeCheckModule
       >>= lambdaLiftModule
       >>= translateModule

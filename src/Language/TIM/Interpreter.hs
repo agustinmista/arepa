@@ -10,6 +10,11 @@ module Language.TIM.Interpreter
 import Control.Monad.Extra
 import Control.Monad.State
 
+import Data.Map (Map)
+import Data.Map qualified as Map
+
+import Data.Text.Lazy qualified as Text
+
 import Language.TIM.Syntax
 import Language.TIM.Interpreter.Types
 import Language.TIM.Interpreter.Monad
@@ -87,16 +92,24 @@ stepTIM instr = do
       updateCurrentFrameSlot n closure
       nextInstr
     ReturnI -> do
-      ifM isArgumentStackEmpty
-        returnWithEmptyArgumentStack
+      withUpdateHandler (valueClosure <$> peekValueStack) $ do
         returnToContinuation
     CallI name -> do
       prim <- lookupPrim name
       operateOnValueStack prim
       nextInstr
+    DataI tag -> do
+      withUpdateHandler (dataClosure tag <$> getCurrentFramePtr) $ do
+        setCurrentDataFramePtr =<< getCurrentFramePtr
+        pushConTagToValueStack tag
+        returnToContinuation
+    SwitchI alts -> do
+      tag <- popConTagFromValueStack
+      jumpToAlternative tag alts
 
 ----------------------------------------
 -- TIM Operations
+----------------------------------------
 
 -- The default return behavior: look for a saved continuation in the argument
 -- stack and jump to it.
@@ -106,16 +119,22 @@ returnToContinuation = do
   setCurrentFramePtr (closure_frame closure)
   setCode (closure_code closure)
 
--- The return behavior used by sharing / updates: when the argument stack is
--- empty, pop the previous stack dump into it and update the corresponding
--- closure at the offset of the frame saved in the removed dump to a value
--- closure corresponding to the top of the value stack.
-returnWithEmptyArgumentStack :: TIM ()
-returnWithEmptyArgumentStack = void $ do
+-- The behavior used by sharing / updates: when the argument stack is empty, pop
+-- the previous stack dump into it and update the corresponding closure at the
+-- offset of the frame saved in the removed dump with the provided closure.
+restoreDumpAndUpdate :: Closure -> TIM ()
+restoreDumpAndUpdate closure = void $ do
   (framePtr, index) <- popDumpIntoArgumentStack
-  value <- peekValueStack
-  closure <- derefClosure (ValueM value)
   manipulateFramePtr framePtr (updateFrame index closure)
+
+-- A combinator to handle updating operations more conveniently. Takes a
+-- computation that fetches the "updated" closure when the argument stack is
+-- empty. Otherwise it only runs the default behavior.
+withUpdateHandler :: TIM Closure -> TIM () -> TIM ()
+withUpdateHandler updatedClosure defaultBehavior = do
+  ifM isArgumentStackEmpty
+    (restoreDumpAndUpdate =<< updatedClosure)
+    defaultBehavior
 
 -- Loads all the arguments of a partial frame into the argument stack.
 populateArgumentStackFromPartialFrame :: TIM ()
@@ -135,3 +154,12 @@ handlePartialApp = void $ do
   newPartialFrame <- allocFrame (mkPartialFrame closures)
   let updateClosure c = mkClosure (closure_code c) newPartialFrame
   manipulateFramePtr framePtr (manipulateFrame index updateClosure)
+
+-- Jump to a corresponding switch branch
+jumpToAlternative :: Tag -> Map Tag Label -> TIM ()
+jumpToAlternative tag alts = do
+  case Map.lookup tag alts of
+    Nothing -> do
+      throwTIMError ("jumpToAlternative: non-exhaustive alternatives for tag " <> Text.pack (show tag))
+    Just label -> do
+      setCode [ EnterI (LabelM label) ]

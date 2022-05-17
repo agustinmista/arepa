@@ -1,0 +1,17 @@
+(module head_ind
+  (val main
+    (print_int
+      (letrec ((xs (cons 42 xs)))
+        (head xs))))
+
+  (fun head (xs)
+    (case xs
+      (({0,0})      -1)
+      (({1,2} x xs)  x)))
+
+  (val nil {0,0})
+  (fun cons (x xs) ({1,2} x xs))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun trace_int (x) (__prim_trace_int__ x))
+)

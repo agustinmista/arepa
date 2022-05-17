@@ -1,0 +1,19 @@
+(module list_sharing
+  (val main
+    (print_int
+      (letrec ((x  (trace_int (+ 1 (+ 2 (+ 3 (+ 4 5))))))
+               (xs (cons x (cons x (cons x nil)))))
+        (+ (sum xs) (sum xs)))))
+
+  (fun sum (xs)
+    (case xs
+      (({0,0})       0)
+      (({1,2} x xs)  (+ x (sum xs)))))
+
+  (val nil {0,0})
+  (fun cons (x xs) ({1,2} x xs))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun trace_int (x) (__prim_trace_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+)

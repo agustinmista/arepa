@@ -72,3 +72,8 @@ Void __prim_write_file__(String path, String data) {
 Void __prim_print_int__(Int x)       { rts_printf("%ld\n", x); }
 Void __prim_print_double__(Double x) { rts_printf("%f\n",  x); }
 Void __prim_print_string__(String x) { rts_printf("%s\n",  x); }
+
+// Tracing
+Int    __prim_trace_int__(Int x)       { rts_printf("<%ld>\n", x); return x; }
+Double __prim_trace_double__(Double x) { rts_printf("<%f>\n",  x); return x; }
+String __prim_trace_string__(String x) { rts_printf("<%s>\n",  x); return x; }

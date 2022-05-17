@@ -61,10 +61,11 @@ cliOpts = ArepaOpts <$>
     value "/dev/stdout" <>
     help "Interpret the input instead of compiling it"
   ) <*>
-  optionalStr (
+  strOption (
     long "entry" <>
     short 'e' <>
     metavar "NAME" <>
+    value "main" <>
     help "Set the module's entry point"
   ) <*>
   option auto (

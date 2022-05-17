@@ -9,9 +9,8 @@ import Control.Monad.State
 import Data.Map (Map)
 import Data.Map qualified as Map
 
-import Data.Text.Lazy (Text)
-
 import Language.Arepa.Syntax
+import Language.Arepa.Prim
 import Language.Arepa.Compiler.Monad
 
 import Language.TIM
@@ -35,16 +34,14 @@ translateModule m = do
 data TranslateState = TranslateState {
   ts_store :: CodeStore,          -- ^ The code store we build under the hood
   ts_env   :: Map Name ArgMode,   -- ^ The current stuff in scope
-  ts_slots :: Int,                -- ^ The amount of extra frame slots needed for letrecs
-  ts_fresh :: Int                 -- ^ A source of fresh names
+  ts_slots :: Int                 -- ^ The amount of extra frame slots needed for letrecs
 }
 
 initialTranslateState :: Name -> [Name] -> TranslateState
 initialTranslateState name globals = TranslateState {
   ts_store = emptyCodeStore name,
   ts_env = Map.fromList [ (global, LabelM global) | global <- globals ],
-  ts_slots = 0,
-  ts_fresh = 0
+  ts_slots = 0
 }
 
 ----------------------------------------
@@ -76,8 +73,8 @@ lookupArgMode name = do
       return mode
 
 -- Run the translation inside a local environment
-withExtendedEnv :: MonadArepa m => [(Name, ArgMode)] -> Translate m a -> Translate m a
-withExtendedEnv binds ma = do
+inLocalEnvWith :: MonadArepa m => [(Name, ArgMode)] -> Translate m a -> Translate m a
+inLocalEnvWith binds ma = do
   whenVerbose $ dump "Extending the current environment with" binds
   st <- get
   put (st { ts_env = foldr (uncurry Map.insert) (ts_env st) binds })
@@ -92,21 +89,14 @@ saveCodeBlock name code = do
   whenVerbose $ dump ("Saving code block " <> prettyPrint name) code
   modify $ \st -> st { ts_store = insertCodeStore name code (ts_store st) }
 
--- Return a fresh name with a given prefix
-freshName :: MonadArepa m => Text -> Translate m Name
-freshName prefix = state $ \st ->
-  (mkNameWithNum prefix (ts_fresh st), st { ts_fresh = ts_fresh st + 1 })
-
--- Lookup a primitive operation by its name
-lookupPrimOp :: MonadArepa m => Name -> Translate m Prim
-lookupPrimOp name = do
-  whenVerbose $ debug ("Looking up for primitive operation " <> prettyPrint name)
-  case Map.lookup name primitives of
-    Nothing -> do
-      throwInternalError ("lookupPrimOp: primitive " <> prettyPrint name <> " is missing")
-    Just prim -> do
-      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prim_arity prim, prim_type prim)
-      return prim
+-- Run the translator inside a new code block with a given prefix
+inNewCodeBlock :: MonadArepa m => Name -> Translate m CodeBlock -> Translate m Name
+inNewCodeBlock name ma = do
+  label <- liftIO (mkUniqueName name)
+  whenVerbose $ debug ("Translating code into new code block " <> prettyPrint label)
+  code <- ma
+  saveCodeBlock label code
+  return label
 
 -- Return the acummulated number of frame slots
 getFrameSlots :: MonadArepa m => Translate m Int
@@ -150,19 +140,21 @@ translateDecl decl = do
   let args = declArgs decl
   let extEnv = zip args (ArgM <$> [0..])
   setFrameSlots (length args)
-  bodyInstrs <- withExtendedEnv extEnv (translateExpr (declBody decl))
+  bodyCode <- inLocalEnvWith extEnv $ do
+    translateExpr (declBody decl)
   totalSlots <- getFrameSlots
   whenVerbose $ debug ("Total frame slots for " <> prettyPrint name <> ": " <> prettyPrint totalSlots)
   let n = length args
-  let takeArgs = [UpdateMarkersI n, TakeArgI totalSlots n]
-  saveCodeBlock name (takeArgs <> bodyInstrs)
+  let updateCode | n > 0     = [ UpdateMarkersI n ]
+                 | otherwise = []
+  let takeCode = [ TakeArgI totalSlots n ]
+  saveCodeBlock name (updateCode <> takeCode <> bodyCode)
 
 ----------------------------------------
 -- Expressions
 
 translateExpr :: MonadArepa m => CoreExpr -> Translate m CodeBlock
 translateExpr expr = do
-  whenVerbose $ dump "Translating expression" expr
   case expr of
     -- Fully saturated primitive function calls
     -- NOTE: must be at top since this pattern overlaps VarE and AppE
@@ -170,20 +162,16 @@ translateExpr expr = do
       translateCall name args
     -- Variables
     VarE name -> do
-      mode <- translateArgMode 0 (VarE name)
-      return [ EnterI mode ]
+      translateVar name
     -- Literal values
     LitE lit -> do
-      mode <- translateValueMode lit
-      return [ PushValueI mode, ReturnI ]
+      translateLit lit
     -- Data constructors
-    ConE _con -> do
-      notImplemented "translateExpr/ConE"
+    ConE con -> do
+      translateCon con
     -- Function application
-    AppE e1 e2 -> do
-      e2code <- operandCode e2
-      e1code <- translateExpr    e1
-      return $ e2code <> e1code
+    AppE fun op -> do
+      translateApp fun op
     -- Lambda functions should be gone by now
     LamE _ _ -> do
       throwInternalError "translateInstr: impossible! lambda expressions should never appear here"
@@ -191,21 +179,8 @@ translateExpr expr = do
     LetE isRec binds body -> do
       translateLet isRec binds body
     -- Case expressions
-    CaseE _scrut _alts -> do
-      notImplemented "translateExpr/CaseE"
-
-operandCode :: MonadArepa m => CoreExpr -> Translate m CodeBlock
-operandCode e@(VarE _) = do
-  mode <- translateArgMode 0 e
-  return [PushArgI mode]
-operandCode e@(LitE _) = do
-  mode <- translateArgMode 0 e
-  return [PushArgI mode]
-operandCode e          = do
-  slots  <- getFrameSlots
-  setFrameSlots (slots + 1)
-  mode  <- translateArgMode slots e
-  return [MoveI slots mode, PushArgI mode]
+    CaseE scrut alts -> do
+      translateCase scrut alts
 
 ----------------------------------------
 -- Primitive function calls
@@ -216,55 +191,109 @@ operandCode e          = do
 translateCall :: MonadArepa m => Name -> [CoreExpr] -> Translate m CodeBlock
 translateCall name args = do
   whenVerbose $ dump "Translating primitive call" (name, args)
-  prim <- lookupPrimOp name
-  let arity = prim_arity prim
-  when (arity /= length args) $ do
-    throwInternalError ("translateCall: " <> prettyPrint name <> " must take exactly " <> prettyPrint arity <> " arguments")
-  let argCode arg cont = withIsolatedFrameSlots (translateCallArg arg cont)
+  let isolatedTranslateArg arg cont = withIsolatedFrameSlots (translateCallArg arg cont)
   let callCode = return [ CallI name, ReturnI ]
-  (slots, code) <- chainAccumCPS (argCode <$> args) callCode
-  unless (null slots) $
+  (slots, cpsCode) <- chainAccumCPS (isolatedTranslateArg <$> args) callCode
+  unless (null slots) $ do
     setFrameSlots (maximum slots)
-  return code
+  return cpsCode
 
 -- Primitive calls' arguments can safely reuse each other's frame slots because
 -- we force their evaluation to happen sequentially.
 
 translateCallArg :: MonadArepa m => CoreExpr -> CodeBlock -> Translate m CodeBlock
 translateCallArg arg cont = do
+  whenVerbose $ dump "Translating call argument" arg
   case arg of
     LitE lit -> do
       mode <- translateValueMode lit
       return ([ PushValueI mode ] <> cont)
     expr -> do
-      label <- freshName "cont"
-      saveCodeBlock label cont
+      label <- inNewCodeBlock "cont" $ do
+        return cont
       code <- translateExpr expr
       return ([ PushArgI (LabelM label) ] <> code)
+
+----------------------------------------
+-- Variables
+
+translateVar :: MonadArepa m => Name -> Translate m CodeBlock
+translateVar name = do
+  whenVerbose $ dump "Translating variable" name
+  mode <- translateArgMode 0 (VarE name)
+  return [ EnterI mode ]
+
+----------------------------------------
+-- Literals
+
+translateLit :: MonadArepa m => Lit -> Translate m CodeBlock
+translateLit lit = do
+  whenVerbose $ dump "Translating literal" lit
+  mode <- translateValueMode lit
+  return [ PushValueI mode, ReturnI ]
+
+----------------------------------------
+-- Function applications
+
+translateApp :: MonadArepa m => CoreExpr -> CoreExpr -> Translate m CodeBlock
+translateApp fun op = do
+  whenVerbose $ dump "Translating function application" (fun, op)
+  opCode <- translateOperand op
+  funCode <- translateExpr fun
+  return (opCode <> funCode)
+
+translateOperand :: MonadArepa m => CoreExpr -> Translate m CodeBlock
+translateOperand expr = do
+  whenVerbose $ dump "Translating operand expression" expr
+  case expr of
+    VarE {} -> do
+      mode <- translateArgMode 0 expr
+      return [ PushArgI mode ]
+    LitE {} -> do
+      mode <- translateArgMode 0 expr
+      return [ PushArgI mode ]
+    _ -> do
+      slots  <- getFrameSlots
+      setFrameSlots (slots + 1)
+      mode  <- translateArgMode slots expr
+      return [ MoveI slots mode, PushArgI mode ]
+
+----------------------------------------
+-- Data constructors
+
+translateCon :: MonadArepa m => Con -> Translate m CodeBlock
+translateCon con = do
+  whenVerbose $ dump "Translating data constructor" con
+  let tag = con_tag con
+  let arity = con_arity con
+  let updateCode | arity > 0 = [ UpdateMarkersI arity ]
+                 | otherwise = []
+  return (updateCode <> [ TakeArgI arity arity, DataI tag ])
 
 ----------------------------------------
 -- Let binds
 
 translateLet :: MonadArepa m => Bool -> [(Name, CoreExpr)] -> CoreExpr -> Translate m CodeBlock
 translateLet isRec binds body = do
+  whenVerbose $ dump "Translating let expression" (isRec, binds, body)
   -- The local slots used by this let expression
   slots <- reserveFrameSlots (length binds)
   let indexedBinds = zip binds slots
   -- Compute the extended environment used for letrec
   -- (creates an indirection closure for each local bind)
   bindsEnv <- forM indexedBinds $ \(bind, slot) -> do
-    label <- freshName (fromName (fst bind))
+    let label = fst bind
     saveCodeBlock label [ EnterI (ArgM slot) ]
-    return (fst bind, LabelM label)
+    return (label, LabelM label)
   -- The environment used for the RHS of a let bind
   let rhsEnv | isRec     = bindsEnv
              | otherwise = []
   -- Translate the let right-hand sides
-  bindsCode <- withExtendedEnv rhsEnv $ do
+  bindsCode <- inLocalEnvWith rhsEnv $ do
     traverse (uncurry translateLetBind) indexedBinds
   -- Translate the body with the extended bind environment
-  exprCode <- withExtendedEnv bindsEnv $ do
-     translateExpr body
+  exprCode <- inLocalEnvWith bindsEnv $ do
+    translateExpr body
   return (mconcat bindsCode <> exprCode)
 
 translateLetBind :: MonadArepa m => (Name, CoreExpr) -> Int -> Translate m CodeBlock
@@ -274,7 +303,48 @@ translateLetBind bind slot = do
   return [ MoveI slot rhsMode ]
 
 ----------------------------------------
+-- Case expressions
+
+translateCase :: MonadArepa m => CoreExpr -> [CoreAlt] -> Translate m CodeBlock
+translateCase scrut alts = do
+  whenVerbose $ dump "Translating case expression" (scrut, alts)
+  -- Create the code for the switch
+  label <- inNewCodeBlock "switch" $ do
+    -- Translate the case alternatives each one in an isolated environment
+    let isolatedTranslateAlt alt = withIsolatedFrameSlots (translateAlt alt)
+    (slots, altsCode) <- unzip <$> mapM isolatedTranslateAlt alts
+    unless (null slots) $ do
+      setFrameSlots (maximum slots)
+    -- Build the tags to codeblocks mappings
+    let altsMap = Map.fromList altsCode
+    return [ SwitchI altsMap ]
+  -- Translate the scrutinee
+  scrutCode <- translateExpr scrut
+  -- Push the switch continuation and run the code for the scrutinee
+  return ([ PushArgI (LabelM label) ] <> scrutCode)
+
+translateAlt :: MonadArepa m => CoreAlt -> Translate m (Int, Label)
+translateAlt alt = do
+  whenVerbose $ dump "Translating case alternative" alt
+  case alt of
+    Alt con vars expr -> do
+      -- Old slots are needed to calculate the move insructions
+      oldSlots <- getFrameSlots
+      -- Allocate some frame slots for the constructor arguments
+      slots <- reserveFrameSlots (length vars)
+      -- Translate the alternative RHS in an enviroment extended with the
+      -- constructor case variables
+      let rhsEnv = zip vars (ArgM <$> slots)
+      label <- inLocalEnvWith rhsEnv $ do
+        inNewCodeBlock "alt" $ do
+          let moveCode = CodeBlock [ MoveI slot (DataM (slot-oldSlots)) | slot <- slots ]
+          exprCode <- translateExpr expr
+          return (moveCode <> exprCode)
+      return (con_tag con, label)
+
+----------------------------------------
 -- Addressing modes
+----------------------------------------
 
 translateArgMode :: MonadArepa m => Offset -> CoreExpr -> Translate m ArgMode
 translateArgMode offset expr = do
@@ -283,48 +353,37 @@ translateArgMode offset expr = do
     VarE name -> do
       lookupArgMode name
     LitE lit -> do
-      value <- translateLit lit
+      let value = litValue lit
       return (ValueM value)
     _ -> do
-      label <- freshName "arg"
       code <- translateExpr expr
-      saveCodeBlock label $ [PushMarkerI offset] <> code
+      label <- inNewCodeBlock "arg" $ do
+        return ([ PushMarkerI offset ] <> code)
       return (LabelM label)
 
 translateValueMode :: MonadArepa m => Lit -> Translate m ValueMode
 translateValueMode lit = do
   whenVerbose $ dump "Translating value mode of literal" lit
-  value <- translateLit lit
+  let value = litValue lit
   return (InlineM value)
 
 ----------------------------------------
--- Literals
-
-translateLit :: MonadArepa m => Lit -> Translate m Value
-translateLit lit = do
-  whenVerbose $ dump "Translating literal" lit
-  case lit of
-    IntL    n -> return (IntV n)
-    DoubleL n -> return (DoubleV n)
-    StringL s -> return (StringV s)
-
-----------------------------------------
 -- Utilities
+----------------------------------------
 
--- A pattern to identify calls to primitive operations
+-- Values associated to literals
 
-pattern CallE :: Name -> [CoreExpr] -> CoreExpr
-pattern CallE name args <- (isCallE -> Just (name, args))
-
-isCallE :: CoreExpr -> Maybe (Name, [CoreExpr])
-isCallE expr =
-  case collectArgs expr of
-    (VarE name, args) | name `isPrimOp` primitives -> Just (name, args)
-    _ -> Nothing
+litValue :: Lit -> Value
+litValue lit = do
+  case lit of
+    IntL    n -> IntV n
+    DoubleL n -> DoubleV n
+    StringL s -> StringV s
 
 -- Thread a list of CPS monadic computations into a single result with an
 -- accumulator. This operation is right associative, meaning that the `a`
 -- obtained from the `m a` input is passed to the last computation.
+
 chainAccumCPS :: Monad m => [a -> m (b, a)] -> m a -> m ([b], a)
 chainAccumCPS = go . reverse
   where

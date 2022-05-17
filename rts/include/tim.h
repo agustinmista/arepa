@@ -22,6 +22,8 @@ typedef struct tim_metadata_t {
   frame_t frame;
 } *tim_metadata_t;
 
+typedef long tag_t;
+
 void tim_start();
 
 void tim_take(long total, long n);
@@ -36,17 +38,23 @@ void tim_push_argument_string(String value);
 
 void tim_push_argument_label(void (*code)());
 
+void tim_push_argument_data(long field);
+
 void tim_push_value_int(Int value);
 
 void tim_push_value_double(Double value);
 
 void tim_push_value_string(String value);
 
+void tim_push_value_data(tag_t tag);
+
 Int* tim_pop_value_int();
 
 Double* tim_pop_value_double();
 
 String* tim_pop_value_string();
+
+tag_t* tim_pop_value_data();
 
 void tim_enter_argument(long argument);
 
@@ -58,6 +66,8 @@ void tim_enter_string(String value);
 
 void tim_enter_label(void (*code)());
 
+void tim_enter_data(long field);
+
 void tim_move_argument(long offset, long argument);
 
 void tim_move_int(long offset, Int value);
@@ -68,11 +78,17 @@ void tim_move_string(long offset, String value);
 
 void tim_move_label(long offset, void (*code)());
 
+void tim_move_data(long offset, long field);
+
 void tim_marker_push(long offset);
 
 void tim_markers_update(long nargs);
 
 void tim_return();
+
+void tim_data(tag_t tag, void (*code)());
+
+void tim_switch_error(tag_t tag);
 
 Int get_int_result();
 

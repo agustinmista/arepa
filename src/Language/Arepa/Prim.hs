@@ -1,0 +1,24 @@
+module Language.Arepa.Prim
+  ( pattern CallE
+  , isCallE
+  , module Language.TIM.Prim
+  ) where
+
+import Language.Arepa.Syntax
+import Language.TIM.Prim
+
+----------------------------------------
+-- Primitive operations (reexported from TIM)
+----------------------------------------
+
+-- A pattern to identify calls to primitive operations
+
+pattern CallE :: Name -> [CoreExpr] -> CoreExpr
+pattern CallE name args <- (isCallE -> Just (name, args))
+  where CallE name args = foldl AppE (VarE name) args
+
+isCallE :: CoreExpr -> Maybe (Name, [CoreExpr])
+isCallE expr =
+  case collectArgs expr of
+    (VarE name, args) | name `isPrimOp` primitives -> Just (name, args)
+    _ -> Nothing
