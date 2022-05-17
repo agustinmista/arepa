@@ -89,7 +89,6 @@ liftDecl decl = do
 
 liftExpr :: MonadArepa m => CoreExpr -> Lifter m (Set Name, CoreExpr)
 liftExpr expr = do
-  whenVerbose $ dump "Lambda lifting expression" expr
   case expr of
     -- Variables
     VarE name -> do
@@ -116,6 +115,7 @@ liftExpr expr = do
 
 liftVar :: MonadArepa m => Name -> Lifter m (Set Name, CoreExpr)
 liftVar name = do
+  whenVerbose $ dump "Lambda lifting variable" name
   isGlobal <- isGlobalVar name
   let fvsVar | isGlobal  = Set.empty
              | otherwise = Set.singleton name
@@ -125,6 +125,7 @@ liftVar name = do
 
 liftApp :: MonadArepa m => CoreExpr -> CoreExpr -> Lifter m (Set Name, CoreExpr)
 liftApp fun op = do
+  whenVerbose $ dump "Lambda lifting function application" (fun, op)
   (fvsFun, fun') <- liftExpr fun
   (fvsOp, op')   <- liftExpr op
   return (fvsFun <> fvsOp, AppE fun' op')
@@ -133,6 +134,7 @@ liftApp fun op = do
 
 liftLambda :: MonadArepa m => [Name] -> CoreExpr -> Lifter m (Set Name, CoreExpr)
 liftLambda vars body = do
+  whenVerbose $ dump "Lambda lifting lambda expression" (vars, body)
   (fvsBody, body') <- liftExpr body
   let fvsLam = fvsBody `closedOver` vars
   let args = Set.toList fvsLam <> vars
@@ -144,6 +146,7 @@ liftLambda vars body = do
 
 liftLet :: MonadArepa m => Bool -> [(Name, CoreExpr)] -> CoreExpr -> Lifter m (Set Name, CoreExpr)
 liftLet isRec binds body = do
+  whenVerbose $ dump "Lambda lifting let expression" (isRec, binds, body)
   let letVars = fst <$> binds
   (fvsBinds, binds') <- fmap unzip $ forM binds $ \(name, expr) -> do
     let bindVars | isRec     = letVars
@@ -158,6 +161,7 @@ liftLet isRec binds body = do
 
 liftCond :: MonadArepa m => [(CoreExpr, CoreExpr)] -> Lifter m (Set Name, CoreExpr)
 liftCond alts = do
+  whenVerbose $ dump "Lambda lifting cond expression" alts
   (fvsAlts, alts') <- fmap unzip <$> forM alts $ \(cond, body) -> do
     (fvsCond, cond') <- liftExpr cond
     (fvsBody, body') <- liftExpr body
