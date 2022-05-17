@@ -161,7 +161,7 @@ alt = label "case alternative" $ do
 
 lit :: MonadArepa m => Parser m Lit
 lit = label "literal" $ do
-  try doubleL <|> intL <|> stringL
+  try doubleL <|> intL <|> stringL <|> boolL
 
 intL :: MonadArepa m => Parser m Lit
 intL = do
@@ -175,6 +175,10 @@ doubleL = do
 
 stringL :: MonadArepa m => Parser m Lit
 stringL = StringL <$> stringLiteral
+
+boolL :: MonadArepa m => Parser m Lit
+boolL = (keyword "true" $>  BoolL True)
+    <|> (keyword "false" $> BoolL False)
 
 -- Data constructors
 
@@ -231,7 +235,7 @@ identifier = Lexer.lexeme whitespace $ do
 -- Parsing keywords
 
 reserved :: [String]
-reserved = ["module", "lambda", "let", "letrec", "cond", "case"]
+reserved = ["module", "lambda", "let", "letrec", "cond", "true", "false", "case"]
 
 keyword :: MonadArepa m => Text -> Parser m ()
 keyword kw = void $ Lexer.lexeme whitespace $ do

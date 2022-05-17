@@ -194,12 +194,15 @@ data Lit =
     IntL Int
   | DoubleL Double
   | StringL Text
+  | BoolL Bool
   deriving (Show, Eq, Read, Ord)
 
 instance Pretty Lit where
-  pretty (IntL n)    = pretty n
-  pretty (DoubleL n) = pretty n
-  pretty (StringL s) = pretty (show s)
+  pretty (IntL n)      = pretty n
+  pretty (DoubleL n)   = pretty n
+  pretty (StringL s)   = pretty (show s)
+  pretty (BoolL True)  = "true"
+  pretty (BoolL False) = "false"
 
 ----------------------------------------
 -- Data constructors
