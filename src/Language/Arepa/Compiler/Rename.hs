@@ -183,8 +183,8 @@ renameExpr expr = do
       renameLambda args body
     LetE isRec binds body -> do
       renameLet isRec binds body
-    CondE alts -> do
-      renameCond alts
+    IfE cond th el -> do
+      renameIf cond th el
     CaseE scrut alts -> do
       renameCase scrut alts
     _ -> do
@@ -247,14 +247,13 @@ renameLet isRec binds body = do
 
 -- Conditional expressions
 
-renameCond :: MonadArepa m => [(CoreExpr, CoreExpr)] -> Renamer m CoreExpr
-renameCond alts = do
-  whenVerbose $ dump "Renaming cond expression" alts
-  alts' <- forM alts $ \(cond, body) -> do
-    cond' <- renameExpr cond
-    body' <- renameExpr body
-    return (cond', body')
-  return (CondE alts')
+renameIf :: MonadArepa m => CoreExpr -> CoreExpr -> CoreExpr -> Renamer m CoreExpr
+renameIf cond th el = do
+  whenVerbose $ dump "Renaming if expression" (cond, th, el)
+  cond' <- renameExpr cond
+  th' <- renameExpr th
+  el' <- renameExpr el
+  return (IfE cond' th' el')
 
 -- Case expressions
 

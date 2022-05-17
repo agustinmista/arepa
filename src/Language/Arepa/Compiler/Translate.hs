@@ -179,8 +179,8 @@ translateExpr expr = do
     LetE isRec binds body -> do
       translateLet isRec binds body
     -- Conditional expressions
-    CondE alts -> do
-      throwInternalError "translateInstr: not implemented CondE"
+    IfE cond th el -> do
+      translateIf cond th el
     -- Case expressions
     CaseE scrut alts -> do
       translateCase scrut alts
@@ -274,7 +274,7 @@ translateCon con = do
   return (updateCode <> [ TakeArgI arity arity, DataI tag ])
 
 ----------------------------------------
--- Let binds
+-- Let expressions
 
 translateLet :: MonadArepa m => Bool -> [(Name, CoreExpr)] -> CoreExpr -> Translate m CodeBlock
 translateLet isRec binds body = do
@@ -306,6 +306,14 @@ translateLetBind bind slot = do
   return [ MoveI slot rhsMode ]
 
 ----------------------------------------
+-- Conditional expressions
+
+translateIf :: MonadArepa m => CoreExpr -> CoreExpr -> CoreExpr -> Translate m CodeBlock
+translateIf cond th el = do
+  whenVerbose $ dump "Translating if expression" (cond, th, el)
+  undefined
+
+----------------------------------------
 -- Case expressions
 
 translateCase :: MonadArepa m => CoreExpr -> [CoreAlt] -> Translate m CodeBlock
@@ -314,7 +322,7 @@ translateCase scrut alts = do
   -- Create the code for the switch
   label <- inNewCodeBlock "switch" $ do
     -- Translate the case alternatives each one in an isolated environment
-    let isolatedTranslateAlt alt = withIsolatedFrameSlots (translateAlt alt)
+    let isolatedTranslateAlt alt = withIsolatedFrameSlots (translateCaseAlt alt)
     (slots, altsCode) <- unzip <$> mapM isolatedTranslateAlt alts
     unless (null slots) $ do
       setFrameSlots (maximum slots)
@@ -326,8 +334,8 @@ translateCase scrut alts = do
   -- Push the switch continuation and run the code for the scrutinee
   return ([ PushArgI (LabelM label) ] <> scrutCode)
 
-translateAlt :: MonadArepa m => CoreAlt -> Translate m (Int, Label)
-translateAlt alt = do
+translateCaseAlt :: MonadArepa m => CoreAlt -> Translate m (Int, Label)
+translateCaseAlt alt = do
   whenVerbose $ dump "Translating case alternative" alt
   case alt of
     Alt con vars expr -> do

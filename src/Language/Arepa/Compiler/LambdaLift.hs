@@ -103,8 +103,8 @@ liftExpr expr = do
     LetE isRec binds body -> do
       liftLet isRec binds body
     -- Conditional expressions
-    CondE alts -> do
-      liftCond alts
+    IfE cond th el -> do
+      liftIf cond th el
     -- Case expressions
     CaseE scrut alts -> do
       liftCase scrut alts
@@ -159,14 +159,13 @@ liftLet isRec binds body = do
 
 -- Conditional expressions
 
-liftCond :: MonadArepa m => [(CoreExpr, CoreExpr)] -> Lifter m (Set Name, CoreExpr)
-liftCond alts = do
-  whenVerbose $ dump "Lambda lifting cond expression" alts
-  (fvsAlts, alts') <- fmap unzip <$> forM alts $ \(cond, body) -> do
-    (fvsCond, cond') <- liftExpr cond
-    (fvsBody, body') <- liftExpr body
-    return (fvsCond <> fvsBody, (cond', body'))
-  return (mconcat fvsAlts, CondE alts')
+liftIf :: MonadArepa m => CoreExpr -> CoreExpr -> CoreExpr -> Lifter m (Set Name, CoreExpr)
+liftIf cond th el = do
+  whenVerbose $ dump "Lambda lifting if expression" (cond, th, el)
+  (fvsCond, cond') <- liftExpr cond
+  (fvsTh, th') <- liftExpr th
+  (fvsEl, el') <- liftExpr el
+  return (fvsCond <> fvsTh <> fvsEl, IfE cond' th' el')
 
 -- Case expressions
 
