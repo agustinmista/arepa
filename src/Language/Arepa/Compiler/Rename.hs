@@ -25,7 +25,7 @@ renameModule m = do
   let name = modName m
   let decls = modDecls m
   whenVerbose $ debug ("Renaming module " <> prettyPrint name)
-  renamedDecls <- runRenamer $ do
+  renamedDecls <- runRenamer name $ do
     subst <- topLevelSubst (declName <$> decls)
     inLocalScopeWith subst $ do
       mapM renameDecl decls
@@ -35,11 +35,13 @@ renameModule m = do
 -- Lambda lifting internal state
 
 data RenamerState = RenamerState {
+  rs_module_name :: Name,
   rs_subst :: Map Name Name
 }
 
-initialRenamerState :: RenamerState
-initialRenamerState = RenamerState {
+initialRenamerState :: Name -> RenamerState
+initialRenamerState name = RenamerState {
+  rs_module_name = name,
   rs_subst = Map.empty
 }
 
@@ -48,8 +50,8 @@ initialRenamerState = RenamerState {
 
 type Renamer m a = StateT RenamerState m a
 
-runRenamer :: MonadArepa m => Renamer m a -> m a
-runRenamer ma = evalStateT ma initialRenamerState
+runRenamer :: MonadArepa m => Name -> Renamer m a -> m a
+runRenamer moduleName ma = evalStateT ma (initialRenamerState moduleName)
 
 ----------------------------------------
 -- Monad operations
@@ -64,27 +66,39 @@ getName name = do
     Nothing -> do
       whenM hasStrictEnabled $ do
         throwRenamerError $ "variable " <> prettyPrint name <> " is out of scope"
-      return name
-    Just name' ->
+      zEncode name
+    Just name' -> do
+      whenVerbose $ debug ("Found renamed name for " <> prettyPrint name <> ": " <> prettyPrint name')
       return name'
 
--- Rename a name, adding the substitution to the current scope
-renameName :: MonadArepa m => Name -> Renamer m Name
-renameName name = do
+-- Rename a name uniquely, adding the substitution to the current scope
+renameUnique :: MonadArepa m => Name -> Renamer m Name
+renameUnique name = do
   st <- get
-  name' <- liftIO (mkUniqueName name)
-  whenVerbose $ debug ("Renaming variable " <> prettyPrint name <> " as " <> prettyPrint name')
+  name' <- liftIO (mkUniqueName (rs_module_name st) name)
+  whenVerbose $ debug ("Renaming " <> prettyPrint name <> " as " <> prettyPrint name')
+  put st { rs_subst = Map.insert name name' (rs_subst st) }
+  return name'
+
+-- z-encode a name, adding the substitution to the current scope
+zEncode :: MonadArepa m => Name -> Renamer m Name
+zEncode name = do
+  st <- get
+  let name' = zEncodeName name
+  liftIO (registerUsedName name')
+  whenVerbose $ debug ("Z-encoding name " <> prettyPrint name <> " as " <> prettyPrint name')
   put st { rs_subst = Map.insert name name' (rs_subst st) }
   return name'
 
 -- Run the renamer in a local environment applying a name substitution
 inLocalScopeWith :: MonadArepa m => [(Name, Name)] -> Renamer m a -> Renamer m a
 inLocalScopeWith subst ma = do
-  whenVerbose $ debug ("Extending scope with " <> prettyPrint subst)
+  whenVerbose $ dump "Running in local scope with substitution" subst
   st <- get
   put (st { rs_subst = foldr (uncurry Map.insert) (rs_subst st) subst })
   a <- ma
   modify' $ \st' -> st' { rs_subst = rs_subst st }
+  whenVerbose $ dump "Restored the previous scope to" (Map.toList (rs_subst st))
   return a
 
 inLocalScope :: MonadArepa m => Renamer m a -> Renamer m a
@@ -103,7 +117,6 @@ checkDuplicateTags alts = do
   when (hasDuplicates tags) $ do
     throwRenamerError ("duplicated occurrence of tags " <> prettyPrint (findDuplicates tags))
 
-
 -- Check the arity of an operation
 
 checkPrimArity :: MonadArepa m => Name -> [CoreExpr] -> Renamer m ()
@@ -121,19 +134,20 @@ checkConArity con args = do
 
 -- Create the top-level substitution of names.
 -- NOTE: this makes sure to avoid renaming the entry point, as well as taking
--- primitives into account.
+-- primitives into account. Other globals are only z-encoded to keep linking
+-- against external code predictable.
 topLevelSubst :: MonadArepa m => [Name] -> Renamer m [(Name, Name)]
 topLevelSubst declNames = do
   -- Primitives: no renaming, but we must make sure to register them
   let primNames = Map.keys primitives
   let primSubsts = [ (pn, pn) | pn <- primNames ]
-  mapM_ (liftIO . registerUsedName) primNames
-  -- Top-level declarations: we rename them, except for the entry point
+  liftIO $ mapM_ registerUsedName primNames
+  -- Top-level declarations: we z-rename them, except for the entry point
   entry <- lookupCompilerOption optEntryPoint
   declSubsts <- forM declNames $ \dn -> do
     if dn == mkName entry
     then return (dn, dn)
-    else renameName dn >>= \dn' -> return (dn, dn')
+    else zEncode dn >>= \dn' -> return (dn, dn')
   return (primSubsts <> declSubsts)
 
 -- Lookup a primitive operation by its name
@@ -162,7 +176,7 @@ renameDecl decl = do
     let body = declBody decl
     checkDuplicateNames args
     name' <- getName name
-    args' <- mapM renameName args
+    args' <- mapM renameUnique args
     let subst = zip args args'
     body' <- inLocalScopeWith subst $ do
       renameExpr body
@@ -222,7 +236,7 @@ renameLambda :: MonadArepa m => [Name] -> CoreExpr -> Renamer m CoreExpr
 renameLambda args body = do
   whenVerbose $ dump "Renaming lambda expression" (args, body)
   checkDuplicateNames args
-  args' <- mapM renameName args
+  args' <- mapM renameUnique args
   let subst = zip args args'
   body' <- inLocalScopeWith subst $ do
     renameExpr body
@@ -235,7 +249,7 @@ renameLet isRec binds body = do
   whenVerbose $ dump "Renaming let expression" (isRec, binds, body)
   let (letVars, letRhss) = unzip binds
   checkDuplicateNames letVars
-  letVars' <- mapM renameName letVars
+  letVars' <- mapM renameUnique letVars
   let subst = zip letVars letVars'
   letRhss' <- forM letRhss $ \expr -> do
     inLocalScopeWith subst $ do
@@ -272,7 +286,7 @@ renameAlt alt = do
     Alt con vars body -> do
       checkConArity con vars
       checkDuplicateNames vars
-      vars' <- mapM renameName vars
+      vars' <- mapM renameUnique vars
       let subst = zip vars vars'
       body' <- inLocalScopeWith subst $ do
         renameExpr body

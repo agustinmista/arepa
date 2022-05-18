@@ -42,9 +42,6 @@ emptyCodeStore name = CodeStore {
   store_blocks = mempty
 }
 
-codeStoreName :: CodeStore -> Name
-codeStoreName = store_name
-
 lookupCodeStore :: Name -> CodeStore -> Maybe CodeBlock
 lookupCodeStore v store = Map.lookup v (store_blocks store)
 
@@ -52,6 +49,9 @@ insertCodeStore :: Name -> CodeBlock -> CodeStore -> CodeStore
 insertCodeStore v code store = store {
   store_blocks = Map.insert v code (store_blocks store)
 }
+
+codeStoreBlockNames :: CodeStore -> [Name]
+codeStoreBlockNames store = Map.keys (store_blocks store)
 
 -- CodeBlock
 

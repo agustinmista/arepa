@@ -25,19 +25,22 @@ lambdaLiftModule m = do
   let decls = modDecls m
   let globals = fmap declName decls <> Map.keys primitives
   whenVerbose $ debug ("Lambda lifting module " <> prettyPrint name)
-  (oldDecls, liftedDecls) <- runLifter globals (mapM liftDecl decls)
+  (oldDecls, liftedDecls) <- runLifter name globals $ do
+    mapM liftDecl decls
   return (m { modDecls = oldDecls <> liftedDecls })
 
 ----------------------------------------
 -- Lambda lifting internal state
 
 data LifterState = LifterState {
+  ls_module_name :: Name,
   ls_globals :: Set Name,
   ls_new_decls :: [CoreDecl]
 }
 
-initialLifterState :: [Name] ->  LifterState
-initialLifterState globals = LifterState {
+initialLifterState :: Name -> [Name] ->  LifterState
+initialLifterState name globals = LifterState {
+  ls_module_name = name,
   ls_globals = Set.fromList globals,
   ls_new_decls = []
 }
@@ -47,9 +50,9 @@ initialLifterState globals = LifterState {
 
 type Lifter m a = StateT LifterState m a
 
-runLifter :: MonadArepa m => [Name] -> Lifter m a -> m (a, [CoreDecl])
-runLifter globals ma = do
-  (a, st) <- runStateT ma (initialLifterState globals)
+runLifter :: MonadArepa m => Name -> [Name] -> Lifter m a -> m (a, [CoreDecl])
+runLifter name globals ma = do
+  (a, st) <- runStateT ma (initialLifterState name globals)
   return (a, ls_new_decls st)
 
 ----------------------------------------
@@ -59,7 +62,7 @@ runLifter globals ma = do
 makeTopLevel :: MonadArepa m => Name -> [Name] -> CoreExpr -> Lifter m Name
 makeTopLevel prefix vars expr = do
   st <- get
-  name' <- liftIO (mkUniqueName prefix)
+  name' <- liftIO (mkUniqueName (ls_module_name st) prefix)
   let decl = FunD name' vars expr
   put st { ls_new_decls = decl : ls_new_decls st }
   whenVerbose $ dump ("Lifted lambda to top-level declaration " <> prettyPrint name') decl
