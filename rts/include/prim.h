@@ -28,6 +28,26 @@ Double __prim_sub_double__(Double, Double);
 Double __prim_mul_double__(Double, Double);
 Double __prim_div_double__(Double, Double);
 
+// String operations
+String __prim_concat_string__(String, String);
+Int __prim_length_string__(String);
+String __prim_int_to_string__(Int);
+String __prim_double_to_string__(Double);
+String __prim_bool_to_string__(Bool);
+
+// Int comparison operators
+Bool __prim_eq_int__(Int, Int);
+Bool __prim_le_int__(Int, Int);
+Bool __prim_lt_int__(Int, Int);
+
+// Double comparison operators
+Bool __prim_eq_double__(Double, Double);
+Bool __prim_le_double__(Double, Double);
+Bool __prim_lt_double__(Double, Double);
+
+// String comparison operators
+Bool __prim_eq_string__(String, String);
+
 // Constants
 Double __prim_pi__();
 
@@ -40,11 +60,13 @@ Void __prim_write_file__(String, String);
 Void __prim_print_int__(Int);
 Void __prim_print_double__(Double);
 Void __prim_print_string__(String);
+Void __prim_print_bool__(Bool);
 
 // Debugging
 Int    __prim_trace_int__(Int);
 Double __prim_trace_double__(Double);
 String __prim_trace_string__(String);
+Bool   __prim_trace_bool__(Bool);
 
 // END PROTOTYPES
 
