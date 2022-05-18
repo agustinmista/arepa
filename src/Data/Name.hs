@@ -35,6 +35,9 @@ mkNameWithNum prefix n = Name (prefix <> Text.pack (show n))
 fromName :: IsString a => Name -> a
 fromName (Name t) = fromString (Text.unpack t)
 
+zEncodeName :: Name -> Name
+zEncodeName (Name t) = Name (Text.pack (zEncodeString (Text.unpack t)))
+
 -- This instance let us write variables directly as strings
 instance IsString Name where
   fromString = mkName
@@ -53,11 +56,11 @@ registerUsedName :: Name -> IO ()
 registerUsedName name = modifyIORef usedNames (Set.insert name)
 
 -- Make a globally unique name based on a z-encoded prefix
-mkUniqueName :: Name -> IO Name
-mkUniqueName prefix = do
+mkUniqueName :: Name -> Name -> IO Name
+mkUniqueName modName prefix = do
   avoid <- readIORef usedNames
   suffix <- replicateM 4 (onlyAlphaNum randomASCII)
-  let name = mkName (zEncodeString (fromName prefix) <> "_" <> suffix)
+  let name = mkName (zEncodeString (fromName modName) <> "_" <> zEncodeString (fromName prefix) <> "_" <> suffix)
   if name `notElem` avoid
     then modifyIORef usedNames (Set.insert name) >> return name
-    else mkUniqueName prefix
+    else mkUniqueName modName prefix
