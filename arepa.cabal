@@ -42,6 +42,7 @@ common common-arepa
     ScopedTypeVariables
     StandaloneDeriving
     TemplateHaskell
+    TupleSections
     TypeApplications
     TypeFamilies
     ViewPatterns
@@ -51,10 +52,12 @@ common common-arepa
     rts/include/prim.h
     rts/include/mem.h
     rts/include/io.h
+    rts/include/value.h
   c-sources:
     rts/src/prim.c
     rts/src/mem.c
     rts/src/io.c
+    rts/src/value.c
 
 library arepa-lib
   import: common-arepa
@@ -102,7 +105,6 @@ library arepa-lib
     , llvm-hs-pure
     , llvm-hs-pretty
     , template-haskell
-    , temporary
     , process
     , zenc
     , random-strings
