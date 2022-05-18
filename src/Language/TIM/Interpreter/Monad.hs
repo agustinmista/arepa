@@ -10,6 +10,7 @@ import Prettyprinter
 import Data.Maybe
 
 import Data.Text.Lazy (Text)
+import Data.Text.Lazy qualified as Text
 
 import Data.Stack (Stack)
 import Data.Stack qualified as Stack
@@ -37,9 +38,9 @@ newtype TIM a = TIM (ExceptT TIMError (StateT TIMState (WriterT TIMTrace IO)) a)
            , MonadWriter TIMTrace
            , MonadFail )
 
-runTIM :: FilePath -> FilePath -> CodeStore -> TIM a -> IO (Either TIMError a, TIMTrace)
-runTIM stdin stdout code (TIM ma) = withRTSIO stdin stdout $ do
-  runWriterT (evalStateT (runExceptT ma) (initialTIMState code))
+runTIM :: FilePath -> FilePath -> [CodeStore] -> TIM a -> IO (Either TIMError a, TIMTrace)
+runTIM stdin stdout stores (TIM ma) = withRTSIO stdin stdout $ do
+  runWriterT (evalStateT (runExceptT ma) (initialTIMState stores))
 
 -- Machine exceptions
 
@@ -69,7 +70,7 @@ data Dump = Dump {
 -- Machine state
 
 data TIMState = TIMState {
-  tim_code_store :: CodeStore,
+  tim_code_stores :: [CodeStore],
   tim_curr_codeblock :: CodeBlock,
   tim_curr_frame :: FramePtr,
   tim_curr_data_frame :: FramePtr,
@@ -145,9 +146,9 @@ instance Pretty TIMState where
           then [ indent 2 "empty" ]
           else [ indent 2 (pretty closure) | closure <- reverse stack ]
 
-initialTIMState :: CodeStore -> TIMState
-initialTIMState code = TIMState {
-  tim_code_store = code,
+initialTIMState :: [CodeStore] -> TIMState
+initialTIMState stores = TIMState {
+  tim_code_stores = stores,
   tim_curr_codeblock = mempty,
   tim_curr_frame = NullP,
   tim_curr_data_frame = NullP,
@@ -170,10 +171,16 @@ finalTIMState st = isNullCodeBlock (tim_curr_codeblock st)
 -- Lookup the code of a compiled label
 lookupCodeBlock :: Name -> TIM CodeBlock
 lookupCodeBlock name = do
-  store <- gets tim_code_store
-  case lookupCodeStore name store of
-    Nothing -> throwTIMError ("lookupCodeBlock: variable " <> fromName name <> " not in the store")
-    Just code -> return code
+  stores <- gets tim_code_stores
+  let searchBlock store = (store_name store, ) <$> lookupCodeStore name store
+  case catMaybes (searchBlock <$> stores) of
+    [] -> do
+      throwTIMError ("lookupCodeBlock: block " <> fromName name <> " not in any store")
+    [(_, block)] -> do
+      return block
+    blocks -> do
+      let storeNames = Text.intercalate "," [ fromName store | (store, _) <- blocks ]
+      throwTIMError ("lookupCodeBlock: block " <> fromName name <> " defined in multiple stores:" <> storeNames)
 
 -- Set the code to execute next
 setCode :: CodeBlock -> TIM ()
@@ -190,6 +197,10 @@ fetchInstr = do
 nextInstr :: TIM ()
 nextInstr = modify' $ \st ->
   st { tim_curr_codeblock = snd (splitCodeBlock (tim_curr_codeblock st)) }
+
+-- Jump to a label
+jumpToLabel :: Label -> TIM ()
+jumpToLabel label = setCode [ EnterI (LabelM label) ]
 
 ----------------------------------------
 -- Argument stack
@@ -317,6 +328,17 @@ operateOnValueStack prim = do
     Just (args, rest) -> do
       res <- liftIO (prim_runner prim args)
       put st { tim_value_stack = Stack.push res rest }
+
+-- Pop booleans from the value stack used for conditional jumps
+
+popBoolFromValueStack :: TIM Bool
+popBoolFromValueStack = do
+  value <- popValueStack
+  case value of
+    BoolV b -> do
+      return b
+    _ -> do
+      throwTIMError "popBoolFromValueStack: top value is not boolean"
 
 -- Push/pop constructor tags
 
@@ -467,8 +489,8 @@ derefClosure mode = do
                   return closure
         _ -> do
           throwTIMError "derefClosure: dereferencing an argument offset requires an address frame pointer"
-    LabelM v -> do
-      code <- lookupCodeBlock v
+    LabelM label -> do
+      code <- lookupCodeBlock label
       return (mkClosure code curr_frame_ptr)
     ValueM value -> do
       return (valueClosure value)

@@ -5,6 +5,7 @@ module Language.Arepa.Compiler.Interpret
 import Language.TIM
 
 import Language.Arepa.Compiler.Monad
+import Language.Arepa.Compiler.IO
 
 ----------------------------------------
 -- Interpretion of translated modules
@@ -16,9 +17,11 @@ interpretCodeStore store = do
   entry <- lookupCompilerOption optEntryPoint
   stdin <- lookupCompilerOption optInterpretStdin
   stdout <- lookupCompilerOption optInterpretStdout
+  extraStores <- readExtraTIMCodeStores
   let fun = mkName entry
+  let stores = store : extraStores
   whenVerbose $ debug ("Interpreting code store [entry=" <> prettyPrint fun <> "]")
-  (res, trace) <- liftIO $ runTIM stdin stdout store $ invokeFunction fun []
+  (res, trace) <- liftIO $ runTIM stdin stdout stores $ invokeFunction fun []
   whenVerbose $ dump "Interpreter intermediate states" (prettyPrint trace)
   case res of
     Left err -> do
