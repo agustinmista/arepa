@@ -31,5 +31,7 @@ cabal.project.local~
 .ghc.environment.*
 # LLVM stuff
 *.ll
+# Arepa stuff
+*.tim
 # Development tools
 .vscode/
