@@ -1,0 +1,6 @@
+(module if_true
+  (val main
+    (print_int (if true 5 10)))
+
+  (fun print_int (x) (__prim_print_int__ x))
+)

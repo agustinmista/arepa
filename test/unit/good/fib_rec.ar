@@ -1,0 +1,27 @@
+(module fib_rec
+
+  (val main
+    (print_int (fib 12)))
+
+  (fun fib (n)
+    (if (< n 2)
+        n
+        (+ (fib (- n 1))
+           (fib (- n 2)))))
+
+  (fun < (x y)
+    (__prim_lt_int__ x y))
+
+  (fun - (x y)
+    (__prim_sub_int__ x y))
+
+  (fun + (x y)
+    (__prim_add_int__ x y))
+
+  (fun print_int (x)
+    (__prim_print_int__ x))
+
+  (fun trace_int (x)
+    (__prim_trace_int__ x))
+
+)

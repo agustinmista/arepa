@@ -1,0 +1,17 @@
+(module string_eq
+  (val main
+    (print_string
+      (let ((str1 "foo")
+            (str2 "bar"))
+        (<> (<> (compare str1 str2) "\n")
+        (<> (<> (compare str1 str1) "\n")
+                (compare str2 str2))))))
+
+  (fun compare (x y)
+    (let ((symb (if (string_eq x y) "==" "!=")))
+      (<> (<> x symb) y)))
+
+  (fun string_eq     (x y) (__prim_eq_string__      x y))
+  (fun <>            (x y) (__prim_concat_string__  x y))
+  (fun print_string  (x)   (__prim_print_string__   x))
+)
