@@ -143,7 +143,7 @@ registerExtern name = do
       return op
     Nothing -> do
       warning $ "Emitting implicit extern for " <> prettyPrint name
-      op <- IR.extern (mkFunctionName name) [] voidType
+      op <- IR.extern (mkBlockName name) [] voidType
       modify' $ \st -> st { cg_externs = Map.insert name op externs }
       whenVerbose $ debug ("Created a new global extern operand: " <> prettyPrint op)
       return op
@@ -204,8 +204,8 @@ emitRTS = do
     emitMain (mkName entry)
 
 emitMain :: MonadLLVM m => Name -> m ()
-emitMain name = do
-  void $ IR.function "main" [] LLVM.i32 $ \[] -> do
+emitMain name = void $ do
+  IR.function "main" [] LLVM.i32 $ \[] -> do
     callVoidRTS "tim_start" []
     fun <- lookupGlobalOperand name
     IR.call fun []
@@ -219,26 +219,31 @@ rtsFunctions = [
     ("tim_push_argument_int",      [intVType],              voidType),
     ("tim_push_argument_double",   [doubleVType],           voidType),
     ("tim_push_argument_string",   [stringVType],           voidType),
+    ("tim_push_argument_bool",     [boolVType],             voidType),
     ("tim_push_argument_label",    [funPtrType],            voidType),
     ("tim_push_argument_data",     [longType],              voidType),
     ("tim_push_value_int",         [intVType],              voidType),
     ("tim_push_value_double",      [doubleVType],           voidType),
     ("tim_push_value_string",      [stringVType],           voidType),
+    ("tim_push_value_bool",        [boolVType],             voidType),
     ("tim_push_value_data",        [tagVType],              voidType),
     ("tim_pop_value_int",          [],                      ptrType intVType),
     ("tim_pop_value_double",       [],                      ptrType doubleVType),
     ("tim_pop_value_string",       [],                      ptrType stringVType),
+    ("tim_pop_value_bool",         [],                      ptrType boolVType),
     ("tim_pop_value_data",         [],                      ptrType tagVType),
     ("tim_enter_argument",         [longType],              voidType),
     ("tim_enter_int",              [intVType],              voidType),
     ("tim_enter_double",           [doubleVType],           voidType),
     ("tim_enter_string",           [stringVType],           voidType),
+    ("tim_enter_bool",             [boolVType],             voidType),
     ("tim_enter_label",            [funPtrType],            voidType),
     ("tim_enter_data",             [longType],              voidType),
     ("tim_move_argument",          [longType, longType],    voidType),
     ("tim_move_int",               [longType, intVType],    voidType),
     ("tim_move_double",            [longType, doubleVType], voidType),
     ("tim_move_string",            [longType, stringVType], voidType),
+    ("tim_move_bool",              [longType, boolVType],   voidType),
     ("tim_move_label",             [longType, funPtrType],  voidType),
     ("tim_move_data",              [longType, longType],    voidType),
     ("tim_marker_push",            [longType],              voidType),
@@ -281,8 +286,8 @@ emitPrimitives = do
 registerGlobals :: MonadLLVM m => CodeStore -> m ()
 registerGlobals store = do
   whenVerbose $ debug "Registering global definitions"
-  forM_ (Map.keys (store_blocks store)) $ \name -> do
-    let mangled = mkFunctionName name
+  forM_ (codeStoreBlockNames store) $ \name -> do
+    let mangled = mkBlockName name
     let op = mkGlobalOperand funPtrType mangled
     registerGlobalOperand name op
 
@@ -290,14 +295,14 @@ registerGlobals store = do
 emitCodeStore :: MonadLLVM m => CodeStore -> m ()
 emitCodeStore store = do
   whenVerbose $ debug ("Emitting code store " <> prettyPrint (store_name store))
-  forM_ (Map.toList (store_blocks store)) $ \(name, code) -> do
+  forM_ (toList (store_blocks store)) $ \(name, code) -> do
     emitCodeBlock name code
 
 -- Code blocks
 emitCodeBlock :: MonadLLVM m => Name -> CodeBlock -> m ()
 emitCodeBlock name code = void $ do
   whenVerbose $ debug ("Emitting code block " <> prettyPrint name)
-  let funName = mkFunctionName name
+  let funName = mkBlockName name
   IR.function funName [] voidType $ \[] -> do
     mapM_ emitInstr (toList code)
 
@@ -319,6 +324,8 @@ emitInstr instr = do
     PushArgI (ValueM (StringV s)) -> do
       string <- registerString s
       callVoidRTS "tim_push_argument_string" [string]
+    PushArgI (ValueM (BoolV b)) -> do
+      callVoidRTS "tim_push_argument_bool" [mkBoolV b]
     PushArgI (ValueM value) -> do
       throwInternalError ("emitInstr: impossible! trying to push argument " <> prettyPrint value)
     PushArgI (LabelM name) -> do
@@ -336,6 +343,8 @@ emitInstr instr = do
     PushValueI (InlineM (StringV s)) -> do
       string <- registerString s
       callVoidRTS "tim_push_value_string" [string]
+    PushValueI (InlineM (BoolV b)) -> do
+      callVoidRTS "tim_push_value_bool" [mkBoolV b]
     PushValueI (InlineM value) -> do
       throwInternalError ("emitInstr: impossible! trying to push value " <> prettyPrint value)
     -- Markers
@@ -353,6 +362,8 @@ emitInstr instr = do
     EnterI (ValueM (StringV s)) -> do
       string <- registerString s
       callVoidRTS "tim_enter_value_string" [string]
+    EnterI (ValueM (BoolV b)) -> do
+      callVoidRTS "tim_enter_value_bool" [mkBoolV b]
     EnterI (ValueM value) -> do
       throwInternalError ("emitInstr: impossible! trying to enter " <> prettyPrint value)
     EnterI (LabelM name) -> do
@@ -370,6 +381,8 @@ emitInstr instr = do
     MoveI slot (ValueM (StringV s)) -> do
       string <- registerString s
       callVoidRTS "tim_move_string" [mkLong slot, string]
+    MoveI slot (ValueM (BoolV b)) -> do
+      callVoidRTS "tim_move_bool" [mkLong slot, mkBoolV b]
     MoveI _ (ValueM value) -> do
       throwInternalError ("emitInstr: impossible! trying to move " <> prettyPrint value)
     MoveI slot (LabelM name) -> do
@@ -397,6 +410,9 @@ emitInstr instr = do
         StringT -> do
           ptr <- callRTS "tim_pop_value_string" []
           IR.load ptr 0
+        BoolT -> do
+          ptr <- callRTS "tim_pop_value_bool" []
+          IR.load ptr 0
         ty -> do
           throwInternalError ("emitInstr: impossible! trying to pop a value of type " <> prettyPrint ty)
       -- Call the function
@@ -409,6 +425,8 @@ emitInstr instr = do
           callVoidRTS "tim_push_value_double" [res]
         StringT -> do
           callVoidRTS "tim_push_value_string" [res]
+        BoolT -> do
+          callVoidRTS "tim_push_value_bool" [res]
         VoidT -> do
           return ()
         ty -> do
@@ -434,6 +452,21 @@ emitInstr instr = do
       -- The default alternative simply calls the error handler
       errorAlt <- IR.block `named` "switch.error"
       callVoidRTS "tim_switch_error" [scrutTag]
+    -- Conditional instructions
+    CondI thLabel elLabel -> void $ mdo
+      IR.block `named` "cond.entry"
+      -- Pop and load the condition value
+      condPtr <- callRTS "tim_pop_value_bool" []
+      cond <- IR.load condPtr 0
+      -- Jump to the appropriate branch
+      IR.condBr cond thBlock elBlock
+      -- The code for each branch simply calls the corresponding function
+      thBlock <- IR.block `named` "cond.then"
+      thCode <- lookupGlobalOperand thLabel
+      IR.call thCode []
+      elBlock <- IR.block `named` "cond.else"
+      elCode <- lookupGlobalOperand elLabel
+      IR.call elCode []
 
 ----------------------------------------
 -- Low-level utilities
@@ -444,8 +477,8 @@ emitInstr instr = do
 mkGlobalStringName :: Int -> LLVM.Name
 mkGlobalStringName n = LLVM.mkName ("__string_" <> show n <> "__")
 
-mkFunctionName :: Name -> LLVM.Name
-mkFunctionName name = LLVM.mkName ("__block_" <> fromName name <> "__")
+mkBlockName :: Name -> LLVM.Name
+mkBlockName name = LLVM.mkName ("__block_" <> fromName name <> "__")
 
 mkConCodeName :: Tag -> LLVM.Name
 mkConCodeName tag = LLVM.mkName ("__con_" <> show tag <> "_code__")
@@ -469,6 +502,9 @@ mkIntV n = IR.int64 (fromIntegral n)
 
 mkDoubleV :: Double -> LLVM.Operand
 mkDoubleV = IR.double
+
+mkBoolV :: Bool -> LLVM.Operand
+mkBoolV b = IR.bit (if b then 1 else 0)
 
 mkTag :: Int -> LLVM.Operand
 mkTag n = IR.int64 (fromIntegral n)
@@ -501,6 +537,7 @@ valueType :: Type -> LLVM.Type
 valueType IntT    = intVType
 valueType DoubleT = doubleVType
 valueType StringT = stringVType
+valueType BoolT   = boolVType
 valueType VoidT   = voidVType
 valueType TagT    = tagVType
 
@@ -514,6 +551,9 @@ doubleVType = LLVM.double
 
 stringVType :: LLVM.Type
 stringVType = LLVM.ptr LLVM.i8
+
+boolVType :: LLVM.Type
+boolVType = LLVM.i1
 
 voidVType :: LLVM.Type
 voidVType = LLVM.void
