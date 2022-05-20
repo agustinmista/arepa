@@ -1,14 +1,10 @@
 module TIMTests where
 
-import Language.Arepa.Syntax(CoreDecl,CoreModule,Module(Module))
-import Language.Arepa.Compiler.Monad (testArepa)
-import Language.Arepa.Compiler.Parser (parseDecl)
-import Language.TIM.Syntax (CodeStore, Value (IntV))
-import Language.Arepa.Compiler.Translate (translateModule)
-import Data.Text.Lazy (unpack,Text)
-import Control.Monad.Compiler (prettyPrint)
-import qualified Data.Text.Lazy.IO as TIO
-import Language.TIM.Interpreter (runCodeStore)
+import Language.Arepa
+import Language.TIM
+
+import Data.Text.Lazy (unpack, Text)
+import Data.Text.Lazy.IO qualified as TIO
 
 k :: IO CoreDecl
 k = testArepa . parseDecl $ "(fun k (x y) x)"
