@@ -141,7 +141,7 @@ typeToHsType IntT    = TH.ConT ''Int
 typeToHsType DoubleT = TH.ConT ''Double
 typeToHsType StringT = TH.ConT ''CString
 typeToHsType BoolT   = TH.ConT ''Int
-typeToHsType VoidT   = TH.TupleT 0
+typeToHsType UnitT   = TH.ConT ''Int
 typeToHsType ty      = error ("typeToHsType: impossible type " <> show ty)
 
 typeToTypeConName :: Type -> TH.Name
@@ -149,8 +149,8 @@ typeToTypeConName IntT    = 'IntT
 typeToTypeConName DoubleT = 'DoubleT
 typeToTypeConName StringT = 'StringT
 typeToTypeConName BoolT   = 'BoolT
-typeToTypeConName VoidT   = 'VoidT
-typeToTypeConName TagT    = 'TagT
+typeToTypeConName UnitT   = 'UnitT
+typeToTypeConName ty      = error ("typeToTypeConName: impossible type " <> show ty)
 
 -- Marshalling arguments
 
@@ -159,28 +159,28 @@ marshallArgName IntT    = 'marshallArgInt
 marshallArgName DoubleT = 'marshallArgDouble
 marshallArgName StringT = 'marshallArgString
 marshallArgName BoolT   = 'marshallArgBool
-marshallArgName VoidT   = 'marshallArgVoid
+marshallArgName UnitT   = 'marshallArgUnit
 marshallArgName ty      = error ("marshallArgName: impossible type " <> show ty)
 
 marshallArgInt :: Value -> (Int -> IO a) -> IO a
 marshallArgInt (IntV n) = \f -> f n
-marshallArgInt _ = badMarshalling
+marshallArgInt value = const (badMarshalling IntT value)
 
 marshallArgDouble :: Value -> (Double -> IO a) -> IO a
 marshallArgDouble (DoubleV n) = \f -> f n
-marshallArgDouble _ = badMarshalling
+marshallArgDouble value = const (badMarshalling DoubleT value)
 
 marshallArgString :: Value -> (CString -> IO a) -> IO a
 marshallArgString (StringV text) = withCString (Text.unpack text)
-marshallArgString _ = badMarshalling
+marshallArgString value = const (badMarshalling StringT value)
 
 marshallArgBool :: Value -> (Int -> IO a) -> IO a
 marshallArgBool (BoolV b) = \f -> f (if b then 1 else 0)
-marshallArgBool _ = badMarshalling
+marshallArgBool value = const (badMarshalling BoolT value)
 
-marshallArgVoid :: Value -> (() -> IO a) -> IO a
-marshallArgVoid (VoidV u) = \f -> f u
-marshallArgVoid _ = badMarshalling
+marshallArgUnit :: Value -> (Int -> IO a) -> IO a
+marshallArgUnit (UnitV u) = \f -> f u
+marshallArgUnit value     = const (badMarshalling UnitT value)
 
 -- Marshalling results
 
@@ -189,7 +189,7 @@ marshallResName IntT    = 'marshallResInt
 marshallResName DoubleT = 'marshallResDouble
 marshallResName StringT = 'marshallResString
 marshallResName BoolT   = 'marshallResBool
-marshallResName VoidT   = 'marshallResVoid
+marshallResName UnitT   = 'marshallResUnit
 marshallResName ty      = error ("marshallResName: impossible type " <> show ty)
 
 marshallResInt :: IO Int -> IO Value
@@ -204,11 +204,12 @@ marshallResString m = m >>= (fmap (StringV . Text.pack) . peekCString)
 marshallResBool :: IO Int -> IO Value
 marshallResBool = fmap (BoolV . (/= 0))
 
-marshallResVoid :: IO () -> IO Value
-marshallResVoid = fmap VoidV
+marshallResUnit :: IO Int -> IO Value
+marshallResUnit = fmap UnitV
 
-badMarshalling :: a
-badMarshalling = error "bad marshalling during primitive operation"
+badMarshalling :: Type -> Value -> IO a
+badMarshalling ty value =
+  ioError (userError ("bad marshalling during primitive operation, expected " <> show ty <> ", got " <> show value))
 
 ----------------------------------------
 -- Prototype parser
@@ -265,7 +266,7 @@ type' = symbol "Int"    $> IntT
     <|> symbol "Double" $> DoubleT
     <|> symbol "String" $> StringT
     <|> symbol "Bool"   $> BoolT
-    <|> symbol "Void"   $> VoidT
+    <|> symbol "Unit"   $> UnitT
 
 arg :: Parser Type
 arg = do
