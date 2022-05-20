@@ -171,6 +171,8 @@ renameExpr expr = do
       renameIf cond th el
     CaseE scrut alts -> do
       renameCase scrut alts
+    SeqE e1 e2 -> do
+      renameSeq e1 e2
     _ -> do
       return expr
 
@@ -261,3 +263,12 @@ renameAlt alt = do
       body' <- inLocalScopeWith subst $ do
         renameExpr body
       return (DefA var' body')
+
+-- Sequential expressions
+
+renameSeq :: MonadArepa m => CoreExpr -> CoreExpr -> Renamer m CoreExpr
+renameSeq e1 e2 = do
+  whenVerbose $ dump "Renaming sequential expression" (e1, e2)
+  e1' <- renameExpr e1
+  e2' <- renameExpr e2
+  return (SeqE e1' e2')

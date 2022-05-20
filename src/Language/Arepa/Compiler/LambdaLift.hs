@@ -93,24 +93,20 @@ liftDecl decl = do
 liftExpr :: MonadArepa m => CoreExpr -> Lifter m (Set Name, CoreExpr)
 liftExpr expr = do
   case expr of
-    -- Variables
     VarE name -> do
       liftVar name
-    -- Function applications
     AppE fun op -> do
       liftApp fun op
-    -- Lambda expressions
     LamE vars body -> do
       liftLambda vars body
-    -- Let expressions
     LetE isRec binds body -> do
       liftLet isRec binds body
-    -- Conditional expressions
     IfE cond th el -> do
       liftIf cond th el
-    -- Case expressions
     CaseE scrut alts -> do
       liftCase scrut alts
+    SeqE e1 e2 -> do
+      liftSeq e1 e2
     _ -> do
       return (Set.empty, expr)
 
@@ -174,13 +170,14 @@ liftIf cond th el = do
 
 liftCase :: MonadArepa m => CoreExpr -> [CoreAlt] -> Lifter m (Set Name, CoreExpr)
 liftCase scrut alts = do
+  whenVerbose $ dump "Lambda lifting case expression" (scrut, alts)
   (fvsScrut, scrut') <- liftExpr scrut
   (fvsAlts,  alts')  <- unzip <$> mapM liftAlt alts
   return (fvsScrut <> mconcat fvsAlts, CaseE scrut' alts')
 
 liftAlt :: MonadArepa m => CoreAlt -> Lifter m (Set Name, CoreAlt)
 liftAlt alt = do
-  whenVerbose $ dump "Lambda lifting alternative" alt
+  whenVerbose $ dump "Lambda lifting case alternative" alt
   case alt of
     ConA con vars body -> do
       (fvsBody, body') <- liftExpr body
@@ -188,6 +185,15 @@ liftAlt alt = do
     DefA var body -> do
       (fvsBody, body') <- liftExpr body
       return (fvsBody `closedOver` [var], DefA var body')
+
+-- Sequential expressions
+
+liftSeq :: MonadArepa m => CoreExpr -> CoreExpr -> Lifter m (Set Name, CoreExpr)
+liftSeq e1 e2 = do
+  whenVerbose $ dump "Lambda lifting sequential expression" (e1, e2)
+  (fvsE1, e1') <- liftExpr e1
+  (fvsE2, e2') <- liftExpr e2
+  return (fvsE1 <> fvsE2, SeqE e1' e2')
 
 ----------------------------------------
 -- Utilities
