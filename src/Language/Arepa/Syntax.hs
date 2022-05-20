@@ -88,6 +88,7 @@ data Expr a =
   | LetE Bool [(a, Expr a)] (Expr a) -- ^ Let expressions
   | IfE (Expr a) (Expr a) (Expr a)   -- ^ If expressions
   | CaseE (Expr a) [Alt a]           -- ^ Case expressions
+  | SeqE (Expr a) (Expr a)           -- ^ Strict const
   deriving (Show, Read, Eq, Ord, Functor)
 
 type CoreExpr = Expr Name
@@ -122,6 +123,9 @@ instance Pretty CoreExpr where
       [ "case" <+> pretty expr
       , indent 2 $ align $ vsep $ pretty <$> alts
       ]
+  pretty (SeqE e1 e2) =
+    parens $
+      pretty e1 <+> pretty e2
 
 ----------------------------------------
 -- Expression construction

@@ -103,7 +103,7 @@ atomE = label "atomic expression" $ do
 parenE :: MonadArepa m => Parser m CoreExpr
 parenE = label "s-expression" $ do
   parens $ do
-    try lamE <|> try letE <|> try ifE <|> try caseE <|> appE
+    try lamE <|> try letE <|> try ifE <|> try caseE <|> try seqE <|> appE
 
 appE :: MonadArepa m => Parser m CoreExpr
 appE = do
@@ -149,6 +149,13 @@ caseE = do
   scrut <- expr
   alts <- some alt
   return (CaseE scrut alts)
+
+seqE :: MonadArepa m => Parser m CoreExpr
+seqE = do
+  keyword "seq"
+  e1 <- expr
+  e2 <- expr
+  return (SeqE e1 e2)
 
 -- Alternatives
 
@@ -262,7 +269,7 @@ identifier = Lexer.lexeme whitespace $ do
 -- Parsing keywords
 
 reserved :: [String]
-reserved = ["module", "lambda", "let", "letrec", "if", "true", "false", "case", "unit"]
+reserved = ["module", "lambda", "let", "letrec", "if", "true", "false", "case", "unit", "seq"]
 
 keyword :: MonadArepa m => Text -> Parser m ()
 keyword kw = void $ Lexer.lexeme whitespace $ do
