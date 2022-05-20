@@ -21,7 +21,8 @@ compiler :: MonadArepa m => m ()
 compiler = handleCompilerError printCompilerError $ do
   text  <- readArepaSourceFile
   psMod <- parse text
-  rnMod <- rename psMod
+  lnMod <- lint psMod
+  rnMod <- rename lnMod
   llMod <- lambdaLift rnMod
   tcMod <- typecheck llMod
   store <- translate tcMod
@@ -35,6 +36,12 @@ parse text = do
   whenDump AST $ dump "Parsed AST" (prettyShow psMod)
   whenDump PPR $ dump "Pretty-printed AST" (prettyPrint psMod)
   return psMod
+
+lint :: MonadArepa m => CoreModule -> m CoreModule
+lint psMod = do
+  lnMod <- lintModule psMod
+  whenDump LINT $ dump "Linted module" (prettyPrint lnMod)
+  return lnMod
 
 rename :: MonadArepa m => CoreModule -> m CoreModule
 rename psMod = do
