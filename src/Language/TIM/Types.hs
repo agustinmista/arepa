@@ -11,7 +11,7 @@ data Type =
   | DoubleT
   | StringT
   | BoolT
-  | VoidT
+  | UnitT
   | TagT
   deriving (Show, Eq, Read, Ord)
 
@@ -20,5 +20,5 @@ instance Pretty Type where
   pretty DoubleT = "Double"
   pretty StringT = "String"
   pretty BoolT   = "Bool"
-  pretty VoidT   = "Void"
+  pretty UnitT   = "Unit"
   pretty TagT    = "Tag"
