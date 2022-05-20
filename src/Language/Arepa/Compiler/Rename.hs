@@ -206,27 +206,29 @@ renameApp fun op = do
 renameLambda :: MonadArepa m => [Name] -> CoreExpr -> Renamer m CoreExpr
 renameLambda args body = do
   whenVerbose $ dump "Renaming lambda expression" (args, body)
-  args' <- mapM renameUnique args
-  let subst = zip args args'
-  body' <- inLocalScopeWith subst $ do
-    renameExpr body
-  return (LamE args' body')
+  inLocalScope $ do
+    args' <- mapM renameUnique args
+    let subst = zip args args'
+    body' <- inLocalScopeWith subst $ do
+      renameExpr body
+    return (LamE args' body')
 
 -- Let expressions
 
 renameLet :: MonadArepa m => Bool -> [(Name, CoreExpr)] -> CoreExpr -> Renamer m CoreExpr
 renameLet isRec binds body = do
   whenVerbose $ dump "Renaming let expression" (isRec, binds, body)
-  let (letVars, letRhss) = unzip binds
-  letVars' <- mapM renameUnique letVars
-  let subst = zip letVars letVars'
-  letRhss' <- forM letRhss $ \expr -> do
-    inLocalScopeWith subst $ do
-      renameExpr expr
-  let binds' = zip letVars' letRhss'
-  body' <- inLocalScopeWith subst $
-    renameExpr body
-  return (LetE isRec binds' body')
+  inLocalScope $ do
+    let (letVars, letRhss) = unzip binds
+    letVars' <- mapM renameUnique letVars
+    let subst = zip letVars letVars'
+    letRhss' <- forM letRhss $ \expr -> do
+      inLocalScopeWith subst $ do
+        renameExpr expr
+    let binds' = zip letVars' letRhss'
+    body' <- inLocalScopeWith subst $
+      renameExpr body
+    return (LetE isRec binds' body')
 
 -- Conditional expressions
 
