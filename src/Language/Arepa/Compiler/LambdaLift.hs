@@ -182,9 +182,12 @@ liftAlt :: MonadArepa m => CoreAlt -> Lifter m (Set Name, CoreAlt)
 liftAlt alt = do
   whenVerbose $ dump "Lambda lifting alternative" alt
   case alt of
-    Alt con vars body -> do
-      (fvsAlt, body') <- liftExpr body
-      return (fvsAlt `closedOver` vars, Alt con vars body')
+    ConA con vars body -> do
+      (fvsBody, body') <- liftExpr body
+      return (fvsBody `closedOver` vars, ConA con vars body')
+    DefA var body -> do
+      (fvsBody, body') <- liftExpr body
+      return (fvsBody `closedOver` [var], DefA var body')
 
 ----------------------------------------
 -- Utilities
