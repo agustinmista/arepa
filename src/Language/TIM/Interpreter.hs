@@ -103,9 +103,9 @@ stepTIM instr = do
         setCurrentDataFramePtr =<< getCurrentFramePtr
         pushConTagToValueStack tag
         returnToContinuation
-    SwitchI alts -> do
+    SwitchI alts def -> do
       tag <- popConTagFromValueStack
-      jumpToAlternative tag alts
+      jumpToAlternative tag alts def
     CondI th el -> do
       ifM popBoolFromValueStack
         (jumpToLabel th)
@@ -159,11 +159,15 @@ handlePartialApp = void $ do
   let updateClosure c = mkClosure (closure_code c) newPartialFrame
   manipulateFramePtr framePtr (manipulateFrame index updateClosure)
 
--- Jump to a corresponding switch branch
-jumpToAlternative :: Tag -> Map Tag Label -> TIM ()
-jumpToAlternative tag alts = do
+-- Jump to a switch branch, with an optional default branch
+jumpToAlternative :: Tag -> Map Tag Label -> Maybe Label -> TIM ()
+jumpToAlternative tag alts def = do
   case Map.lookup tag alts of
     Nothing -> do
-      throwTIMError ("jumpToAlternative: non-exhaustive alternatives for tag " <> Text.pack (show tag))
+      case def of
+        Nothing -> do
+          throwTIMError ("jumpToAlternative: non-exhaustive alternatives for tag " <> Text.pack (show tag))
+        Just label -> do
+          jumpToLabel label
     Just label -> do
       jumpToLabel label
