@@ -54,19 +54,21 @@ Double __prim_pi__();
 // IO
 String __prim_read_line__();
 String __prim_read_file__(String);
-Void __prim_write_file__(String, String);
+Unit __prim_write_file__(String, String);
 
 // Printing
-Void __prim_print_int__(Int);
-Void __prim_print_double__(Double);
-Void __prim_print_string__(String);
-Void __prim_print_bool__(Bool);
+Unit __prim_print_int__(Int);
+Unit __prim_print_double__(Double);
+Unit __prim_print_string__(String);
+Unit __prim_print_bool__(Bool);
+Unit __prim_print_unit__(Unit);
 
 // Debugging
 Int    __prim_trace_int__(Int);
 Double __prim_trace_double__(Double);
 String __prim_trace_string__(String);
 Bool   __prim_trace_bool__(Bool);
+Unit   __prim_trace_unit__(Unit);
 
 // END PROTOTYPES
 

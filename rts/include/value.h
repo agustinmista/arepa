@@ -9,8 +9,10 @@ typedef long   Int;
 typedef double Double;
 typedef char*  String;
 typedef long   Bool;
-typedef void   Void;
+typedef long   Unit;
 
 const char* bool_str(Bool b);
+
+const long unit;
 
 #endif
