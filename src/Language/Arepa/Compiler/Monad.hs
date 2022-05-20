@@ -76,6 +76,11 @@ whenDump flag = whenM (hasDumpEnabled flag)
 throwParserError :: MonadArepa m => ParserError -> m a
 throwParserError err = throwCompilerError (ParserError err)
 
+throwLinterError :: MonadArepa m => Text -> m a
+throwLinterError err = do
+  path <- getInputPath
+  throwCompilerError (LinterError (path, err))
+
 throwRenamerError :: MonadArepa m => Text -> m a
 throwRenamerError err = do
   path <- getInputPath
