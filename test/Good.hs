@@ -47,7 +47,7 @@ runInterpreterHook arepaFile = do
         optStrict = True
       }
   runArepa' opts $ do
-    readArepaInput
+    readArepaSourceFile
       >>= parseModule
       >>= renameModule
       >>= typeCheckModule
@@ -68,7 +68,7 @@ runCompilerHook arepaFile = do
         optStrict = True
       }
   runArepa' opts $ do
-    readArepaInput
+    readArepaSourceFile
       >>= parseModule
       >>= renameModule
       >>= typeCheckModule
@@ -76,7 +76,7 @@ runCompilerHook arepaFile = do
       >>= translateModule
       >>= emitLLVM
       >>= renderLLVM
-      >>= writeLLVMOutput
+      >>= writeLLVMModule
     mkClangArgs
       >>= runClang
   let stdinFile = replaceExtension arepaFile "stdin"

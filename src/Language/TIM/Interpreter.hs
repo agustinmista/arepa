@@ -25,9 +25,9 @@ import Language.TIM.Interpreter.Monad
 
 -- Like `runTIM` but loads the code store and invokes main.
 -- For debugging purposes mostly.
-runCodeStore :: FilePath -> FilePath -> CodeStore -> IO [Value]
-runCodeStore stdin stdout store = do
-  (res, _) <- runTIM stdin stdout store $ do
+runCodeStore :: FilePath -> FilePath -> [CodeStore] -> IO [Value]
+runCodeStore stdin stdout stores = do
+  (res, _) <- runTIM stdin stdout stores $ do
     invokeFunction "main" []
   case res of
     Left err     -> error (show err)
@@ -106,6 +106,10 @@ stepTIM instr = do
     SwitchI alts -> do
       tag <- popConTagFromValueStack
       jumpToAlternative tag alts
+    CondI th el -> do
+      ifM popBoolFromValueStack
+        (jumpToLabel th)
+        (jumpToLabel el)
 
 ----------------------------------------
 -- TIM Operations
@@ -162,4 +166,4 @@ jumpToAlternative tag alts = do
     Nothing -> do
       throwTIMError ("jumpToAlternative: non-exhaustive alternatives for tag " <> Text.pack (show tag))
     Just label -> do
-      setCode [ EnterI (LabelM label) ]
+      jumpToLabel label

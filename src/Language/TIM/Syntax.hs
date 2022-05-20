@@ -42,9 +42,6 @@ emptyCodeStore name = CodeStore {
   store_blocks = mempty
 }
 
-codeStoreName :: CodeStore -> Name
-codeStoreName = store_name
-
 lookupCodeStore :: Name -> CodeStore -> Maybe CodeBlock
 lookupCodeStore v store = Map.lookup v (store_blocks store)
 
@@ -52,6 +49,9 @@ insertCodeStore :: Name -> CodeBlock -> CodeStore -> CodeStore
 insertCodeStore v code store = store {
   store_blocks = Map.insert v code (store_blocks store)
 }
+
+codeStoreBlockNames :: CodeStore -> [Name]
+codeStoreBlockNames store = Map.keys (store_blocks store)
 
 -- CodeBlock
 
@@ -92,6 +92,7 @@ data Instr =
   | CallI Name
   | DataI Tag
   | SwitchI (Map Tag Label)
+  | CondI Label Label
   deriving (Show, Read, Eq, Ord)
 
 type Label = Name
@@ -124,6 +125,8 @@ instance Pretty Instr where
       [ "tag" <+> pretty tag <+> "=>" <+> pretty mode
       | (tag, mode) <- Map.toList alts
       ]))
+  pretty (CondI th el) =
+    "cond" <+> pretty th <+> pretty el
 
 -- Argument addressing modes
 
@@ -152,16 +155,19 @@ data Value =
     IntV Int
   | DoubleV Double
   | StringV Text
+  | BoolV Bool
   | VoidV ()
   | TagV Tag
   deriving (Show, Read, Eq, Ord)
 
 instance Pretty Value where
-  pretty (IntV n)    = angles (pretty n)
-  pretty (DoubleV n) = angles (pretty n)
-  pretty (StringV s) = angles (pretty (show s))
-  pretty (VoidV _)   = angles "void"
-  pretty (TagV n)   =  angles ("tag" <+> pretty n)
+  pretty (IntV n)      = angles (pretty n)
+  pretty (DoubleV n)   = angles (pretty n)
+  pretty (StringV s)   = angles (pretty (show s))
+  pretty (BoolV True)  = angles "true"
+  pretty (BoolV False) = angles "false"
+  pretty (VoidV _)     = angles "void"
+  pretty (TagV n)      =  angles ("tag" <+> pretty n)
 
 -- Values addressing modes
 
@@ -182,5 +188,6 @@ typeOfValue :: Value -> Type
 typeOfValue IntV    {} = IntT
 typeOfValue DoubleV {} = DoubleT
 typeOfValue StringV {} = StringT
+typeOfValue BoolV   {} = BoolT
 typeOfValue VoidV   {} = VoidT
 typeOfValue TagV    {} = TagT

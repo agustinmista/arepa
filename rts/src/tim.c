@@ -181,6 +181,13 @@ closure_t* string_closure(String value) {
     return make_closure(*tim_value_code, string_ptr_as_frame);
 }
 
+closure_t* bool_closure(Bool value) {
+    debug_msg("Creating new bool value closure for %s", bool_str(value));
+    Bool* bool_ptr_as_frame = rts_malloc(sizeof(Bool));
+    *bool_ptr_as_frame = value;
+    return make_closure(*tim_value_code, bool_ptr_as_frame);
+}
+
 closure_t* label_closure(void (*code)()) {
     debug_msg("Creating new label closure for code at %p", code);
     return make_closure(code, current_frame);
@@ -261,6 +268,11 @@ void tim_push_argument_string(String value) {
     return dump_push(argument_stack, string_closure(value));
 }
 
+void tim_push_argument_bool(Bool value) {
+    debug_msg("Pushing bool value %s into the argument stack", bool_str(value));
+    return dump_push(argument_stack, bool_closure(value));
+}
+
 void tim_push_argument_label(void (*code)()) {
     debug_msg("Pushing function at %p into the argument stack", code);
     return dump_push(argument_stack, label_closure(code));
@@ -288,6 +300,13 @@ void tim_push_value_double(Double value) {
 void tim_push_value_string(String value) {
     debug_msg("Pushing string \"%s\" into the value stack", value);
     String* ptr = rts_malloc(sizeof(String));
+    *ptr = value;
+    return dump_push(value_stack, ptr);
+}
+
+void tim_push_value_bool(Bool value) {
+    debug_msg("Pushing bool %s into the value stack", bool_str(value));
+    Bool* ptr = rts_malloc(sizeof(Bool));
     *ptr = value;
     return dump_push(value_stack, ptr);
 }
@@ -323,6 +342,12 @@ String* tim_pop_value_string() {
     return ptr;
 }
 
+Bool* tim_pop_value_bool() {
+    Bool* ptr = tim_pop_value();
+    debug_msg("Popped bool value %s from the value stack", *ptr ? "true" : "false");
+    return ptr;
+}
+
 tag_t* tim_pop_value_data() {
     tag_t* ptr = tim_pop_value();
     debug_msg("Popped data constructor tag %lu from the value stack", *ptr);
@@ -348,6 +373,11 @@ void tim_enter_double(Double value) {
 void tim_enter_string(String value) {
     debug_msg("Entering string value closure for \"%s\"", value);
     return tim_enter_closure(string_closure(value));
+}
+
+void tim_enter_bool(Bool value) {
+    debug_msg("Entering bool value closure for %s", bool_str(value));
+    return tim_enter_closure(bool_closure(value));
 }
 
 void tim_enter_label(void (*code)()) {
@@ -378,6 +408,11 @@ void tim_move_double(long offset, Double value) {
 void tim_move_string(long offset, String value) {
     debug_msg("Moving string value \"%s\" to current frame slot $%li", value, offset);
     return tim_update_closure(offset, string_closure(value));
+}
+
+void tim_move_bool(long offset, Bool value) {
+    debug_msg("Moving bool value %s to current frame slot $%li", bool_str(value), offset);
+    return tim_update_closure(offset, bool_closure(value));
 }
 
 void tim_move_label(long offset, void (*code)()) {
@@ -447,5 +482,11 @@ String get_string_result() {
     String string_result = *((String*) dump_peek(value_stack));
     debug_msg("Peeked string \"%s\" from the value stack", string_result);
     return string_result;
+}
+
+Bool get_bool_result() {
+    Bool bool_result = *((Bool*) dump_peek(value_stack));
+    debug_msg("Peeked bool %s from the value stack", bool_result ? "true" : "false");
+    return bool_result;
 }
 

@@ -86,7 +86,7 @@ funD :: MonadArepa m => Parser m CoreDecl
 funD = do
   keyword "fun"
   nm <- name
-  args <- parens $ many name
+  args <- parens $ some name
   body <- expr
   return (FunD nm args body)
 
@@ -103,7 +103,7 @@ atomE = label "atomic expression" $ do
 parenE :: MonadArepa m => Parser m CoreExpr
 parenE = label "s-expression" $ do
   parens $ do
-    try lamE <|> try letE <|> try caseE <|> appE
+    try lamE <|> try letE <|> try ifE <|> try caseE <|> appE
 
 appE :: MonadArepa m => Parser m CoreExpr
 appE = do
@@ -129,11 +129,19 @@ lamE = do
 
 letE :: MonadArepa m => Parser m CoreExpr
 letE = do
-  isRec <- try (symbol "letrec" $> True)
-           <|>  symbol "let"    $> False
-  binds <- parens $ many $ parens $ (,) <$> name <*> expr
+  isRec <- try (keyword "letrec" $> True)
+           <|>  keyword "let"    $> False
+  binds <- parens $ some $ parens $ (,) <$> name <*> expr
   body <- expr
   return (LetE isRec binds body)
+
+ifE :: MonadArepa m => Parser m CoreExpr
+ifE = do
+  keyword "if"
+  cond <- expr
+  th <- expr
+  el <- expr
+  return (IfE cond th el)
 
 caseE :: MonadArepa m => Parser m CoreExpr
 caseE = do
@@ -155,7 +163,7 @@ alt = label "case alternative" $ do
 
 lit :: MonadArepa m => Parser m Lit
 lit = label "literal" $ do
-  try doubleL <|> intL <|> stringL
+  try doubleL <|> intL <|> stringL <|> boolL
 
 intL :: MonadArepa m => Parser m Lit
 intL = do
@@ -169,6 +177,10 @@ doubleL = do
 
 stringL :: MonadArepa m => Parser m Lit
 stringL = StringL <$> stringLiteral
+
+boolL :: MonadArepa m => Parser m Lit
+boolL = (keyword "true" $>  BoolL True)
+    <|> (keyword "false" $> BoolL False)
 
 -- Data constructors
 
@@ -225,7 +237,7 @@ identifier = Lexer.lexeme whitespace $ do
 -- Parsing keywords
 
 reserved :: [String]
-reserved = ["module", "lambda", "let", "letrec", "case"]
+reserved = ["module", "lambda", "let", "letrec", "if", "true", "false", "case"]
 
 keyword :: MonadArepa m => Text -> Parser m ()
 keyword kw = void $ Lexer.lexeme whitespace $ do

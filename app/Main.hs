@@ -19,7 +19,7 @@ main = do
 
 compiler :: MonadArepa m => m ()
 compiler = handleCompilerError printCompilerError $ do
-  text  <- readArepaInput
+  text  <- readArepaSourceFile
   psMod <- parse text
   rnMod <- rename psMod
   llMod <- lambdaLift rnMod
@@ -56,6 +56,7 @@ translate :: MonadArepa m => CoreModule -> m CodeStore
 translate tcMod = do
   store <- translateModule tcMod
   whenDump TIM $ dump "TIM code store" (prettyPrint store)
+  writeTIMCodeStore store
   return store
 
 interpret :: MonadArepa m => CodeStore -> m ()
@@ -67,7 +68,7 @@ codegen store = do
   llvm <- emitLLVM store
   text <- renderLLVM llvm
   whenDump LLVM $ dump "Emitted LLVM" text
-  writeLLVMOutput text
+  writeLLVMModule text
 
 link :: MonadArepa m => m ()
 link = unlessM hasLinkingDisabled $ do

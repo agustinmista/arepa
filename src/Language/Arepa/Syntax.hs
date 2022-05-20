@@ -84,6 +84,7 @@ data Expr a =
   | AppE (Expr a) (Expr a)           -- ^ Function application
   | LamE [a] (Expr a)                -- ^ Lambda expressions
   | LetE Bool [(a, Expr a)] (Expr a) -- ^ Let expressions
+  | IfE (Expr a) (Expr a) (Expr a)   -- ^ If expressions
   | CaseE (Expr a) [Alt a]           -- ^ Case expressions
   deriving (Show, Read, Eq, Ord, Functor)
 
@@ -108,6 +109,11 @@ instance Pretty CoreExpr where
       [ (if isRec then "letrec" else "let") <+>
           parens (align $ vsep $ [ parens (pretty v <+> pretty e) | (v, e) <- binds ])
       , indent 2 (pretty expr)
+      ]
+  pretty (IfE cond th el) =
+    parens $ vsep
+      [ "if" <+> pretty cond
+      , indent 2 $ align $ vsep [ pretty th, pretty el ]
       ]
   pretty (CaseE expr alts) =
     parens $ vsep
@@ -188,12 +194,15 @@ data Lit =
     IntL Int
   | DoubleL Double
   | StringL Text
+  | BoolL Bool
   deriving (Show, Eq, Read, Ord)
 
 instance Pretty Lit where
-  pretty (IntL n)    = pretty n
-  pretty (DoubleL n) = pretty n
-  pretty (StringL s) = pretty (show s)
+  pretty (IntL n)      = pretty n
+  pretty (DoubleL n)   = pretty n
+  pretty (StringL s)   = pretty (show s)
+  pretty (BoolL True)  = "true"
+  pretty (BoolL False) = "false"
 
 ----------------------------------------
 -- Data constructors

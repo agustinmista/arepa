@@ -140,6 +140,7 @@ typeToHsType :: Type -> TH.Type
 typeToHsType IntT    = TH.ConT ''Int
 typeToHsType DoubleT = TH.ConT ''Double
 typeToHsType StringT = TH.ConT ''CString
+typeToHsType BoolT   = TH.ConT ''Int
 typeToHsType VoidT   = TH.TupleT 0
 typeToHsType ty      = error ("typeToHsType: impossible type " <> show ty)
 
@@ -147,6 +148,7 @@ typeToTypeConName :: Type -> TH.Name
 typeToTypeConName IntT    = 'IntT
 typeToTypeConName DoubleT = 'DoubleT
 typeToTypeConName StringT = 'StringT
+typeToTypeConName BoolT   = 'BoolT
 typeToTypeConName VoidT   = 'VoidT
 typeToTypeConName TagT    = 'TagT
 
@@ -156,6 +158,7 @@ marshallArgName :: Type -> TH.Name
 marshallArgName IntT    = 'marshallArgInt
 marshallArgName DoubleT = 'marshallArgDouble
 marshallArgName StringT = 'marshallArgString
+marshallArgName BoolT   = 'marshallArgBool
 marshallArgName VoidT   = 'marshallArgVoid
 marshallArgName ty      = error ("marshallArgName: impossible type " <> show ty)
 
@@ -171,6 +174,10 @@ marshallArgString :: Value -> (CString -> IO a) -> IO a
 marshallArgString (StringV text) = withCString (Text.unpack text)
 marshallArgString _ = badMarshalling
 
+marshallArgBool :: Value -> (Int -> IO a) -> IO a
+marshallArgBool (BoolV b) = \f -> f (if b then 1 else 0)
+marshallArgBool _ = badMarshalling
+
 marshallArgVoid :: Value -> (() -> IO a) -> IO a
 marshallArgVoid (VoidV u) = \f -> f u
 marshallArgVoid _ = badMarshalling
@@ -181,6 +188,7 @@ marshallResName :: Type -> TH.Name
 marshallResName IntT    = 'marshallResInt
 marshallResName DoubleT = 'marshallResDouble
 marshallResName StringT = 'marshallResString
+marshallResName BoolT   = 'marshallResBool
 marshallResName VoidT   = 'marshallResVoid
 marshallResName ty      = error ("marshallResName: impossible type " <> show ty)
 
@@ -192,6 +200,9 @@ marshallResDouble = fmap DoubleV
 
 marshallResString :: IO CString -> IO Value
 marshallResString m = m >>= (fmap (StringV . Text.pack) . peekCString)
+
+marshallResBool :: IO Int -> IO Value
+marshallResBool = fmap (BoolV . (/= 0))
 
 marshallResVoid :: IO () -> IO Value
 marshallResVoid = fmap VoidV
@@ -253,6 +264,7 @@ type' :: Parser Type
 type' = symbol "Int"    $> IntT
     <|> symbol "Double" $> DoubleT
     <|> symbol "String" $> StringT
+    <|> symbol "Bool"   $> BoolT
     <|> symbol "Void"   $> VoidT
 
 arg :: Parser Type

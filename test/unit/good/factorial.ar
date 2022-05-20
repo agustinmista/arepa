@@ -1,0 +1,26 @@
+(module factorial
+
+  (val main
+    (print_int (factorial 5)))
+
+  (fun factorial (n)
+    (if (trace_bool (= n 0))
+        1
+        (* n (factorial (- n 1)))))
+
+  (fun = (x y)
+    (__prim_eq_int__ x y))
+
+  (fun * (x y)
+    (__prim_mul_int__ x y))
+
+  (fun - (x y)
+    (__prim_sub_int__ x y))
+
+  (fun print_int (x)
+    (__prim_print_int__ x))
+
+  (fun trace_bool (x)
+    (__prim_trace_bool__ x))
+
+)

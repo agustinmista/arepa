@@ -1,0 +1,56 @@
+(module fib_lazy
+
+  (val main
+    (print_int (! fibs 12)))
+
+  (val fibs
+    ({1,2} 0
+      ({1,2} 1
+        (zipWith +
+          fibs
+          (tail fibs)))))
+
+  ;; {0,0} NIL
+  ;; {1,2} CONS
+
+  (fun ! (xs n)
+    (if (= 0 n)
+        (head xs)
+        (! (tail xs) (- n 1))))
+
+  (fun take (n xs)
+    (if (= n 0) {0,0}
+        (case xs
+          (({0,0})      {0,0})
+          (({1,2} y ys) ({1,2} y (take (- n 1) ys))))))
+
+  (fun zipWith (f l1 l2)
+    (case l1
+      (({0,0}) {0,0})
+      (({1,2} x xs)
+        (case l2
+          (({0,0}) {0,0})
+          (({1,2} y ys)
+            ({1,2} (f x y) (zipWith f xs ys)))))))
+
+  (fun head (xs)
+    (case xs
+      (({1,2} y ys) y)))
+
+  (fun tail (xs)
+    (case xs
+      (({1,2} y ys) ys)))
+
+  (fun = (x y)
+    (__prim_eq_int__ x y))
+
+  (fun - (x y)
+    (__prim_sub_int__ x y))
+
+  (fun + (x y)
+    (__prim_add_int__ x y))
+
+  (fun print_int (x)
+    (__prim_print_int__ x))
+
+)
