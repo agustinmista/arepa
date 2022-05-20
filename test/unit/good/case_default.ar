@@ -1,0 +1,16 @@
+(module case_default
+
+  (val main
+    (print_int (foo {3,0})))
+
+  (fun foo (x)
+    (case x
+      ({1,0} 1)
+      ({2,0} 2)
+      (y     999)
+    ))
+
+  (fun print_int (x)
+    (__prim_print_int__ x))
+
+)
