@@ -49,6 +49,7 @@ runInterpreterHook arepaFile = do
   runArepa' opts $ do
     readArepaSourceFile
       >>= parseModule
+      >>= lintModule
       >>= renameModule
       >>= typeCheckModule
       >>= lambdaLiftModule
@@ -70,6 +71,7 @@ runCompilerHook arepaFile = do
   runArepa' opts $ do
     readArepaSourceFile
       >>= parseModule
+      >>= lintModule
       >>= renameModule
       >>= typeCheckModule
       >>= lambdaLiftModule
