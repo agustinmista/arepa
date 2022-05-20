@@ -1,4 +1,4 @@
-module Language.Arepa.Compiler.Parser
+module Language.Arepa.Compiler.Parse
   ( Parser
   , parseModule
   , parseDecl
@@ -147,7 +147,7 @@ caseE :: MonadArepa m => Parser m CoreExpr
 caseE = do
   keyword "case"
   scrut <- expr
-  alts <- many alt
+  alts <- some alt
   return (CaseE scrut alts)
 
 -- Alternatives
@@ -155,15 +155,37 @@ caseE = do
 alt :: MonadArepa m => Parser m CoreAlt
 alt = label "case alternative" $ do
   parens $ do
-    (c, vars) <- parens $ (,) <$> con <*> many name
-    e <- expr
-    return (Alt c vars e)
+    conA <|> defA
+
+conA :: MonadArepa m => Parser m CoreAlt
+conA = do
+  (c, vars) <- nullC <|> appC
+  e <- expr
+  return (ConA c vars e)
+
+nullC :: MonadArepa m => Parser m (Con, [Name])
+nullC = do
+  c <- con
+  return (c, [])
+
+appC :: MonadArepa m => Parser m (Con, [Name])
+appC = do
+  parens $ do
+    c <- con
+    vs <- many name
+    return (c, vs)
+
+defA :: MonadArepa m => Parser m CoreAlt
+defA = do
+  v <- name
+  e <- expr
+  return (DefA v e)
 
 -- Literals
 
 lit :: MonadArepa m => Parser m Lit
 lit = label "literal" $ do
-  try doubleL <|> intL <|> stringL <|> boolL
+  try doubleL <|> intL <|> stringL <|> boolL <|> unitL
 
 intL :: MonadArepa m => Parser m Lit
 intL = do
@@ -179,8 +201,11 @@ stringL :: MonadArepa m => Parser m Lit
 stringL = StringL <$> stringLiteral
 
 boolL :: MonadArepa m => Parser m Lit
-boolL = (keyword "true" $>  BoolL True)
+boolL = (keyword "true"  $> BoolL True)
     <|> (keyword "false" $> BoolL False)
+
+unitL :: MonadArepa m => Parser m Lit
+unitL = keyword "unit" $> UnitL
 
 -- Data constructors
 
@@ -212,7 +237,7 @@ contents p = whitespace *> p <* eof
 -- Parsing identifiers (roughly the same rules as in Scheme)
 
 identInitialChar :: MonadArepa m => Parser m Char
-identInitialChar = letterChar <|> satisfy (`elem` (".%!$&*/:<=>?^~#_\\" :: [Char]))
+identInitialChar = letterChar <|> satisfy (`elem` (".%!$&*/:<=>?^~#_\\'" :: [Char]))
 
 identSubsequentChar :: MonadArepa m => Parser m Char
 identSubsequentChar = identInitialChar <|> digitChar <|> identPeculiarChar
@@ -230,14 +255,14 @@ normalIdent = liftM2 (:) identInitialChar (many identSubsequentChar)
 identifier :: MonadArepa m => Parser m String
 identifier = Lexer.lexeme whitespace $ do
   let check i | i `notElem` reserved = return i
-              | otherwise = fail ("keyword " <> show i <> "cannot be used as an identifier")
+              | otherwise = fail ("keyword " <> show i <> " cannot be used as an identifier")
   check =<< normalIdent <|> peculiarIdent
 
 ----------------------------------------
 -- Parsing keywords
 
 reserved :: [String]
-reserved = ["module", "lambda", "let", "letrec", "if", "true", "false", "case"]
+reserved = ["module", "lambda", "let", "letrec", "if", "true", "false", "case", "unit"]
 
 keyword :: MonadArepa m => Text -> Parser m ()
 keyword kw = void $ Lexer.lexeme whitespace $ do
