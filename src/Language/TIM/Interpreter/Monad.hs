@@ -1,5 +1,7 @@
 module Language.TIM.Interpreter.Monad where
 
+import System.IO.Error
+
 import Control.Monad.Extra
 import Control.Monad.Except
 import Control.Monad.State
@@ -326,8 +328,15 @@ operateOnValueStack prim = do
     Nothing -> do
       throwTIMError "operateOnValueStack: not enough arguments on the stack"
     Just (args, rest) -> do
-      res <- liftIO (prim_runner prim args)
-      put st { tim_value_stack = Stack.push res rest }
+      res <- liftIO $ do
+        catchIOError
+          (Right <$> prim_runner prim args)
+          (return . Left)
+      case res of
+        Left err -> do
+          throwTIMError ("operateOnValueStack:\n" <> Text.pack (show err))
+        Right value -> do
+          put st { tim_value_stack = Stack.push value rest }
 
 -- Pop booleans from the value stack used for conditional jumps
 
