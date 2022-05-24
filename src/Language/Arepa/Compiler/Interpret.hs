@@ -15,13 +15,14 @@ import Language.Arepa.Compiler.IO
 interpretCodeStore :: MonadArepa m => CodeStore -> m ()
 interpretCodeStore store = do
   entry <- lookupCompilerOption optEntryPoint
+  interactive <- lookupCompilerOption optInteractive
   stdin <- lookupCompilerOption optInterpretStdin
   stdout <- lookupCompilerOption optInterpretStdout
   extraStores <- readExtraTIMCodeStores
   let fun = mkName entry
   let stores = store : extraStores
   whenVerbose $ debug ("Interpreting code store [entry=" <> prettyPrint fun <> "]")
-  (res, trace) <- liftIO $ runTIM stdin stdout stores $ invokeFunction fun []
+  (res, trace) <- liftIO $ runTIM interactive stdin stdout stores $ invokeFunction fun []
   whenVerbose $ dump "Interpreter intermediate states" (prettyPrint trace)
   case res of
     Left err -> do

@@ -18,7 +18,8 @@ data ArepaOpts = ArepaOpts {
   optStrict :: Bool,
   optEmitMain :: Bool,
   optInclude :: [FilePath],
-  optDebug :: Bool
+  optDebug :: Bool,
+  optInteractive :: Bool
 } deriving (Show, Read, Eq, Ord)
 
 defaultOpts :: ArepaOpts
@@ -36,7 +37,8 @@ defaultOpts :: ArepaOpts = ArepaOpts {
   optStrict = False,
   optEmitMain = False,
   optInclude = [],
-  optDebug = False
+  optDebug = False,
+  optInteractive = False
 }
 
 -- Dump options
