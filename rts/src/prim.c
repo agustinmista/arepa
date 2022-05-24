@@ -108,21 +108,24 @@ String __prim_read_file__(String path) {
     return data;
 }
 
-Void __prim_write_file__(String path, String data) {
+Unit __prim_write_file__(String path, String data) {
     FILE *f = fopen(path, "ab");
     assert(f);
     fputs(data, f);
     fclose(f);
+    return unit;
 }
 
 // Printing
-Void __prim_print_int__(Int x)       { rts_printf("%ld\n", x); }
-Void __prim_print_double__(Double x) { rts_printf("%f\n",  x); }
-Void __prim_print_string__(String x) { rts_printf("%s\n",  x); }
-Void __prim_print_bool__(Bool x)     { rts_printf("%s\n",  bool_str(x)); }
+Unit __prim_print_int__(Int x)       { rts_printf("%li\n", x);           return unit; }
+Unit __prim_print_double__(Double x) { rts_printf("%f\n",  x);           return unit; }
+Unit __prim_print_string__(String x) { rts_printf("%s\n",  x);           return unit; }
+Unit __prim_print_bool__(Bool x)     { rts_printf("%s\n",  bool_str(x)); return unit; }
+Unit __prim_print_unit__(Unit x)     { rts_printf("unit(%ld)\n", x);     return unit; }
 
 // Tracing
-Int    __prim_trace_int__(Int x)       { rts_printf("<%ld>\n", x); return x; }
-Double __prim_trace_double__(Double x) { rts_printf("<%f>\n",  x); return x; }
-String __prim_trace_string__(String x) { rts_printf("<%s>\n",  x); return x; }
+Int    __prim_trace_int__(Int x)       { rts_printf("<%li>\n", x);           return x; }
+Double __prim_trace_double__(Double x) { rts_printf("<%f>\n",  x);           return x; }
+String __prim_trace_string__(String x) { rts_printf("<%s>\n",  x);           return x; }
 Bool   __prim_trace_bool__(Bool x)     { rts_printf("<%s>\n",  bool_str(x)); return x; }
+Unit   __prim_trace_unit__(Unit x)     { rts_printf("<unit(%ld)>\n", x);     return x; }

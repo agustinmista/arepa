@@ -220,23 +220,27 @@ rtsFunctions = [
     ("tim_push_argument_double",   [doubleVType],           voidType),
     ("tim_push_argument_string",   [stringVType],           voidType),
     ("tim_push_argument_bool",     [boolVType],             voidType),
+    ("tim_push_argument_unit",     [unitVType],             voidType),
     ("tim_push_argument_label",    [funPtrType],            voidType),
     ("tim_push_argument_data",     [longType],              voidType),
     ("tim_push_value_int",         [intVType],              voidType),
     ("tim_push_value_double",      [doubleVType],           voidType),
     ("tim_push_value_string",      [stringVType],           voidType),
     ("tim_push_value_bool",        [boolVType],             voidType),
+    ("tim_push_value_unit",        [unitVType],             voidType),
     ("tim_push_value_data",        [tagVType],              voidType),
     ("tim_pop_value_int",          [],                      ptrType intVType),
     ("tim_pop_value_double",       [],                      ptrType doubleVType),
     ("tim_pop_value_string",       [],                      ptrType stringVType),
     ("tim_pop_value_bool",         [],                      ptrType boolVType),
+    ("tim_pop_value_unit",         [],                      ptrType unitVType),
     ("tim_pop_value_data",         [],                      ptrType tagVType),
     ("tim_enter_argument",         [longType],              voidType),
     ("tim_enter_int",              [intVType],              voidType),
     ("tim_enter_double",           [doubleVType],           voidType),
     ("tim_enter_string",           [stringVType],           voidType),
     ("tim_enter_bool",             [boolVType],             voidType),
+    ("tim_enter_unit",             [unitVType],             voidType),
     ("tim_enter_label",            [funPtrType],            voidType),
     ("tim_enter_data",             [longType],              voidType),
     ("tim_move_argument",          [longType, longType],    voidType),
@@ -244,6 +248,7 @@ rtsFunctions = [
     ("tim_move_double",            [longType, doubleVType], voidType),
     ("tim_move_string",            [longType, stringVType], voidType),
     ("tim_move_bool",              [longType, boolVType],   voidType),
+    ("tim_move_unit",              [longType, unitVType],   voidType),
     ("tim_move_label",             [longType, funPtrType],  voidType),
     ("tim_move_data",              [longType, longType],    voidType),
     ("tim_marker_push",            [longType],              voidType),
@@ -326,6 +331,8 @@ emitInstr instr = do
       callVoidRTS "tim_push_argument_string" [string]
     PushArgI (ValueM (BoolV b)) -> do
       callVoidRTS "tim_push_argument_bool" [mkBoolV b]
+    PushArgI (ValueM (UnitV u)) -> do
+      callVoidRTS "tim_push_argument_unit" [mkUnitV u]
     PushArgI (ValueM value) -> do
       throwInternalError ("emitInstr: impossible! trying to push argument " <> prettyPrint value)
     PushArgI (LabelM name) -> do
@@ -345,6 +352,8 @@ emitInstr instr = do
       callVoidRTS "tim_push_value_string" [string]
     PushValueI (InlineM (BoolV b)) -> do
       callVoidRTS "tim_push_value_bool" [mkBoolV b]
+    PushValueI (InlineM (UnitV u)) -> do
+      callVoidRTS "tim_push_value_unit" [mkUnitV u]
     PushValueI (InlineM value) -> do
       throwInternalError ("emitInstr: impossible! trying to push value " <> prettyPrint value)
     -- Markers
@@ -364,6 +373,8 @@ emitInstr instr = do
       callVoidRTS "tim_enter_value_string" [string]
     EnterI (ValueM (BoolV b)) -> do
       callVoidRTS "tim_enter_value_bool" [mkBoolV b]
+    EnterI (ValueM (UnitV u)) -> do
+      callVoidRTS "tim_enter_value_unit" [mkUnitV u]
     EnterI (ValueM value) -> do
       throwInternalError ("emitInstr: impossible! trying to enter " <> prettyPrint value)
     EnterI (LabelM name) -> do
@@ -383,6 +394,8 @@ emitInstr instr = do
       callVoidRTS "tim_move_string" [mkLong slot, string]
     MoveI slot (ValueM (BoolV b)) -> do
       callVoidRTS "tim_move_bool" [mkLong slot, mkBoolV b]
+    MoveI slot (ValueM (UnitV u)) -> do
+      callVoidRTS "tim_move_unit" [mkLong slot, mkUnitV u]
     MoveI _ (ValueM value) -> do
       throwInternalError ("emitInstr: impossible! trying to move " <> prettyPrint value)
     MoveI slot (LabelM name) -> do
@@ -413,6 +426,9 @@ emitInstr instr = do
         BoolT -> do
           ptr <- callRTS "tim_pop_value_bool" []
           IR.load ptr 0
+        UnitT -> do
+          ptr <- callRTS "tim_pop_value_unit" []
+          IR.load ptr 0
         ty -> do
           throwInternalError ("emitInstr: impossible! trying to pop a value of type " <> prettyPrint ty)
       -- Call the function
@@ -427,8 +443,8 @@ emitInstr instr = do
           callVoidRTS "tim_push_value_string" [res]
         BoolT -> do
           callVoidRTS "tim_push_value_bool" [res]
-        VoidT -> do
-          return ()
+        UnitT -> do
+          callVoidRTS "tim_push_value_unit" [res]
         ty -> do
           throwInternalError ("emitInstr: impossible! trying to push a value of type " <> prettyPrint ty)
     -- Returning a data constructor
@@ -436,13 +452,13 @@ emitInstr instr = do
       conCode <- registerConstructorCode tag
       callVoidRTS "tim_data" [mkTag tag, conCode]
     -- Switch statements
-    SwitchI alts -> mdo
+    SwitchI alts def -> mdo
       IR.block `named` "switch.entry"
       -- Pop and load the tag from the value stack
       scrutTagPtr <- callRTS "tim_pop_value_data" []
       scrutTag <- IR.load scrutTagPtr 0
       -- Jump to the alternative corresponding to the tag we just popped
-      IR.switch scrutTag errorAlt altsTable
+      IR.switch scrutTag defaultAlt altsTable
       -- Each case alternative simply calls its corresponding function
       altsTable <- forM (Map.toList alts) $ \(altTag, altLabel) -> do
         altBlock <- IR.block `named` ("switch." <> fromName altLabel)
@@ -450,8 +466,13 @@ emitInstr instr = do
         IR.call altCode []
         return (mkTagConstant altTag, altBlock)
       -- The default alternative simply calls the error handler
-      errorAlt <- IR.block `named` "switch.error"
-      callVoidRTS "tim_switch_error" [scrutTag]
+      defaultAlt <- IR.block `named` "switch.default"
+      case def of
+        Nothing -> do
+          callVoidRTS "tim_switch_error" [scrutTag]
+        Just defLabel -> void $ do
+          defCode <- lookupGlobalOperand defLabel
+          IR.call defCode []
     -- Conditional instructions
     CondI thLabel elLabel -> void $ mdo
       IR.block `named` "cond.entry"
@@ -506,6 +527,9 @@ mkDoubleV = IR.double
 mkBoolV :: Bool -> LLVM.Operand
 mkBoolV b = IR.bit (if b then 1 else 0)
 
+mkUnitV :: Int -> LLVM.Operand
+mkUnitV n = IR.int64 (fromIntegral n)
+
 mkTag :: Int -> LLVM.Operand
 mkTag n = IR.int64 (fromIntegral n)
 
@@ -538,7 +562,7 @@ valueType IntT    = intVType
 valueType DoubleT = doubleVType
 valueType StringT = stringVType
 valueType BoolT   = boolVType
-valueType VoidT   = voidVType
+valueType UnitT   = unitVType
 valueType TagT    = tagVType
 
 -- NOTE: the ones below are platform dependent!
@@ -555,8 +579,8 @@ stringVType = LLVM.ptr LLVM.i8
 boolVType :: LLVM.Type
 boolVType = LLVM.i1
 
-voidVType :: LLVM.Type
-voidVType = LLVM.void
+unitVType :: LLVM.Type
+unitVType = LLVM.i64
 
 tagVType :: LLVM.Type
 tagVType = LLVM.i64

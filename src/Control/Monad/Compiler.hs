@@ -41,7 +41,7 @@ import Text.Pretty.Simple
 -- Monad with exceptions and global read-only environment
 
 newtype Compiler err opt a = Compiler (ExceptT err (ReaderT opt IO) a)
-  deriving (Functor, Applicative, Monad, MonadIO, MonadError err, MonadReader opt, MonadFix)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadFix, MonadFail, MonadError err, MonadReader opt)
 
 runCompiler :: opt -> Compiler err opt a -> IO (Either err a)
 runCompiler opt (Compiler m) = runReaderT (runExceptT m) opt
@@ -65,10 +65,11 @@ runCompiler' opt ma = do
 -- Instead of carrying all the constraints individually.
 
 type MonadCompiler err opt m = (
-    MonadError err m,
-    MonadReader opt m,
     MonadIO m,
-    MonadFix m
+    MonadFix m,
+    MonadFail m,
+    MonadError err m,
+    MonadReader opt m
   )
 
 ----------------------------------------

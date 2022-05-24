@@ -1,0 +1,10 @@
+(module unit3
+  (val main
+    (let ((u  (print_int 10))
+          (u' (trace_unit u)))
+      (print_unit u')))
+
+  (fun print_int  (x) (__prim_print_int__ x))
+  (fun print_unit (x) (__prim_print_unit__ x))
+  (fun trace_unit (x) (__prim_trace_unit__ x))
+)

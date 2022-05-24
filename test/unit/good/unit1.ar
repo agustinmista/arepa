@@ -1,0 +1,8 @@
+(module unit1
+  (val main
+    (print_int (foo unit 10)))
+
+  (fun foo (x y) y)
+
+  (fun print_int (x) (__prim_print_int__ x))
+)

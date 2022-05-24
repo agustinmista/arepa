@@ -40,5 +40,5 @@ defaultOpts :: ArepaOpts = ArepaOpts {
 }
 
 -- Dump options
-data DumpOpt = AST | PPR | RENAME | LIFT | TIM | LLVM
+data DumpOpt = AST | PPR | LINT | RENAME | LIFT | TIM | LLVM
   deriving (Show, Read, Eq, Ord)

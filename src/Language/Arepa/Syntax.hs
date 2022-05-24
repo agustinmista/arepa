@@ -4,6 +4,8 @@ module Language.Arepa.Syntax
   ) where
 
 import Data.Foldable
+
+import Data.Either
 import Data.List
 
 import Data.Text.Lazy (Text)
@@ -171,20 +173,37 @@ collectArgs = go []
 -- Alternatives
 ----------------------------------------
 
-data Alt a = Alt Con [a] (Expr a)
+-- NOTE: a case expression should have at most one default alternative. If such
+-- alternative exists, it should be the first one of the list after renaming (GHC
+-- Core style).
+
+data Alt a =
+    ConA Con [a] (Expr a)   -- ^ Constructor alternative: {m,n} v0 ... vn -> body
+  | DefA Name (Expr a)      -- ^ Default alternative:     x               -> body
   deriving (Show, Read, Eq, Ord, Functor)
 
 type CoreAlt = Alt Name
 
 instance Pretty CoreAlt where
-  pretty (Alt con [] expr) =
+  pretty (ConA con [] expr) =
     parens $
       parens (pretty con) <+>
       pretty expr
-  pretty (Alt con vars expr) =
+  pretty (ConA con vars expr) =
     parens $
       parens (pretty con <+> cat (intersperse space (pretty <$> vars))) <+>
       pretty expr
+  pretty (DefA var expr) =
+    parens $
+      pretty var <+>
+      pretty expr
+
+eitherAlt :: Alt a -> Either (Con, [a], Expr a) (Name, Expr a)
+eitherAlt (ConA c vars body) = Left  (c, vars, body)
+eitherAlt (DefA   var  body) = Right (var, body)
+
+partitionAlts :: [Alt a] -> ([(Con, [a], Expr a)], [(Name, Expr a)])
+partitionAlts alts = partitionEithers (eitherAlt <$> alts)
 
 ----------------------------------------
 -- Literals
@@ -195,6 +214,7 @@ data Lit =
   | DoubleL Double
   | StringL Text
   | BoolL Bool
+  | UnitL
   deriving (Show, Eq, Read, Ord)
 
 instance Pretty Lit where
@@ -203,6 +223,7 @@ instance Pretty Lit where
   pretty (StringL s)   = pretty (show s)
   pretty (BoolL True)  = "true"
   pretty (BoolL False) = "false"
+  pretty UnitL         = "unit"
 
 ----------------------------------------
 -- Data constructors

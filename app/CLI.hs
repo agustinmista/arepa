@@ -109,6 +109,7 @@ dumpOpts desc = many (option dumpReader desc)
       case s of
         "ast"    -> Right AST
         "ppr"    -> Right PPR
+        "lint"   -> Right LINT
         "rename" -> Right RENAME
         "lift"   -> Right LIFT
         "tim"    -> Right TIM

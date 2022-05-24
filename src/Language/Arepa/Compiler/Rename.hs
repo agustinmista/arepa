@@ -1,13 +1,9 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use newtype instead of data" #-}
 module Language.Arepa.Compiler.Rename
   ( renameModule
   ) where
 
 import Control.Monad.Extra
 import Control.Monad.State
-
-import Data.List
 
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -32,7 +28,7 @@ renameModule m = do
   return (m { modDecls = renamedDecls })
 
 ----------------------------------------
--- Lambda lifting internal state
+-- Renaming internal state
 
 data RenamerState = RenamerState {
   rs_module_name :: Name,
@@ -46,7 +42,7 @@ initialRenamerState name = RenamerState {
 }
 
 ----------------------------------------
--- Lambda lifting monad
+-- Renaming monad
 
 type Renamer m a = StateT RenamerState m a
 
@@ -104,34 +100,6 @@ inLocalScopeWith subst ma = do
 inLocalScope :: MonadArepa m => Renamer m a -> Renamer m a
 inLocalScope = inLocalScopeWith []
 
--- Check for invalid duplicates
-
-checkDuplicateNames :: MonadArepa m => [Name] -> Renamer m ()
-checkDuplicateNames names = do
-  when (hasDuplicates names) $ do
-    throwRenamerError ("duplicated occurrence of names " <> prettyPrint (findDuplicates names))
-
-checkDuplicateTags :: MonadArepa m => [CoreAlt] -> Renamer m ()
-checkDuplicateTags alts = do
-  let tags = [ con_tag con | Alt con _ _ <- alts ]
-  when (hasDuplicates tags) $ do
-    throwRenamerError ("duplicated occurrence of tags " <> prettyPrint (findDuplicates tags))
-
--- Check the arity of an operation
-
-checkPrimArity :: MonadArepa m => Name -> [CoreExpr] -> Renamer m ()
-checkPrimArity name args = do
-  prim <- lookupPrimOp name
-  let arity = prim_arity prim
-  when (arity /= length args) $ do
-    throwRenamerError (prettyPrint name <> " must take exactly " <> prettyPrint arity <> " arguments")
-
-checkConArity :: MonadArepa m => Con -> [Name] -> Renamer m ()
-checkConArity con args = do
-  let arity = con_arity con
-  when (arity /= length args) $ do
-    throwRenamerError ("pattern for " <> prettyPrint con <> " must take exactly " <> prettyPrint arity <> " arguments")
-
 -- Create the top-level substitution of names.
 -- NOTE: this makes sure to avoid renaming the entry point, as well as taking
 -- primitives into account. Other globals are only z-encoded to keep linking
@@ -150,17 +118,6 @@ topLevelSubst declNames = do
     else zEncode dn >>= \dn' -> return (dn, dn')
   return (primSubsts <> declSubsts)
 
--- Lookup a primitive operation by its name
-lookupPrimOp :: MonadArepa m => Name -> Renamer m Prim
-lookupPrimOp name = do
-  whenVerbose $ debug ("Looking up for primitive operation " <> prettyPrint name)
-  case Map.lookup name primitives of
-    Nothing -> do
-      throwInternalError ("lookupPrimOp: primitive " <> prettyPrint name <> " is missing")
-    Just prim -> do
-      whenVerbose $ dump ("Found primitive operation " <> prettyPrint name) (prim_arity prim, prim_type prim)
-      return prim
-
 ----------------------------------------
 -- Renaming user code
 ----------------------------------------
@@ -169,12 +126,25 @@ lookupPrimOp name = do
 
 renameDecl :: MonadArepa m => CoreDecl -> Renamer m CoreDecl
 renameDecl decl = do
+  case decl of
+    ValD name body -> do
+      renameVal name body
+    FunD name args body -> do
+      renameFun name args body
+
+renameVal :: MonadArepa m => Name -> CoreExpr -> Renamer m CoreDecl
+renameVal name body = do
   inLocalScope $ do
-    whenVerbose $ dump "Renaming declaration" decl
-    let name = declName decl
-    let args = declArgs decl
-    let body = declBody decl
-    checkDuplicateNames args
+    whenVerbose $ dump "Renaming value declaration" (name, body)
+    name' <- getName name
+    body' <- inLocalScope $ do
+      renameExpr body
+    return (ValD name' body')
+
+renameFun :: MonadArepa m => Name -> [Name] -> CoreExpr -> Renamer m CoreDecl
+renameFun name args body = do
+  inLocalScope $ do
+    whenVerbose $ dump "Renaming function declaration" (name, args, body)
     name' <- getName name
     args' <- mapM renameUnique args
     let subst = zip args args'
@@ -209,7 +179,6 @@ renameExpr expr = do
 renameCall :: MonadArepa m => Name -> [CoreExpr] -> Renamer m CoreExpr
 renameCall name args = do
   whenVerbose $ dump "Renaming primitive call" (name, args)
-  checkPrimArity name args
   args' <- mapM renameExpr args
   return (CallE name args')
 
@@ -235,7 +204,6 @@ renameApp fun op = do
 renameLambda :: MonadArepa m => [Name] -> CoreExpr -> Renamer m CoreExpr
 renameLambda args body = do
   whenVerbose $ dump "Renaming lambda expression" (args, body)
-  checkDuplicateNames args
   args' <- mapM renameUnique args
   let subst = zip args args'
   body' <- inLocalScopeWith subst $ do
@@ -248,7 +216,6 @@ renameLet :: MonadArepa m => Bool -> [(Name, CoreExpr)] -> CoreExpr -> Renamer m
 renameLet isRec binds body = do
   whenVerbose $ dump "Renaming let expression" (isRec, binds, body)
   let (letVars, letRhss) = unzip binds
-  checkDuplicateNames letVars
   letVars' <- mapM renameUnique letVars
   let subst = zip letVars letVars'
   letRhss' <- forM letRhss $ \expr -> do
@@ -274,7 +241,6 @@ renameIf cond th el = do
 renameCase :: MonadArepa m => CoreExpr -> [CoreAlt] -> Renamer m CoreExpr
 renameCase scrut alts = do
   whenVerbose $ dump "Renaming case expression" (scrut, alts)
-  checkDuplicateTags alts
   scrut' <- renameExpr scrut
   alts'  <- mapM renameAlt alts
   return (CaseE scrut' alts')
@@ -283,20 +249,15 @@ renameAlt :: MonadArepa m => CoreAlt -> Renamer m CoreAlt
 renameAlt alt = do
   whenVerbose $ dump "Renaming case alternative" alt
   case alt of
-    Alt con vars body -> do
-      checkConArity con vars
-      checkDuplicateNames vars
+    ConA con vars body -> do
       vars' <- mapM renameUnique vars
       let subst = zip vars vars'
       body' <- inLocalScopeWith subst $ do
         renameExpr body
-      return (Alt con vars' body')
-
-----------------------------------------
--- Utilities
-
-hasDuplicates :: Ord a => [a] -> Bool
-hasDuplicates = not . null . findDuplicates
-
-findDuplicates :: Ord a => [a] -> [a]
-findDuplicates xs = fmap head (filter ((>1) . length) (group (sort xs)))
+      return (ConA con vars' body')
+    DefA var body -> do
+      var' <- renameUnique var
+      let subst = [(var, var')]
+      body' <- inLocalScopeWith subst $ do
+        renameExpr body
+      return (DefA var' body')

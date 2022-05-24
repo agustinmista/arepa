@@ -4,6 +4,8 @@ module Language.TIM.Syntax
   ) where
 
 import GHC.Exts
+
+import Data.Maybe
 import Data.List
 
 import Data.Map (Map)
@@ -55,28 +57,15 @@ codeStoreBlockNames store = Map.keys (store_blocks store)
 
 -- CodeBlock
 
-newtype CodeBlock = CodeBlock [Instr]
-  deriving (Show, Read, Eq, Ord)
-  deriving Semigroup via [Instr]
-  deriving Monoid    via [Instr]
-
-instance IsList CodeBlock where
-  type Item CodeBlock = Instr
-  fromList = CodeBlock
-  toList (CodeBlock instrs) = instrs
-
-instance Pretty CodeBlock where
-  pretty (CodeBlock instrs) =
-    brackets $
-      hcat (intersperse comma (pretty <$> instrs))
+type CodeBlock = [Instr]
 
 isNullCodeBlock :: CodeBlock -> Bool
-isNullCodeBlock (CodeBlock instrs) = null instrs
+isNullCodeBlock = null
 
 splitCodeBlock :: CodeBlock -> (Instr, CodeBlock)
-splitCodeBlock (CodeBlock instrs)
+splitCodeBlock instrs
   | null instrs = error "splitCodeBlock: empty code"
-  | otherwise   = (head instrs, CodeBlock (tail instrs))
+  | otherwise   = (head instrs, tail instrs)
 
 -- Instructions
 
@@ -91,7 +80,7 @@ data Instr =
   | ReturnI
   | CallI Name
   | DataI Tag
-  | SwitchI (Map Tag Label)
+  | SwitchI (Map Tag Label) (Maybe Label)
   | CondI Label Label
   deriving (Show, Read, Eq, Ord)
 
@@ -119,12 +108,13 @@ instance Pretty Instr where
     "call" <+> pretty prim
   pretty (DataI tag) =
     "data" <+> pretty tag
-  pretty (SwitchI alts) =
+  pretty (SwitchI alts def) =
     "switch" <+>
     brackets (hcat (intersperse ","
-      [ "tag" <+> pretty tag <+> "=>" <+> pretty mode
-      | (tag, mode) <- Map.toList alts
-      ]))
+      [ "tag" <+> pretty tag <+> "=>" <+> pretty label
+      | (tag, label) <- Map.toList alts ] <>
+      [ "_" <+> "=>" <+> pretty label
+      | label <- maybeToList def ] ))
   pretty (CondI th el) =
     "cond" <+> pretty th <+> pretty el
 
@@ -156,7 +146,7 @@ data Value =
   | DoubleV Double
   | StringV Text
   | BoolV Bool
-  | VoidV ()
+  | UnitV Int -- for now!
   | TagV Tag
   deriving (Show, Read, Eq, Ord)
 
@@ -166,8 +156,8 @@ instance Pretty Value where
   pretty (StringV s)   = angles (pretty (show s))
   pretty (BoolV True)  = angles "true"
   pretty (BoolV False) = angles "false"
-  pretty (VoidV _)     = angles "void"
-  pretty (TagV n)      =  angles ("tag" <+> pretty n)
+  pretty (UnitV n)     = angles ("unit" <> parens (pretty n))
+  pretty (TagV n)      = angles ("tag" <+> pretty n)
 
 -- Values addressing modes
 
@@ -189,5 +179,5 @@ typeOfValue IntV    {} = IntT
 typeOfValue DoubleV {} = DoubleT
 typeOfValue StringV {} = StringT
 typeOfValue BoolV   {} = BoolT
-typeOfValue VoidV   {} = VoidT
+typeOfValue UnitV   {} = UnitT
 typeOfValue TagV    {} = TagT

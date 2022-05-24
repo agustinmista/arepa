@@ -1,0 +1,7 @@
+(module unit2
+  (val main
+    (print_unit (trace_unit (trace_unit unit))))
+
+  (fun print_unit (x) (__prim_print_unit__ x))
+  (fun trace_unit (x) (__prim_trace_unit__ x))
+)

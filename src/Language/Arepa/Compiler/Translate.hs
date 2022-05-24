@@ -6,6 +6,8 @@ module Language.Arepa.Compiler.Translate
 import Control.Monad.Extra
 import Control.Monad.State
 
+import Data.Either
+
 import Data.Map (Map)
 import Data.Map qualified as Map
 
@@ -303,35 +305,59 @@ translateCase scrut alts = do
   caseLabel <- inNewCodeBlock "case" $ do
     -- Translate the case alternatives each one in an isolated environment
     let isolatedTranslateAlt alt = withIsolatedFrameSlots (translateAlt alt)
-    (slots, altsCode) <- unzip <$> mapM isolatedTranslateAlt alts
+    (slots, altBranches) <- unzip <$> mapM isolatedTranslateAlt alts
     unless (null slots) $ do
       setFrameSlots (maximum slots)
-    -- Build the tags to codeblocks mappings
-    let altsMap = Map.fromList altsCode
-    return [ SwitchI altsMap ]
+    -- Find if we have a default branch and, if so, use it as de switch's default branch
+    case partitionEithers altBranches of
+      (consBranches, [defLabel]) -> do
+        return [ SwitchI (Map.fromList consBranches) (Just defLabel) ]
+      (consBranches, _) -> do
+        return [ SwitchI (Map.fromList consBranches) Nothing ]
   -- Translate the scrutinee
   scrutCode <- translateExpr scrut
   -- Push the switch continuation and run the code for the scrutinee
   return ([ PushArgI (LabelM caseLabel) ] <> scrutCode)
 
-translateAlt :: MonadArepa m => CoreAlt -> Translate m (Int, Label)
+translateAlt :: MonadArepa m => CoreAlt -> Translate m (Either (Int, Label) Label)
 translateAlt alt = do
-  whenVerbose $ dump "Translating case alternative" alt
   case alt of
-    Alt con vars expr -> do
-      -- Old slots are needed to calculate the move insructions
-      oldSlots <- getFrameSlots
-      -- Allocate some frame slots for the constructor arguments
-      slots <- reserveFrameSlots (length vars)
-      -- Translate the alternative RHS in an enviroment extended with the
-      -- constructor case variables
-      let rhsEnv = zip vars (ArgM <$> slots)
-      label <- inLocalEnvWith rhsEnv $ do
-        inNewCodeBlock "alt" $ do
-          let moveCode = CodeBlock [ MoveI slot (DataM (slot-oldSlots)) | slot <- slots ]
-          exprCode <- translateExpr expr
-          return (moveCode <> exprCode)
-      return (con_tag con, label)
+    ConA con vars body -> do
+      Left <$> translateConAlt con vars body
+    DefA var body -> do
+      Right <$> translateDefA var body
+
+translateConAlt :: MonadArepa m => Con -> [Name] -> CoreExpr -> Translate m (Int, Label)
+translateConAlt con vars body = do
+  whenVerbose $ dump "Translating constructor case alternative" (con, vars, body)
+  -- Old slots are needed to calculate the move insructions
+  oldSlots <- getFrameSlots
+  -- Allocate some frame slots for the constructor arguments
+  slots <- reserveFrameSlots (length vars)
+  -- Translate the alternative RHS in an enviroment extended with the
+  -- constructor case variables
+  let rhsEnv = zip vars (ArgM <$> slots)
+  label <- inLocalEnvWith rhsEnv $ do
+    inNewCodeBlock "con_alt" $ do
+      let moveCode = [ MoveI slot (DataM (slot-oldSlots)) | slot <- slots ]
+      bodyCode <- translateExpr body
+      return (moveCode <> bodyCode)
+  return (con_tag con, label)
+
+translateDefA :: MonadArepa m => Name -> CoreExpr -> Translate m Label
+translateDefA var body = do
+  whenVerbose $ dump "Translating default case alternative" (var, body)
+  -- Old slots are needed to calculate the move insructions
+  oldSlots <- getFrameSlots
+  -- Allocate one frame slot for the evaluated value
+  [slot] <- reserveFrameSlots 1
+  -- Translate the alternative RHS in an enviroment extended with the value
+  let rhsEnv = [(var, ArgM slot)]
+  inLocalEnvWith rhsEnv $ do
+    inNewCodeBlock "def_alt" $ do
+      let moveCode = [ MoveI slot (ArgM (slot-oldSlots)) ]
+      bodyCode <- translateExpr body
+      return (moveCode <> bodyCode)
 
 ----------------------------------------
 -- Helpers
@@ -397,6 +423,7 @@ litValue lit = do
     DoubleL n -> DoubleV n
     StringL s -> StringV s
     BoolL   s -> BoolV s
+    UnitL     -> UnitV 0
 
 -- Thread a list of CPS monadic computations into a single result with an
 -- accumulator. This operation is right associative, meaning that the `a`

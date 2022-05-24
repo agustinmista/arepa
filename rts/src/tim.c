@@ -188,6 +188,13 @@ closure_t* bool_closure(Bool value) {
     return make_closure(*tim_value_code, bool_ptr_as_frame);
 }
 
+closure_t* unit_closure(Unit value) {
+    debug_msg("Creating new unit value closure for %li", value);
+    Unit* unit_ptr_as_frame = rts_malloc(sizeof(Unit));
+    *unit_ptr_as_frame = value;
+    return make_closure(*tim_value_code, unit_ptr_as_frame);
+}
+
 closure_t* label_closure(void (*code)()) {
     debug_msg("Creating new label closure for code at %p", code);
     return make_closure(code, current_frame);
@@ -273,6 +280,11 @@ void tim_push_argument_bool(Bool value) {
     return dump_push(argument_stack, bool_closure(value));
 }
 
+void tim_push_argument_unit(Unit value) {
+    debug_msg("Pushing unit value %li into the argument stack", value);
+    return dump_push(argument_stack, unit_closure(value));
+}
+
 void tim_push_argument_label(void (*code)()) {
     debug_msg("Pushing function at %p into the argument stack", code);
     return dump_push(argument_stack, label_closure(code));
@@ -311,6 +323,13 @@ void tim_push_value_bool(Bool value) {
     return dump_push(value_stack, ptr);
 }
 
+void tim_push_value_unit(Unit value) {
+    debug_msg("Pushing unit %li into the value stack", value);
+    Unit* ptr = rts_malloc(sizeof(Unit));
+    *ptr = value;
+    return dump_push(value_stack, ptr);
+}
+
 void tim_push_value_data(tag_t tag) {
     debug_msg("Pushing data constructor tag %lu into the value stack", tag);
     tag_t* ptr = rts_malloc(sizeof(tag_t));
@@ -344,7 +363,13 @@ String* tim_pop_value_string() {
 
 Bool* tim_pop_value_bool() {
     Bool* ptr = tim_pop_value();
-    debug_msg("Popped bool value %s from the value stack", *ptr ? "true" : "false");
+    debug_msg("Popped bool value %s from the value stack", bool_str(*ptr));
+    return ptr;
+}
+
+Unit* tim_pop_value_unit() {
+    Unit* ptr = tim_pop_value();
+    debug_msg("Popped unit value %li from the value stack", *ptr);
     return ptr;
 }
 
@@ -380,6 +405,11 @@ void tim_enter_bool(Bool value) {
     return tim_enter_closure(bool_closure(value));
 }
 
+void tim_enter_unit(Unit value) {
+    debug_msg("Entering unit value closure for %li", value);
+    return tim_enter_closure(unit_closure(value));
+}
+
 void tim_enter_label(void (*code)()) {
     debug_msg("Entering function at %p", code);
     return tim_enter_closure(label_closure(code));
@@ -413,6 +443,11 @@ void tim_move_string(long offset, String value) {
 void tim_move_bool(long offset, Bool value) {
     debug_msg("Moving bool value %s to current frame slot $%li", bool_str(value), offset);
     return tim_update_closure(offset, bool_closure(value));
+}
+
+void tim_move_unit(long offset, Unit value) {
+    debug_msg("Moving unit value %li to current frame slot $%li", value, offset);
+    return tim_update_closure(offset, unit_closure(value));
 }
 
 void tim_move_label(long offset, void (*code)()) {
@@ -488,5 +523,11 @@ Bool get_bool_result() {
     Bool bool_result = *((Bool*) dump_peek(value_stack));
     debug_msg("Peeked bool %s from the value stack", bool_result ? "true" : "false");
     return bool_result;
+}
+
+Bool get_unit_result() {
+    Unit unit_result = *((Unit*) dump_peek(value_stack));
+    debug_msg("Peeked unit %li from the value stack", unit_result);
+    return unit_result;
 }
 
