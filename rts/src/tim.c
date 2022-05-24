@@ -496,6 +496,16 @@ void tim_data(tag_t tag, void (*code)()) {
     }
 }
 
+void tim_freeze() {
+    debug_msg("Freezing the value stack");
+    dump_freeze(value_stack, NULL);
+}
+
+void tim_restore() {
+    debug_msg("Restoring the previous value stack");
+    dump_restore(value_stack);
+}
+
 void tim_switch_error(tag_t tag) {
     rts_printf("non-exhaustive alternatives for tag %lu\n", tag);
     exit(EXIT_FAILURE);
