@@ -187,6 +187,9 @@ translateExpr expr = do
     -- Case expressions
     CaseE scrut alts -> do
       translateCase scrut alts
+    -- Sequential expressions
+    SeqE e1 e2 -> do
+      translateSeq e1 e2
 
 ----------------------------------------
 -- Primitive function calls
@@ -308,7 +311,7 @@ translateCase scrut alts = do
     (slots, altBranches) <- unzip <$> mapM isolatedTranslateAlt alts
     unless (null slots) $ do
       setFrameSlots (maximum slots)
-    -- Find if we have a default branch and, if so, use it as de switch's default branch
+    -- Find if we have a default branch and, if so, use it as the switch's default branch
     case partitionEithers altBranches of
       (consBranches, [defLabel]) -> do
         return [ SwitchI (Map.fromList consBranches) (Just defLabel) ]
@@ -323,12 +326,12 @@ translateAlt :: MonadArepa m => CoreAlt -> Translate m (Either (Int, Label) Labe
 translateAlt alt = do
   case alt of
     ConA con vars body -> do
-      Left <$> translateConAlt con vars body
+      Left <$> translateConA con vars body
     DefA var body -> do
       Right <$> translateDefA var body
 
-translateConAlt :: MonadArepa m => Con -> [Name] -> CoreExpr -> Translate m (Int, Label)
-translateConAlt con vars body = do
+translateConA :: MonadArepa m => Con -> [Name] -> CoreExpr -> Translate m (Int, Label)
+translateConA con vars body = do
   whenVerbose $ dump "Translating constructor case alternative" (con, vars, body)
   -- Old slots are needed to calculate the move insructions
   oldSlots <- getFrameSlots
@@ -338,7 +341,7 @@ translateConAlt con vars body = do
   -- constructor case variables
   let rhsEnv = zip vars (ArgM <$> slots)
   label <- inLocalEnvWith rhsEnv $ do
-    inNewCodeBlock "con_alt" $ do
+    inNewCodeBlock "con" $ do
       let moveCode = [ MoveI slot (DataM (slot-oldSlots)) | slot <- slots ]
       bodyCode <- translateExpr body
       return (moveCode <> bodyCode)
@@ -354,10 +357,25 @@ translateDefA var body = do
   -- Translate the alternative RHS in an enviroment extended with the value
   let rhsEnv = [(var, ArgM slot)]
   inLocalEnvWith rhsEnv $ do
-    inNewCodeBlock "def_alt" $ do
+    inNewCodeBlock "def" $ do
       let moveCode = [ MoveI slot (ArgM (slot-oldSlots)) ]
       bodyCode <- translateExpr body
       return (moveCode <> bodyCode)
+
+----------------------------------------
+-- Sequential expressions
+
+translateSeq :: MonadArepa m => CoreExpr -> CoreExpr -> Translate m CodeBlock
+translateSeq e1 e2 = do
+  whenVerbose $ dump "Translating sequential expression" (e1, e2)
+  -- Translate the second expression into a continuation label to jump to after
+  -- evaluating the first expression
+  e2Label <- inNewCodeBlock "seq" $ do
+    e2Code <- translateExpr e2
+    return ([ RestoreI ] <> e2Code)
+  -- Translate the expression we will evaluate to WHNF
+  e1Code <- translateExpr e1
+  return ([ PushArgI (LabelM e2Label), FreezeI ] <> e1Code)
 
 ----------------------------------------
 -- Helpers
@@ -368,17 +386,17 @@ translateArgumentStackOperand :: MonadArepa m => CoreExpr -> Translate m CodeBlo
 translateArgumentStackOperand expr = do
   whenVerbose $ dump "Translating expression to be pushed to the argument stack" expr
   case expr of
-    VarE name -> do
+    NonPrimVarE name -> do
       mode <- lookupArgMode name
       return [ PushArgI mode ]
     LitE lit -> do
       let value = litValue lit
       return [ PushArgI (ValueM value) ]
     _ -> do
-      slots <- getFrameSlots
-      setFrameSlots (slots + 1)
-      mode <- translateUpdatableExpr slots expr
-      return [ MoveI slots mode, PushArgI mode ]
+      offset <- getFrameSlots
+      setFrameSlots (offset + 1)
+      mode <- translateUpdatableExpr offset expr
+      return [ MoveI offset mode, PushArgI mode ]
 
 -- Translate an expression into the code that pushes its (evaluated) result into
 -- the value stack and proceeds to call the continuation that expects it.
@@ -399,7 +417,7 @@ translateUpdatableExpr :: MonadArepa m => Offset -> CoreExpr -> Translate m ArgM
 translateUpdatableExpr offset expr = do
   whenVerbose $ dump "Translating argument mode of a self-updating expression closure" expr
   case expr of
-    VarE name -> do
+    NonPrimVarE name -> do
       lookupArgMode name
     LitE lit -> do
       let value = litValue lit

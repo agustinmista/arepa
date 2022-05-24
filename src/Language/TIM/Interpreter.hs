@@ -8,12 +8,13 @@ module Language.TIM.Interpreter
   ) where
 
 import Control.Monad.Extra
-import Control.Monad.State
 
 import Data.Map (Map)
 import Data.Map qualified as Map
 
 import Data.Text.Lazy qualified as Text
+
+import Data.Stack qualified as Stack
 
 import Language.TIM.Syntax
 import Language.TIM.Interpreter.Types
@@ -25,9 +26,9 @@ import Language.TIM.Interpreter.Monad
 
 -- Like `runTIM` but loads the code store and invokes main.
 -- For debugging purposes mostly.
-runCodeStore :: FilePath -> FilePath -> [CodeStore] -> IO [Value]
-runCodeStore stdin stdout stores = do
-  (res, _) <- runTIM stdin stdout stores $ do
+runCodeStore :: Bool -> FilePath -> FilePath -> [CodeStore] -> IO [Value]
+runCodeStore interactive stdin stdout stores = do
+  (res, _) <- runTIM interactive stdin stdout stores $ do
     invokeFunction "main" []
   case res of
     Left err     -> error (show err)
@@ -44,7 +45,7 @@ invokeFunction fun args = do
   -- Start running instructions
   loopTIM
   -- When finished, pop the value stack as a result
-  getValueStack
+  Stack.toList <$> getValueStack
 
 ----------------------------------------
 -- Internals
@@ -52,7 +53,9 @@ invokeFunction fun args = do
 loopTIM :: TIM ()
 loopTIM = do
   logTIMState
-  unlessM (gets finalTIMState) $ do
+  whenM isInteractive $ do
+    printInteractiveTIMState
+  unlessM isFinalState $ do
     instr <- fetchInstr
     stepTIM instr
     loopTIM
@@ -110,6 +113,12 @@ stepTIM instr = do
       ifM popBoolFromValueStack
         (jumpToLabel th)
         (jumpToLabel el)
+    FreezeI -> do
+      freezeValueStack
+      nextInstr
+    RestoreI -> do
+      restoreValueStackFromDump
+      nextInstr
 
 ----------------------------------------
 -- TIM Operations

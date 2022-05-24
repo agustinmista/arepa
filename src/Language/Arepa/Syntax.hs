@@ -125,7 +125,7 @@ instance Pretty CoreExpr where
       ]
   pretty (SeqE e1 e2) =
     parens $
-      pretty e1 <+> pretty e2
+      "seq" <+> align (vsep [ pretty e1, pretty e2 ])
 
 ----------------------------------------
 -- Expression construction
@@ -234,10 +234,13 @@ instance Pretty Lit where
 ----------------------------------------
 
 data Con = Con {
+  con_name :: Maybe Name,
   con_tag :: Int,
   con_arity :: Int
 } deriving (Show, Read, Eq, Ord)
 
 instance Pretty Con where
-  pretty (Con tag arity) =
+  pretty (Con (Just name) _ arity) =
+    braces (pretty name <> comma <> pretty arity)
+  pretty (Con Nothing tag arity) =
     braces (pretty tag <> comma <> pretty arity)

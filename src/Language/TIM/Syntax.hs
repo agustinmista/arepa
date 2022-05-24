@@ -82,6 +82,8 @@ data Instr =
   | DataI Tag
   | SwitchI (Map Tag Label) (Maybe Label)
   | CondI Label Label
+  | FreezeI
+  | RestoreI
   deriving (Show, Read, Eq, Ord)
 
 type Label = Name
@@ -117,6 +119,10 @@ instance Pretty Instr where
       | label <- maybeToList def ] ))
   pretty (CondI th el) =
     "cond" <+> pretty th <+> pretty el
+  pretty FreezeI =
+    "freeze"
+  pretty RestoreI =
+    "restore"
 
 -- Argument addressing modes
 
