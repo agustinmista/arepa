@@ -109,6 +109,8 @@ library arepa-lib
     , process
     , zenc
     , random-strings
+    , ansi-terminal
+    , hashable
 
 
 executable arepa

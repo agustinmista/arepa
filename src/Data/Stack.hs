@@ -22,7 +22,7 @@ import Prelude qualified
 data Stack a = Stack {
   stack_size :: Int,   -- ^ The number of objects in the stack
   stack_values :: [a]  -- ^ The objects in the stack
-}
+} deriving Show
 
 -- Create an empty heap with unbounded memory
 empty :: Stack a

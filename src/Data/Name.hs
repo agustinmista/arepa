@@ -7,6 +7,8 @@ import Control.Monad
 import Data.IORef
 import Data.String
 
+import Data.Hashable
+
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as Text
 
@@ -43,7 +45,10 @@ instance IsString Name where
   fromString = mkName
 
 instance Pretty Name where
-  pretty (Name v) = pretty v
+  pretty (Name name) = pretty name
+
+instance Hashable Name where
+  hashWithSalt n (Name name) = hashWithSalt n name
 
 ----------------------------------------
 -- Creating globally unique names

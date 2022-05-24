@@ -7,6 +7,7 @@ module Language.Arepa.Compiler.Parse
 
 import Control.Monad.Extra
 
+import Data.Hashable
 import Data.Maybe
 import Data.Void
 import Data.Functor
@@ -218,11 +219,23 @@ unitL = keyword "unit" $> UnitL
 
 con :: MonadArepa m => Parser m Con
 con = label "data constructor" $ do
+  try namedCon <|> taggedCon
+
+namedCon :: MonadArepa m => Parser m Con
+namedCon = do
+  braces $ do
+    nm <- name
+    comma
+    arity <- decimal
+    return (Con (Just nm) (hash nm) arity)
+
+taggedCon :: MonadArepa m => Parser m Con
+taggedCon = do
   braces $ do
     tag <- decimal
     comma
     arity <- decimal
-    return (Con tag arity)
+    return (Con Nothing tag arity)
 
 -- Variables
 
