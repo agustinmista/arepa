@@ -1,0 +1,10 @@
+(module seq1
+
+  (val main
+    (seq (print_int 24)
+    (seq (print_int 10)
+         (print_int 42))))
+
+  (fun print_int (x) (__prim_print_int__ x))
+
+)

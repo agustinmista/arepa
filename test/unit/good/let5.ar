@@ -1,0 +1,12 @@
+(module let5
+  (val main
+    (print_int (foo 10)))
+
+  (fun foo (x)
+    (+ (let ((x 5))  (* x x))
+       (+ x x)))
+
+  (fun print_int (x) (__prim_print_int__ x))
+  (fun + (x y)       (__prim_add_int__ x y))
+  (fun * (x y)       (__prim_mul_int__ x y))
+)
