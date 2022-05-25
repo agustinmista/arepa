@@ -1,0 +1,45 @@
+(module io
+
+  (val main
+    (runIO echo)) ;; This could be embedded in the binary's main (runIO main)
+
+  (val echo
+    (>>= read_line
+      (lambda (line)
+        (if (str_eq line "exit")
+            (return unit)
+            (>> (print_string line) echo)))))
+
+  ;; (con {nil}  {0,0})
+  ;; (con {cons} {1,2})
+
+  (fun str_eq (x y)
+    (__prim_eq_string__ x y))
+
+  (val read_line
+    (lambda (rw)
+      (let ((str __prim_read_line__))
+        (seq str ({0,2} str rw)))))
+
+  (fun print_string (str)
+    (lambda (rw)
+      (let ((u (__prim_print_string__ str)))
+        (seq u ({0,2} u rw)))))
+
+  (fun runIO (ioa)
+    (case (ioa unit)
+      (({0,2} a rw) a)))
+
+  (fun return (x)
+    (lambda (rw)
+      ({0,2} x rw)))
+
+  (fun >>= (m k)
+    (lambda (rw)
+      (case (m rw)
+        (({0,2} a rw') (k a rw')))))
+
+  (fun >> (m k)
+    (>>= m (lambda (x) k)))
+
+)

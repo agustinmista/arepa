@@ -255,7 +255,9 @@ rtsFunctions = [
     ("tim_markers_update",         [longType],              voidType),
     ("tim_return",                 [],                      voidType),
     ("tim_data",                   [tagVType, funPtrType],  voidType),
-    ("tim_switch_error",           [tagVType],              voidType)
+    ("tim_switch_error",           [tagVType],              voidType),
+    ("tim_freeze",                 [],                      voidType),
+    ("tim_restore",                [],                      voidType)
   ]
 
 callRTS :: (MonadLLVM m, MonadIRBuilder m) => Name -> [LLVM.Operand] -> m LLVM.Operand
@@ -488,6 +490,12 @@ emitInstr instr = do
       elBlock <- IR.block `named` "cond.else"
       elCode <- lookupGlobalOperand elLabel
       IR.call elCode []
+    -- Freeze the value stack
+    FreezeI -> do
+      callVoidRTS "tim_freeze" []
+    -- Restore the value stack to the previous one
+    RestoreI -> do
+      callVoidRTS "tim_restore" []
 
 ----------------------------------------
 -- Low-level utilities

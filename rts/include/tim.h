@@ -110,6 +110,10 @@ void tim_data(tag_t tag, void (*code)());
 
 void tim_switch_error(tag_t tag);
 
+void tim_freeze();
+
+void tim_restore();
+
 Int get_int_result();
 
 Double get_double_result();

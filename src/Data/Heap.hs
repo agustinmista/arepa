@@ -34,7 +34,7 @@ data Heap a = Heap {
   heap_size :: Int,              -- ^ The number of objects in the heap
   heap_free_addrs :: [Addr],     -- ^ The available addresses (infinite)
   heap_used_addrs :: Map Addr a  -- ^ The allocated addreses
-}
+} deriving Show
 
 -- Create an empty heap with unbounded memory
 empty :: Heap a

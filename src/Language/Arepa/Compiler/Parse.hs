@@ -7,6 +7,7 @@ module Language.Arepa.Compiler.Parse
 
 import Control.Monad.Extra
 
+import Data.Hashable
 import Data.Maybe
 import Data.Void
 import Data.Functor
@@ -103,7 +104,7 @@ atomE = label "atomic expression" $ do
 parenE :: MonadArepa m => Parser m CoreExpr
 parenE = label "s-expression" $ do
   parens $ do
-    try lamE <|> try letE <|> try ifE <|> try caseE <|> appE
+    try lamE <|> try letE <|> try ifE <|> try caseE <|> try seqE <|> appE
 
 appE :: MonadArepa m => Parser m CoreExpr
 appE = do
@@ -149,6 +150,13 @@ caseE = do
   scrut <- expr
   alts <- some alt
   return (CaseE scrut alts)
+
+seqE :: MonadArepa m => Parser m CoreExpr
+seqE = do
+  keyword "seq"
+  e1 <- expr
+  e2 <- expr
+  return (SeqE e1 e2)
 
 -- Alternatives
 
@@ -211,11 +219,23 @@ unitL = keyword "unit" $> UnitL
 
 con :: MonadArepa m => Parser m Con
 con = label "data constructor" $ do
+  try namedCon <|> taggedCon
+
+namedCon :: MonadArepa m => Parser m Con
+namedCon = do
+  braces $ do
+    nm <- name
+    comma
+    arity <- decimal
+    return (Con (Just nm) (hash nm) arity)
+
+taggedCon :: MonadArepa m => Parser m Con
+taggedCon = do
   braces $ do
     tag <- decimal
     comma
     arity <- decimal
-    return (Con tag arity)
+    return (Con Nothing tag arity)
 
 -- Variables
 
@@ -262,7 +282,7 @@ identifier = Lexer.lexeme whitespace $ do
 -- Parsing keywords
 
 reserved :: [String]
-reserved = ["module", "lambda", "let", "letrec", "if", "true", "false", "case", "unit"]
+reserved = ["module", "lambda", "let", "letrec", "if", "true", "false", "case", "unit", "seq"]
 
 keyword :: MonadArepa m => Text -> Parser m ()
 keyword kw = void $ Lexer.lexeme whitespace $ do

@@ -102,6 +102,8 @@ lintExpr expr = do
       lintIf cond th el
     CaseE scrut alts -> do
       lintCase scrut alts
+    SeqE e1 e2 -> do
+      lintSeq e1 e2
     _ -> do
       return expr
 
@@ -202,6 +204,15 @@ lintDefA (var, body) = do
   whenVerbose $ dump "Linting default alternative" (var, body)
   body' <- lintExpr body
   return (DefA var body')
+
+-- Sequential expressions
+
+lintSeq :: MonadArepa m => CoreExpr -> CoreExpr -> Linter m CoreExpr
+lintSeq e1 e2 = do
+  whenVerbose $ dump "Linting sequential expression" (e1, e2)
+  e1' <- lintExpr e1
+  e2' <- lintExpr e2
+  return (SeqE e1' e2')
 
 ----------------------------------------
 -- Utilities

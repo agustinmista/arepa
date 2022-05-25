@@ -1,6 +1,7 @@
 module Language.TIM.Interpreter.Monad where
 
 import System.IO.Error
+import System.Console.ANSI
 
 import Control.Monad.Extra
 import Control.Monad.Except
@@ -8,6 +9,7 @@ import Control.Monad.State
 import Control.Monad.Writer
 
 import Prettyprinter
+import Prettyprinter.Render.String
 
 import Data.Maybe
 
@@ -40,9 +42,10 @@ newtype TIM a = TIM (ExceptT TIMError (StateT TIMState (WriterT TIMTrace IO)) a)
            , MonadWriter TIMTrace
            , MonadFail )
 
-runTIM :: FilePath -> FilePath -> [CodeStore] -> TIM a -> IO (Either TIMError a, TIMTrace)
-runTIM stdin stdout stores (TIM ma) = withRTSIO stdin stdout $ do
-  runWriterT (evalStateT (runExceptT ma) (initialTIMState stores))
+runTIM :: Bool -> FilePath -> FilePath -> [CodeStore] -> TIM a -> IO (Either TIMError a, TIMTrace)
+runTIM interactive stdin stdout stores (TIM ma) = do
+  withRTSIO stdin stdout $ do
+    runWriterT (evalStateT (runExceptT ma) (initialTIMState interactive stores))
 
 -- Machine exceptions
 
@@ -54,7 +57,7 @@ instance Pretty TIMError where
 
 -- Machine traces
 
-newtype TIMTrace = TIMTrace [TIMState]
+newtype TIMTrace = TIMTrace { getTIMTrace :: [TIMState] }
   deriving Semigroup via [TIMState]
   deriving Monoid    via [TIMState]
 
@@ -63,11 +66,15 @@ instance Pretty TIMTrace where
 
 -- Dump elements
 
-data Dump = Dump {
-  dump_stack :: Stack Closure,
-  dump_frame :: FramePtr,
-  dump_index :: Int
-}
+data ArgDump = ArgDump {
+  arg_dump_stack :: Stack Closure,
+  arg_dump_frame :: FramePtr,
+  arg_dump_index :: Int
+} deriving Show
+
+newtype ValueDump = ValueDump {
+  value_dump_stack :: Stack Value
+} deriving Show
 
 -- Machine state
 
@@ -78,9 +85,11 @@ data TIMState = TIMState {
   tim_curr_data_frame :: FramePtr,
   tim_heap :: Heap Frame,
   tim_arg_stack :: Stack Closure,
-  tim_dump :: Stack Dump,
-  tim_value_stack :: Stack Value
-}
+  tim_arg_dump :: Stack ArgDump,
+  tim_value_stack :: Stack Value,
+  tim_value_dump :: Stack ValueDump,
+  tim_interactive :: Bool
+} deriving Show
 
 instance Pretty TIMState where
   pretty st = vsep [
@@ -89,8 +98,9 @@ instance Pretty TIMState where
       showCurrentFrame,
       showCurrentDataFrame,
       showArgStack,
-      showDump,
+      showArgDump,
       showValueStack,
+      showValueDump,
       showDiv
     ]
     where
@@ -127,8 +137,8 @@ instance Pretty TIMState where
           if null stack
           then [ indent 2 "empty" ]
           else [ indent 2 (pretty closure) | closure <- reverse stack ]
-      showDump =
-        let dump = Stack.toList (tim_dump st) in
+      showArgDump =
+        let dump = Stack.toList (tim_arg_dump st) in
         vsep $
           [ "Argument dump:" ] <>
           if null dump
@@ -137,9 +147,11 @@ instance Pretty TIMState where
                   [ "stack:" <+>
                     brackets ("frame ptr=" <> pretty ptr) <+>
                     brackets ("frame index=" <> pretty idx) ] <>
-                  [ indent 2 (pretty closure)
-                  | closure <- reverse (Stack.toList stack) ]
-               | Dump stack ptr idx <- reverse dump ]
+                  let closures = Stack.toList stack in
+                  if null closures
+                  then [ indent 2 "empty" ]
+                  else [ indent 2 (pretty closure) | closure <- reverse (Stack.toList stack) ]
+               | ArgDump stack ptr idx <- reverse dump ]
       showValueStack =
         let stack = Stack.toList (tim_value_stack st) in
         vsep $
@@ -147,21 +159,33 @@ instance Pretty TIMState where
           if null stack
           then [ indent 2 "empty" ]
           else [ indent 2 (pretty closure) | closure <- reverse stack ]
+      showValueDump =
+        let dump = Stack.toList (tim_value_dump st) in
+        vsep $
+          [ "Value dump:" ] <>
+          if null dump
+          then [ indent 2 "empty" ]
+          else [ indent 2 $ vsep $
+                  [ "stack:" ] <>
+                  let closures = Stack.toList stack in
+                  if null closures
+                  then [ indent 2 "empty" ]
+                  else [ indent 2 (pretty closure) | closure <- reverse (Stack.toList stack) ]
+               | ValueDump stack <- reverse dump ]
 
-initialTIMState :: [CodeStore] -> TIMState
-initialTIMState stores = TIMState {
+initialTIMState :: Bool -> [CodeStore] -> TIMState
+initialTIMState interactive stores = TIMState {
   tim_code_stores = stores,
   tim_curr_codeblock = mempty,
   tim_curr_frame = NullP,
   tim_curr_data_frame = NullP,
   tim_heap = Heap.empty,
   tim_arg_stack = Stack.empty,
-  tim_dump = Stack.empty,
-  tim_value_stack = Stack.empty
+  tim_arg_dump = Stack.empty,
+  tim_value_stack = Stack.empty,
+  tim_value_dump = Stack.empty,
+  tim_interactive = interactive
 }
-
-finalTIMState :: TIMState -> Bool
-finalTIMState st = isNullCodeBlock (tim_curr_codeblock st)
 
 ----------------------------------------
 -- Monad operations
@@ -255,38 +279,37 @@ pushArgumentStackToDump :: Int -> TIM ()
 pushArgumentStackToDump index = do
   s <- gets tim_arg_stack
   f <- gets tim_curr_frame
-  let oldStack = Dump { dump_index = index, dump_frame = f, dump_stack = s }
-  pushDump oldStack
+  let oldStack = ArgDump { arg_dump_index = index, arg_dump_frame = f, arg_dump_stack = s }
+  pushArgumentDump oldStack
   clearArgumentStack
 
 ----------------------------------------
 -- Argument dump
 
-pushDump :: Dump -> TIM ()
-pushDump dump = modify' $ \st ->
-  st { tim_dump = Stack.push dump (tim_dump st) }
+pushArgumentDump :: ArgDump -> TIM ()
+pushArgumentDump dump = modify' $ \st ->
+  st { tim_arg_dump = Stack.push dump (tim_arg_dump st) }
 
 -- Pops and prepends the previous dump into the argument stack.
 -- Returns the saved frame pointer and closure index
 popDumpIntoArgumentStack :: TIM (FramePtr, Int)
 popDumpIntoArgumentStack = do
-  stack_dump <- gets tim_dump
-  case Stack.pop stack_dump of
+  arg_dump <- gets tim_arg_dump
+  case Stack.pop arg_dump of
     Nothing -> do
       throwTIMError "popDumpIntoArgumentStack: empty dump"
-    Just (dump, stack_dump') -> do
+    Just (dump, arg_dump') -> do
       modify' $ \st -> st {
-        tim_arg_stack = Stack.append (tim_arg_stack st) (dump_stack dump),
-        tim_dump = stack_dump'
+        tim_arg_stack = Stack.append (tim_arg_stack st) (arg_dump_stack dump),
+        tim_arg_dump = arg_dump'
       }
-      return (dump_frame dump, dump_index dump)
+      return (arg_dump_frame dump, arg_dump_index dump)
 
 ----------------------------------------
 -- Value stack
 
-getValueStack :: TIM [Value]
-getValueStack = do
-  Stack.toList <$> gets tim_value_stack
+getValueStack :: TIM (Stack Value)
+getValueStack = gets tim_value_stack
 
 peekValueStack :: TIM Value
 peekValueStack = do
@@ -363,6 +386,35 @@ popConTagFromValueStack = do
       return tag
     _ -> do
       throwTIMError "popConTagFromValueStack: top value is not a tag"
+
+-- Freeze the current value stack
+
+freezeValueStack :: TIM ()
+freezeValueStack = do
+  vstack <- getValueStack
+  let oldVStack = ValueDump vstack
+  pushValueDump oldVStack
+
+----------------------------------------
+-- Value dump
+
+pushValueDump :: ValueDump -> TIM ()
+pushValueDump dump = modify' $ \st -> st {
+    tim_value_dump = Stack.push dump (tim_value_dump st)
+  }
+
+-- Drop the current value
+restoreValueStackFromDump :: TIM ()
+restoreValueStackFromDump = do
+  value_dump <- gets tim_value_dump
+  case Stack.pop value_dump of
+    Nothing -> do
+      throwTIMError "restoreValueDump: empty dump"
+    Just (dump, value_dump') -> do
+      modify' $ \st -> st {
+        tim_value_stack = value_dump_stack dump,
+        tim_value_dump = value_dump'
+      }
 
 ----------------------------------------
 -- Frames and frame pointers
@@ -521,6 +573,12 @@ derefClosure mode = do
 ----------------------------------------
 -- Utilities
 
+isFinalState :: TIM Bool
+isFinalState = isNullCodeBlock <$> gets tim_curr_codeblock
+
+isInteractive :: TIM Bool
+isInteractive = gets tim_interactive
+
 -- Throw an error
 throwTIMError :: Text -> TIM a
 throwTIMError msg = throwError (TIMError msg)
@@ -528,6 +586,17 @@ throwTIMError msg = throwError (TIMError msg)
 -- Log the current TIM state
 logTIMState :: TIM ()
 logTIMState = get >>= tell . TIMTrace . pure
+
+
+-- Show the current TIM state and wait for the user to press ENTER
+printInteractiveTIMState :: TIM ()
+printInteractiveTIMState = do
+  st <- get
+  liftIO clearScreen
+  liftIO $ putStrLn "Current TIM state:"
+  liftIO $ putStrLn (renderString (layoutPretty defaultLayoutOptions (pretty st)))
+  liftIO $ putStrLn "Press ENTER to continue..."
+  liftIO $ void getLine
 
 -- Lookup for a primitive operation
 lookupPrim :: Name -> TIM Prim

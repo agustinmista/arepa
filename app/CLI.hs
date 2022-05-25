@@ -94,6 +94,10 @@ cliOpts = ArepaOpts <$>
     long "debug" <>
     short 'D' <>
     help "Enable debug messages in the compiled binary"
+  ) <*>
+  switch (
+    long "interactive" <>
+    help "Show execution traces interactively"
   )
 
 optionalStr :: Mod OptionFields String -> OptParse.Parser (Maybe String)
