@@ -15,6 +15,8 @@ import Data.Text.Lazy qualified as Text
 import Data.Set (Set)
 import Data.Set qualified as Set
 
+import Language.C.Quote
+
 import Test.RandomStrings
 import Prettyprinter
 import Text.Encoding.Z
@@ -40,6 +42,9 @@ fromName (Name t) = fromString (Text.unpack t)
 zEncodeName :: Name -> Name
 zEncodeName (Name t) = Name (Text.pack (zEncodeString (Text.unpack t)))
 
+zDecodeName :: Name -> Name
+zDecodeName (Name t) = Name (Text.pack (zDecodeString (Text.unpack t)))
+
 -- This instance let us write variables directly as strings
 instance IsString Name where
   fromString = mkName
@@ -49,6 +54,9 @@ instance Pretty Name where
 
 instance Hashable Name where
   hashWithSalt n (Name name) = hashWithSalt n name
+
+instance ToIdent Name where
+  toIdent name = toIdent @String (fromName name)
 
 ----------------------------------------
 -- Creating globally unique names
