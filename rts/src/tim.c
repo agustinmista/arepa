@@ -7,6 +7,7 @@
 #include "tim.h"
 #include "value.h"
 #include "io.h"
+#include "gc.h"
 
 frame_t current_frame;
 frame_t current_data_frame;
@@ -145,6 +146,7 @@ closure_t* make_closure(void (*code)(), void* frame) {
     closure_t* closure = rts_malloc(sizeof(closure_t));
     closure->code  = code;
     closure->frame = (frame_t) frame;
+    set_closure_gc_none(closure);
     debug_msg("New closure at %p with code %p and frame %p", closure, closure->code, closure->frame);
     return closure;
 }
@@ -157,42 +159,54 @@ closure_t* argument_closure(long argument) {
     debug_msg("Creating new argument closure from current frame slot $%li", argument);
     assert(argument < current_frame->length);
     closure_t* closure = &current_frame->arguments[argument];
-    return make_closure(closure->code, closure->frame);
+    closure_t* new_closure = make_closure(closure->code, closure->frame);
+    copy_closure_type(closure,new_closure);
+    return new_closure;
 }
 
 closure_t* int_closure(Int value) {
     debug_msg("Creating new int value closure for %li", value);
     Int* int_ptr_as_frame = rts_malloc(sizeof(Int));
     *int_ptr_as_frame = value;
-    return make_closure(*tim_value_code, int_ptr_as_frame);
+    closure_t* closure = make_closure(*tim_value_code, int_ptr_as_frame);
+    set_closure_gc_int(closure);
+    return closure;
 }
 
 closure_t* double_closure(Double value) {
     debug_msg("Creating new double value closure for %f", value);
     Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
-    return make_closure(*tim_value_code, double_ptr_as_frame);
+    closure_t* closure = make_closure(*tim_value_code, double_ptr_as_frame);
+    set_closure_gc_double(closure);
+    return closure;
 }
 
 closure_t* string_closure(String value) {
     debug_msg("Creating new string value closure for \"%s\"", value);
     String* string_ptr_as_frame = rts_malloc(sizeof(String));
     *string_ptr_as_frame = value;
-    return make_closure(*tim_value_code, string_ptr_as_frame);
+    closure_t* closure = make_closure(*tim_value_code, string_ptr_as_frame);
+    set_closure_gc_string(closure);
+    return closure;
 }
 
 closure_t* bool_closure(Bool value) {
     debug_msg("Creating new bool value closure for %s", bool_str(value));
     Bool* bool_ptr_as_frame = rts_malloc(sizeof(Bool));
     *bool_ptr_as_frame = value;
-    return make_closure(*tim_value_code, bool_ptr_as_frame);
+    closure_t* closure = make_closure(*tim_value_code, bool_ptr_as_frame);
+    set_closure_gc_bool(closure);
+    return closure;
 }
 
 closure_t* unit_closure(Unit value) {
     debug_msg("Creating new unit value closure for %li", value);
     Unit* unit_ptr_as_frame = rts_malloc(sizeof(Unit));
     *unit_ptr_as_frame = value;
-    return make_closure(*tim_value_code, unit_ptr_as_frame);
+    closure_t* closure = make_closure(*tim_value_code, unit_ptr_as_frame);
+    set_closure_gc_unit(closure);
+    return closure;
 }
 
 closure_t* label_closure(void (*code)()) {

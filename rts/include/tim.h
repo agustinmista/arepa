@@ -6,13 +6,31 @@
 
 struct closure_t;
 
+#ifdef GC
+typedef enum gc_closure_t {
+  NONE,
+  INT,
+  DOUBLE,
+  STRING,
+  BOOL,
+  UNIT
+} gc_closure_t;
+#endif
+
 typedef struct frame_t {
+  #ifdef GC
+  int marked;
+  #endif
   long length;
   int is_partial;
   struct closure_t* arguments;
 } *frame_t;
 
 typedef struct closure_t {
+  #ifdef GC
+  int marked;
+  gc_closure_t type;
+  #endif
   frame_t frame;
   void (*code)();
 } closure_t;
