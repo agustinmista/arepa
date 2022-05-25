@@ -8,8 +8,6 @@ module Language.Arepa.Compiler.Monad
 import Control.Monad.Extra
 import Control.Monad.Compiler
 
-import Data.Maybe
-
 import Data.Text.Lazy (Text)
 
 import Prettyprinter
@@ -124,4 +122,4 @@ hasStrictEnabled = lookupCompilerOption optStrict
 -- Utilities
 
 getInputPath :: MonadArepa m => m FilePath
-getInputPath = fromMaybe "<stdin>" <$> lookupCompilerOption optInput
+getInputPath = lookupCompilerOption optInput
