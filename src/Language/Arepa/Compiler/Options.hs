@@ -5,7 +5,7 @@ module Language.Arepa.Compiler.Options where
 ----------------------------------------
 
 data ArepaOpts = ArepaOpts {
-  optInput :: Maybe FilePath,    -- Nothing means stdin
+  optInput :: FilePath,
   optOutput :: Maybe FilePath,   -- Nothing means a.out
   optNoLinking :: Bool,
   optDump :: [DumpOpt],
@@ -18,13 +18,14 @@ data ArepaOpts = ArepaOpts {
   optStrict :: Bool,
   optEmitMain :: Bool,
   optInclude :: [FilePath],
+  optBackend :: BackendOpt,
   optDebug :: Bool,
   optInteractive :: Bool
 } deriving (Show, Read, Eq, Ord)
 
 defaultOpts :: ArepaOpts
 defaultOpts :: ArepaOpts = ArepaOpts {
-  optInput = Nothing,
+  optInput = mempty,
   optOutput = Nothing,
   optNoLinking = False,
   optDump = [],
@@ -37,10 +38,15 @@ defaultOpts :: ArepaOpts = ArepaOpts {
   optStrict = False,
   optEmitMain = False,
   optInclude = [],
+  optBackend = LLVM,
   optDebug = False,
   optInteractive = False
 }
 
+-- Compiler backend
+data BackendOpt = C | LLVM
+  deriving (Show, Read, Eq, Ord)
+
 -- Dump options
-data DumpOpt = AST | PPR | LINT | RENAME | LIFT | TIM | LLVM
+data DumpOpt = AST | PPR | LINT | RENAME | LIFT | TIM | CG
   deriving (Show, Read, Eq, Ord)
