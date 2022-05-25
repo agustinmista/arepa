@@ -24,8 +24,7 @@ compiler = handleCompilerError printCompilerError $ do
   lnMod <- lint psMod
   rnMod <- rename lnMod
   llMod <- lambdaLift rnMod
-  tcMod <- typecheck llMod
-  store <- translate tcMod
+  store <- translate llMod
   ifM hasInterpretEnabled
     (interpret store)
     (codegen store >> link)
@@ -49,10 +48,6 @@ rename psMod = do
   whenDump RENAME $ dump "Renamed module" (prettyPrint rnMod)
   return rnMod
 
-typecheck :: MonadArepa m => CoreModule -> m CoreModule
-typecheck psMod = do
-  typeCheckModule psMod
-
 lambdaLift :: MonadArepa m => CoreModule -> m CoreModule
 lambdaLift tcMod = do
   llMod <- lambdaLiftModule tcMod
@@ -63,7 +58,9 @@ translate :: MonadArepa m => CoreModule -> m CodeStore
 translate tcMod = do
   store <- translateModule tcMod
   whenDump TIM $ dump "TIM code store" (prettyPrint store)
-  writeTIMCodeStore store
+  tim_path <- compiledTIMPath
+  let tim_text = encodeCodeStore store
+  writeCompiledFile tim_path tim_text
   return store
 
 interpret :: MonadArepa m => CodeStore -> m ()
@@ -72,10 +69,23 @@ interpret store = do
 
 codegen :: MonadArepa m => CodeStore -> m ()
 codegen store = do
-  llvm <- emitLLVM store
-  text <- renderLLVM llvm
-  whenDump LLVM $ dump "Emitted LLVM" text
-  writeLLVMModule text
+  backend <- lookupCompilerOption optBackend
+  case backend of
+    C -> do
+      cmod <- emitC store
+      (h_text, c_text) <- renderC cmod
+      whenDump CG $ dump "Emitted C header" h_text
+      h_path <- compiledHPath
+      writeCompiledFile h_path h_text
+      whenDump CG $ dump "Emitted C code"   c_text
+      c_path <- compiledCPath
+      writeCompiledFile c_path c_text
+    LLVM -> do
+      llvm <- emitLLVM store
+      text <- renderLLVM llvm
+      whenDump CG $ dump "Emitted LLVM code" text
+      path <- compiledLLVMPath
+      writeCompiledFile path text
 
 link :: MonadArepa m => m ()
 link = unlessM hasLinkingDisabled $ do
