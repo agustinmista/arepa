@@ -1,4 +1,4 @@
-(module let1
+(module sharing
   (val main
     (let ((x (inc (inc (inc (inc (inc 10)))))))
       (print_int (+ x x))))

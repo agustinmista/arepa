@@ -1,4 +1,4 @@
-(module head_ind
+(module head_inf
   (val main
     (print_int
       (letrec ((xs (cons 42 xs)))

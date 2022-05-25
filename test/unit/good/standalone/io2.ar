@@ -1,4 +1,4 @@
-(module io
+(module io2
 
   (val main
     (runIO echo)) ;; This could be embedded in the binary's main (runIO main)
