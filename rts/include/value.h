@@ -11,8 +11,11 @@ typedef char*  String;
 typedef long   Bool;
 typedef long   Unit;
 
+extern Bool true;
+extern Bool false;
 String bool_str(Bool b);
 
-extern Unit unit;
+extern Unit   unit;
+extern String unit_str;
 
 #endif
