@@ -5,10 +5,13 @@ module Language.Arepa.Compiler.Parse
   , parseExpr
   ) where
 
+import GHC.Exts
+
+import System.FilePath
+
 import Control.Monad.Extra
 
 import Data.Hashable
-import Data.Maybe
 import Data.Void
 import Data.Functor
 
@@ -21,6 +24,7 @@ import Text.Megaparsec.Char.Lexer qualified as Lexer
 
 import Language.Arepa.Syntax
 import Language.Arepa.Compiler.Monad
+import Language.Arepa.Compiler.IO
 
 
 ----------------------------------------
@@ -30,17 +34,17 @@ import Language.Arepa.Compiler.Monad
 parseModule :: MonadArepa m => Text -> m CoreModule
 parseModule text = do
   whenVerbose $ dump "Parsing module" text
-  runParser (contents module') text
+  runParser (contents . module') text
 
 parseDecl :: MonadArepa m => Text -> m CoreDecl
 parseDecl text = do
   whenVerbose $ dump "Parsing declaration" text
-  runParser (contents decl) text
+  runParser (contents . const decl) text
 
 parseExpr :: MonadArepa m => Text -> m CoreExpr
 parseExpr text = do
   whenVerbose $ dump "Parsing expression" text
-  runParser (contents expr) text
+  runParser (contents . const expr) text
 
 ----------------------------------------
 -- The parser monad
@@ -48,10 +52,10 @@ parseExpr text = do
 -- A parsing transformer that runs on top of the compiler monad
 type Parser m a = ParsecT Void Text m a
 
-runParser :: MonadArepa m => Parser m a -> Text -> m a
+runParser :: MonadArepa m => (FilePath -> Parser m a) -> Text -> m a
 runParser parser text = do
-  path <- fromMaybe "<interactive>" <$> lookupCompilerOption optInput
-  res <- runParserT parser path text
+  path <- compiledSourceFilePath id
+  res <- runParserT (parser path) path text
   case res of
     Left errs -> throwParserError errs
     Right a   -> return a
@@ -61,13 +65,21 @@ runParser parser text = do
 
 -- Modules
 
-module' :: MonadArepa m => Parser m CoreModule
-module' = label "module" $ do
+module' :: MonadArepa m => FilePath -> Parser m CoreModule
+module' path = label "module" $ do
   parens $ do
     keyword "module"
     nm <- name
+    checkModuleName path nm
     decls <- many decl
     return (Module nm decls)
+
+checkModuleName :: MonadArepa m => FilePath -> Name -> Parser m ()
+checkModuleName path nm = do
+  let expected = fromList (takeBaseName path)
+  let actual   = fromList (fromName nm)
+  when (actual /= expected) $ do
+    failure (Just (Label actual)) (fromList [Label expected])
 
 -- Top-level declarations
 
@@ -227,7 +239,7 @@ namedCon = do
     nm <- name
     comma
     arity <- decimal
-    return (Con (Just nm) (hash nm) arity)
+    return (Con (Just nm) (abs (hash nm)) arity)
 
 taggedCon :: MonadArepa m => Parser m Con
 taggedCon = do
