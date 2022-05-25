@@ -12,6 +12,7 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 
 import Data.Text.Lazy (Text)
+import Data.Text.Lazy qualified as Text
 
 import Prettyprinter
 
@@ -54,6 +55,12 @@ insertCodeStore v code store = store {
 
 codeStoreBlockNames :: CodeStore -> [Name]
 codeStoreBlockNames store = Map.keys (store_blocks store)
+
+encodeCodeStore :: CodeStore -> Text
+encodeCodeStore = Text.pack . show
+
+decodeCodeStore :: Text -> CodeStore
+decodeCodeStore = read . Text.unpack
 
 -- CodeBlock
 
