@@ -2,8 +2,12 @@ ifeq ($(DEBUG),1)
    EXTRA_OPTS = -g -DDEBUG -O0
 endif
 
+ifeq ($(GC),1)
+   GC_OPTS = -DGC
+endif
+
 CC ?= clang
-CFLAGS ?= -Wall -Wextra -Werror -O2 -Iinclude $(EXTRA_OPTS)
+CFLAGS ?= -Wall -Wextra -Werror -O2 -Iinclude $(EXTRA_OPTS) $(GC_OPTS)
 
 LIB_SRCS = $(wildcard src/*.c)
 LIB_OBJS = $(LIB_SRCS:.c=.o)
