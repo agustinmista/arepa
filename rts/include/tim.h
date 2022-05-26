@@ -3,6 +3,7 @@
 
 #include "value.h"
 #include "prim.h"
+#include "dump.h"
 
 struct closure_t;
 
@@ -44,6 +45,12 @@ typedef struct tim_metadata_t {
 } *tim_metadata_t;
 
 typedef long tag_t;
+
+extern frame_t current_frame;
+extern frame_t current_data_frame;
+
+extern dump_t argument_stack;
+extern dump_t value_stack;
 
 void tim_start();
 
