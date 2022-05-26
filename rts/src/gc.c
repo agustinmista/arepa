@@ -88,27 +88,54 @@ void gc_mark_refresh() {
   if (gc_mark <= 0) {gc_mark = 1;}
 }
 
-void mark_closure(closure_t* closure) {
+int is_marked_closure(closure_t* closure) {
+  return closure->marked == gc_mark;
+}
+
+void set_mark_closure(closure_t* closure) {
   closure->marked=gc_mark;
+}
+
+void mark_closure(closure_t* closure) {
+  if (is_marked_closure(closure)) {return;}
+  set_mark_closure(closure);
   if (closure->type==REGULAR) {
     mark_frame(closure->frame);
   }
 }
 
-void mark_frame(frame_t frame) {
+void set_mark_frame(frame_t frame) {
   frame->marked=gc_mark;
+}
+
+int is_marked_frame(frame_t frame) {
+  return frame->marked == gc_mark;
+}
+
+void mark_frame(frame_t frame) {
+  if (is_marked_frame(frame)) {return;}
+  set_mark_frame(frame);
   for (long i = 0; i < frame->length; i++) {
     mark_closure(&frame->arguments[i]);
   }
 }
 
-void mark_tim_metadata(tim_metadata_t metadata) {
+int is_marked_tim_metadata(tim_metadata_t metadata) {
+  return metadata->marked == gc_mark;
+}
+
+void set_mark_metadata(tim_metadata_t metadata) {
   metadata->marked=gc_mark;
+}
+
+void mark_tim_metadata(tim_metadata_t metadata) {
+  if (is_marked_tim_metadata(metadata)) {return;}
+  set_mark_metadata(metadata);
   mark_frame(metadata->frame);
 }
 
 void mark_closure_stack (long size,stack_t stack) {
-  if (size <= 0) { return ;}
+  if (size <= 0) { return; }
   assert(stack);
   mark_closure(stack->data);
   mark_closure_stack(size-1,stack->next);
@@ -116,10 +143,13 @@ void mark_closure_stack (long size,stack_t stack) {
 
 void mark_closure_dump(dump_t dump) {
   assert(dump);
-  mark_closure_stack(dump->current_size,dump->current);
+  stack_t current_stack = dump->current;
+  long stack_size = dump->current_size;
+  mark_closure_stack(stack_size,current_stack);
   mark_tim_metadata(dump->metadata);
-  if (dump->parent != NULL) {
-    mark_closure_dump(dump->parent);
+  dump_t rest_of_the_dump = dump->parent;
+  if (rest_of_the_dump != NULL) {
+    mark_closure_dump(rest_of_the_dump);
   }
 }
 
