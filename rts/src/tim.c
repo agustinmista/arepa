@@ -146,7 +146,7 @@ closure_t* make_closure(void (*code)(), void* frame) {
     closure_t* closure = malloc_closure();
     closure->code  = code;
     closure->frame = (frame_t) frame;
-    set_closure_gc_none(closure);
+    set_closure_gc_regular(closure);
     debug_msg("New closure at %p with code %p and frame %p", closure, closure->code, closure->frame);
     return closure;
 }

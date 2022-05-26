@@ -30,13 +30,13 @@ void gc_startup();
 // GC types for closures
 #ifdef GC
 
-#define set_closure_gc_int(closure)    closure->type = INT;
-#define set_closure_gc_double(closure) closure->type = DOUBLE;
-#define set_closure_gc_string(closure) closure->type = STRING;
-#define set_closure_gc_bool(closure)   closure->type = BOOL;
-#define set_closure_gc_unit(closure)   closure->type = UNIT;
-#define set_closure_gc_none(closure)   closure->type = NONE;
-#define copy_closure_type(a,b)         a->type = b->type;
+#define set_closure_gc_int(closure)     closure->type = INT;
+#define set_closure_gc_double(closure)  closure->type = DOUBLE;
+#define set_closure_gc_string(closure)  closure->type = STRING;
+#define set_closure_gc_bool(closure)    closure->type = BOOL;
+#define set_closure_gc_unit(closure)    closure->type = UNIT;
+#define set_closure_gc_regular(closure) closure->type = REGULAR;
+#define copy_closure_type(a,b)          a->type = b->type;
 
 #else
 
@@ -45,7 +45,7 @@ void gc_startup();
 #define set_closure_gc_string(closure)  ;
 #define set_closure_gc_bool(closure)    ;
 #define set_closure_gc_unit(closure)    ;
-#define set_closure_gc_none(closure)    ;
+#define set_closure_gc_regular(closure) ;
 #define copy_closure_type(closure,type) ;
 
 #endif

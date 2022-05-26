@@ -8,7 +8,7 @@ struct closure_t;
 
 #ifdef GC
 typedef enum gc_closure_t {
-  NONE,
+  REGULAR,
   INT,
   DOUBLE,
   STRING,
