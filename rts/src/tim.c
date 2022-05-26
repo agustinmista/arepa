@@ -162,7 +162,7 @@ closure_t* argument_closure(long argument) {
 
 closure_t* int_closure(Int value) {
     debug_msg("Creating new int value closure for %li", value);
-    int* int_ptr_as_frame = rts_malloc(sizeof(int));
+    Int* int_ptr_as_frame = rts_malloc(sizeof(Int));
     *int_ptr_as_frame = value;
     return make_closure(*tim_value_code, int_ptr_as_frame);
 }
