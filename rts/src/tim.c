@@ -475,7 +475,7 @@ void tim_move_data(long offset, long field) {
 }
 
 void tim_marker_push(long offset) {
-    tim_metadata_t metadata = rts_malloc(sizeof(struct tim_metadata_t));
+    tim_metadata_t metadata = malloc_tim_metadata();
     metadata->offset = offset;
     metadata->frame  = current_frame;
     dump_freeze(argument_stack, metadata);

@@ -37,6 +37,9 @@ typedef struct closure_t {
 
 typedef struct tim_metadata_t {
   int offset;
+  #ifdef GC
+  int marked;
+  #endif
   frame_t frame;
 } *tim_metadata_t;
 

@@ -32,7 +32,17 @@ void add_frame_location(frame_t frame) {
 void add_closure_location(closure_t* closure) {
   add_location(CLOSURE,(void*) closure);
 }
+
+void add_metadata_location(tim_metadata_t metadata) {
+  add_location(META,(void*) metadata);
+}
+
+/**********************/
 #endif
+
+/***********************/
+/* Allocation wrappers */
+/***********************/
 
 frame_t malloc_frame() {
   frame_t frame = rts_malloc(sizeof(struct frame_t));
@@ -48,6 +58,14 @@ closure_t* malloc_closure() {
   add_closure_location(closure);
   #endif
   return closure;
+}
+
+tim_metadata_t malloc_tim_metadata() {
+  tim_metadata_t metadata = rts_malloc(sizeof(struct tim_metadata_t));
+  #ifdef GC
+  add_metadata_location(metadata);
+  #endif
+  return metadata;
 }
 
 closure_t* malloc_closure_array(long size){

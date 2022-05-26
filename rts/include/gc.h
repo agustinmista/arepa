@@ -7,7 +7,8 @@
 
 typedef enum gc_data_t {
   CLOSURE,
-  FRAME
+  FRAME,
+  META
 } gc_data_t;
 
 typedef struct gc_list {
@@ -50,8 +51,10 @@ void gc_startup();
 #endif
 
 // Allocation
-closure_t* malloc_closure();
-frame_t    malloc_frame();
-closure_t* malloc_closure_array(long size);
+closure_t*     malloc_closure();
+frame_t        malloc_frame();
+tim_metadata_t malloc_tim_metadata();
+closure_t*     malloc_closure_array(long size);
+
 
 #endif
