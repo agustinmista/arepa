@@ -25,7 +25,7 @@ typedef struct gc_data {
 #endif
 
 // Startup
-void gc_startup();
+void gc_init();
 
 // GC types for closures
 #ifdef GC
@@ -36,6 +36,7 @@ void gc_startup();
 #define set_closure_gc_bool(closure)    closure->type = BOOL;
 #define set_closure_gc_unit(closure)    closure->type = UNIT;
 #define set_closure_gc_regular(closure) closure->type = REGULAR;
+#define set_closure_gc_nil(closure)    closure->type = NIL;
 #define copy_closure_type(a,b)          a->type = b->type;
 
 #else
@@ -46,6 +47,7 @@ void gc_startup();
 #define set_closure_gc_bool(closure)    ;
 #define set_closure_gc_unit(closure)    ;
 #define set_closure_gc_regular(closure) ;
+#define set_closure_gc_nil(closure)    ;
 #define copy_closure_type(closure,type) ;
 
 #endif

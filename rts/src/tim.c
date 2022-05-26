@@ -152,7 +152,9 @@ closure_t* make_closure(void (*code)(), void* frame) {
 }
 
 closure_t* tim_nil_closure() {
-    return make_closure(*tim_nil_code, NULL);
+    closure_t* closure = make_closure(*tim_nil_code, NULL);
+    set_closure_gc_nil(closure);
+    return closure;
 }
 
 closure_t* argument_closure(long argument) {
@@ -253,6 +255,7 @@ void tim_start() {
     tim_init_current_frame();
     tim_init_argument_stack();
     tim_init_value_stack();
+    gc_init();
     tim_init_io_streams();
     debug_msg("Initialization finished");
 }

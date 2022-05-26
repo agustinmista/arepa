@@ -10,6 +10,7 @@ struct closure_t;
 #ifdef GC
 typedef enum gc_closure_t {
   REGULAR,
+  NIL,
   INT,
   DOUBLE,
   STRING,

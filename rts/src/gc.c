@@ -7,12 +7,22 @@
 #include "gc.h"
 
 #ifdef GC
+
+/*****************/
+/* Mark handling */
+/*****************/
+int gc_mark=1;
+
+void mark_refresh() {
+  gc_mark = (gc_mark + 1) % 100;
+  if (gc_mark <= 0) {gc_mark = 1;}
+}
+
 /**********************/
 /* location recording */
 /**********************/
 
 gc_data data_locations;
-int gc_mark=1;
 
 void add_location(gc_data_t type, void* location) {
   gc_list new_location = rts_malloc(sizeof(struct gc_list));
@@ -75,6 +85,10 @@ void free_frame(frame_t frame) {
   rts_free(frame);
 }
 
+void free_metadata(tim_metadata_t metadata) {
+  rts_free(metadata);
+}
+
 /***********/
 /* Marking */
 /***********/
@@ -82,11 +96,6 @@ void free_frame(frame_t frame) {
 // Prototypes
 void mark_closure(closure_t* closure);
 void mark_frame(frame_t frame);
-
-void gc_mark_refresh() {
-  gc_mark = (gc_mark + 1) % 100;
-  if (gc_mark <= 0) {gc_mark = 1;}
-}
 
 int is_marked_closure(closure_t* closure) {
   return closure->marked == gc_mark;
@@ -161,15 +170,88 @@ void mark() {
   mark_frame(current_frame);
   mark_frame(current_data_frame);
   mark_argument_stack();
-  gc_mark_refresh();
+}
+
+/************/
+/* Sweeping */
+/************/
+
+int is_marked_location(gc_list locations) {
+  void* location = locations->location;
+  switch (locations->type) {
+    case CLOSURE:
+      return is_marked_closure(location);
+    case FRAME:
+      return is_marked_frame(location);
+    case META:
+      return is_marked_tim_metadata(location);
+    default:
+      return 0;
+  }
+}
+
+void swap_with_next_location(gc_list location) {
+  assert(location);
+  gc_list next = location->next;
+  *location = *next;
+  rts_free(next);
+}
+
+void free_location(gc_list locations) {
+  void* location = locations->location;
+  switch (locations->type) {
+    case FRAME:
+      return free_frame(location);
+    case CLOSURE:
+      return free_closure(location);
+    case META:
+      return free_metadata(location);
+    default:
+      return;
+  }
+}
+
+long sweep_locations(gc_list location, long size) {
+  if (location == NULL) {return size;}
+  assert(location);
+
+  if (is_marked_location(location)) {
+    size--;
+    free_location(location);
+    swap_with_next_location(location);
+    return sweep_locations(location,size);
+  }
+
+  return sweep_locations(location->next,size);
+}
+
+void sweep(){
+  if (data_locations.size == 0) {return;}
+  long size = data_locations.size;
+  gc_list locations = data_locations.locations;
+  data_locations.size = sweep_locations(locations,size);
 }
 #endif
+/*****************/
+/* Trigger code */
+/****************/
+void run_gc() {
+  #ifdef GC
+  if (data_locations.size <= 100) {return;}
+  mark();
+  sweep();
+  mark_refresh();
+  #endif
+}
+
+
 
 /***********************/
 /* Allocation wrappers */
 /***********************/
 
 frame_t malloc_frame() {
+  run_gc();
   frame_t frame = rts_malloc(sizeof(struct frame_t));
   #ifdef GC
   add_frame_location(frame);
@@ -178,6 +260,7 @@ frame_t malloc_frame() {
 }
 
 closure_t* malloc_closure() {
+  run_gc();
   closure_t* closure = rts_malloc(sizeof(closure_t));
   #ifdef GC
   add_closure_location(closure);
@@ -186,6 +269,7 @@ closure_t* malloc_closure() {
 }
 
 tim_metadata_t malloc_tim_metadata() {
+  run_gc();
   tim_metadata_t metadata = rts_malloc(sizeof(struct tim_metadata_t));
   #ifdef GC
   add_metadata_location(metadata);
@@ -194,6 +278,7 @@ tim_metadata_t malloc_tim_metadata() {
 }
 
 closure_t* malloc_closure_array(long size){
+  run_gc();
   closure_t* closure_array = rts_malloc(size*sizeof(closure_t));
   #ifdef GC
   for (long i = 0; i < size; i++){
@@ -203,9 +288,9 @@ closure_t* malloc_closure_array(long size){
   return closure_array;
 }
 
-void gc_startup() {
+void gc_init() {
   #ifdef GC
   data_locations.size = 0;
-  data_locations.locations = rts_malloc(sizeof(struct gc_list));
+  data_locations.locations = NULL;
   #endif
 }
