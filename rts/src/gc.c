@@ -82,6 +82,7 @@ void free_closure(closure_t* closure) {
 }
 
 void free_frame(frame_t frame) {
+  rts_free(frame->arguments);
   rts_free(frame);
 }
 
@@ -130,7 +131,7 @@ void mark_frame(frame_t frame) {
 }
 
 int is_marked_tim_metadata(tim_metadata_t metadata) {
-  return metadata->marked == gc_mark;
+  return metadata == NULL || metadata->marked == gc_mark;
 }
 
 void set_mark_metadata(tim_metadata_t metadata) {
@@ -193,7 +194,12 @@ int is_marked_location(gc_list locations) {
 void swap_with_next_location(gc_list location) {
   assert(location);
   gc_list next = location->next;
-  *location = *next;
+  if (next == NULL) {
+    location->type = END;
+    location->location=NULL;
+  } else {
+    *location = *next;
+  }
   rts_free(next);
 }
 
@@ -211,25 +217,27 @@ void free_location(gc_list locations) {
   }
 }
 
-long sweep_locations(gc_list location, long size) {
-  if (location == NULL) {return size;}
+void sweep_locations(gc_list location) {
+  if (location == NULL) {return;}
+  if (location->type == END) {return;}
   assert(location);
+  assert(location->type != END || location->next == NULL);
 
   if (is_marked_location(location)) {
-    size--;
-    free_location(location);
-    swap_with_next_location(location);
-    return sweep_locations(location,size);
+    return sweep_locations(location->next);
   }
 
-  return sweep_locations(location->next,size);
+  free_location(location);
+  swap_with_next_location(location);
+  return sweep_locations(location);
+
 }
 
 void sweep(){
   if (data_locations.size == 0) {return;}
-  long size = data_locations.size;
   gc_list locations = data_locations.locations;
-  data_locations.size = sweep_locations(locations,size);
+  sweep_locations(locations);
+  data_locations.size = 0;
 }
 #endif
 /*****************/
@@ -275,17 +283,6 @@ tim_metadata_t malloc_tim_metadata() {
   add_metadata_location(metadata);
   #endif
   return metadata;
-}
-
-closure_t* malloc_closure_array(long size){
-  run_gc();
-  closure_t* closure_array = rts_malloc(size*sizeof(closure_t));
-  #ifdef GC
-  for (long i = 0; i < size; i++){
-    add_closure_location(&closure_array[i]);
-  }
-  #endif
-  return closure_array;
 }
 
 void gc_init() {

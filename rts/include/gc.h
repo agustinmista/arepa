@@ -8,7 +8,8 @@
 typedef enum gc_data_t {
   CLOSURE,
   FRAME,
-  META
+  META,
+  END
 } gc_data_t;
 
 typedef struct gc_list {
@@ -36,7 +37,7 @@ void gc_init();
 #define set_closure_gc_bool(closure)    closure->type = BOOL;
 #define set_closure_gc_unit(closure)    closure->type = UNIT;
 #define set_closure_gc_regular(closure) closure->type = REGULAR;
-#define set_closure_gc_nil(closure)    closure->type = NIL;
+#define set_closure_gc_nil(closure)     closure->type = NIL;
 #define copy_closure_type(a,b)          a->type = b->type;
 
 #else
@@ -56,7 +57,5 @@ void gc_init();
 closure_t*     malloc_closure();
 frame_t        malloc_frame();
 tim_metadata_t malloc_tim_metadata();
-closure_t*     malloc_closure_array(long size);
-
 
 #endif

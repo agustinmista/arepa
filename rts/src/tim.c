@@ -31,7 +31,15 @@ frame_t new_frame(long size) {
     frame_t frame = malloc_frame();
     frame->length = size;
     frame->is_partial = 0;
-    frame->arguments = malloc_closure_array(size);
+
+    // TODO: tidy up!
+    closure_t* arguments = rts_malloc(size*sizeof(closure_t));
+    closure_t* argument = arguments;
+    for(long i = 0; i < size; i++) {
+        argument = &arguments[i];
+        set_closure_gc_nil(argument);
+    }
+    frame->arguments = arguments;
     return frame;
 }
 
@@ -60,7 +68,6 @@ void move_n_stack_arguments_to_frame(long n, frame_t frame) {
     for (int i = 0; i < n; i++){
         closure_t* closure = (closure_t*) dump_pop(argument_stack);
         rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
-        rts_free(closure);
     }
 }
 
@@ -232,6 +239,11 @@ void tim_init_current_frame() {
     current_frame = new_frame(0);
 }
 
+void tim_init_current_data_frame() {
+    debug_msg("Initializing data frame");
+    current_data_frame = new_frame(0);
+}
+
 void tim_init_argument_stack() {
     debug_msg("Initializing argument stack");
     argument_stack = dump_new(NULL);
@@ -253,6 +265,7 @@ void tim_init_io_streams() {
 void tim_start() {
     debug_msg("Initialization started");
     tim_init_current_frame();
+    tim_init_current_data_frame();
     tim_init_argument_stack();
     tim_init_value_stack();
     gc_init();
