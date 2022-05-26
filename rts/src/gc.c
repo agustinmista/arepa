@@ -49,34 +49,20 @@ void add_metadata_location(tim_metadata_t metadata) {
 /* Deallocation (free)*/
 /**********************/
 
-void free_value_ptr_as_frame(gc_closure_t type, frame_t frame) {
-  switch (type)
-  {
-  case INT:
-    rts_free((Int*) frame);
-    break;
-  case DOUBLE:
-    rts_free((Double*) frame);
-    break;
-  case STRING:
-    //TODO: differentiate between static strings and dynamically allocated ones
-    rts_free((String*) frame);
-    break;
-  case BOOL:
-    rts_free((Bool*) frame);
-    break;
-  case UNIT:
-    rts_free((Unit*) frame);
-    break;
-  default:
-    break;
+void free_frame_as_value_ptr(gc_closure_t type, frame_t frame) {
+  switch (type) {
+    case VALUE:
+      rts_free(frame);
+      break;
+    default:
+      break;
   }
 }
 
 void free_closure(closure_t* closure) {
   gc_closure_t closure_type = closure->type;
-  if (closure_type != REGULAR) {
-    free_value_ptr_as_frame(closure_type,closure->frame);
+  if (closure_type == VALUE) {
+    free_frame_as_value_ptr(closure_type,closure->frame);
   }
   rts_free(closure);
 }

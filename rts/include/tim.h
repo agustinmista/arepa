@@ -11,11 +11,7 @@ struct closure_t;
 typedef enum gc_closure_t {
   REGULAR,
   NIL,
-  INT,
-  DOUBLE,
-  STRING,
-  BOOL,
-  UNIT
+  VALUE
 } gc_closure_t;
 #endif
 

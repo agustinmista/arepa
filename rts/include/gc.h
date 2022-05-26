@@ -31,22 +31,14 @@ void gc_init();
 // GC types for closures
 #ifdef GC
 
-#define set_closure_gc_int(closure)     closure->type = INT;
-#define set_closure_gc_double(closure)  closure->type = DOUBLE;
-#define set_closure_gc_string(closure)  closure->type = STRING;
-#define set_closure_gc_bool(closure)    closure->type = BOOL;
-#define set_closure_gc_unit(closure)    closure->type = UNIT;
+#define set_closure_gc_value(closure)   closure->type = VALUE;
 #define set_closure_gc_regular(closure) closure->type = REGULAR;
 #define set_closure_gc_nil(closure)     closure->type = NIL;
-#define copy_closure_type(a,b)          a->type = b->type;
+#define copy_closure_type(a,b)          b->type = a->type;
 
 #else
 
-#define set_closure_gc_int(closure)     ;
-#define set_closure_gc_double(closure)  ;
-#define set_closure_gc_string(closure)  ;
-#define set_closure_gc_bool(closure)    ;
-#define set_closure_gc_unit(closure)    ;
+#define set_closure_gc_value(closure) ;
 #define set_closure_gc_regular(closure) ;
 #define set_closure_gc_nil(closure)    ;
 #define copy_closure_type(closure,type) ;

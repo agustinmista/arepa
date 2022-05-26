@@ -37,7 +37,7 @@ frame_t new_frame(long size) {
     closure_t* argument = arguments;
     for(long i = 0; i < size; i++) {
         argument = &arguments[i];
-        set_closure_gc_nil(argument);
+        set_closure_gc_value(argument);
     }
     frame->arguments = arguments;
     return frame;
@@ -160,7 +160,7 @@ closure_t* make_closure(void (*code)(), void* frame) {
 
 closure_t* tim_nil_closure() {
     closure_t* closure = make_closure(*tim_nil_code, NULL);
-    set_closure_gc_nil(closure);
+    set_closure_gc_value(closure);
     return closure;
 }
 
@@ -178,7 +178,7 @@ closure_t* int_closure(Int value) {
     Int* int_ptr_as_frame = rts_malloc(sizeof(Int));
     *int_ptr_as_frame = value;
     closure_t* closure = make_closure(*tim_value_code, int_ptr_as_frame);
-    set_closure_gc_int(closure);
+    set_closure_gc_value(closure);
     return closure;
 }
 
@@ -187,7 +187,7 @@ closure_t* double_closure(Double value) {
     Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
     closure_t* closure = make_closure(*tim_value_code, double_ptr_as_frame);
-    set_closure_gc_double(closure);
+    set_closure_gc_value(closure);
     return closure;
 }
 
@@ -196,7 +196,7 @@ closure_t* string_closure(String value) {
     String* string_ptr_as_frame = rts_malloc(sizeof(String));
     *string_ptr_as_frame = value;
     closure_t* closure = make_closure(*tim_value_code, string_ptr_as_frame);
-    set_closure_gc_string(closure);
+    set_closure_gc_value(closure);
     return closure;
 }
 
@@ -205,7 +205,7 @@ closure_t* bool_closure(Bool value) {
     Bool* bool_ptr_as_frame = rts_malloc(sizeof(Bool));
     *bool_ptr_as_frame = value;
     closure_t* closure = make_closure(*tim_value_code, bool_ptr_as_frame);
-    set_closure_gc_bool(closure);
+    set_closure_gc_value(closure);
     return closure;
 }
 
@@ -214,7 +214,7 @@ closure_t* unit_closure(Unit value) {
     Unit* unit_ptr_as_frame = rts_malloc(sizeof(Unit));
     *unit_ptr_as_frame = value;
     closure_t* closure = make_closure(*tim_value_code, unit_ptr_as_frame);
-    set_closure_gc_unit(closure);
+    set_closure_gc_value(closure);
     return closure;
 }
 
@@ -227,7 +227,9 @@ closure_t* con_closure(long field) {
     debug_msg("Creating new closure for current constructor field %lu", field);
     assert(field < current_data_frame->length);
     closure_t* closure = &current_data_frame->arguments[field];
-    return make_closure(closure->code, closure->frame);
+    closure_t* new_closure = make_closure(closure->code, closure->frame);
+    copy_closure_type(closure,new_closure);
+    return new_closure;
 }
 
 /*****************/
@@ -264,11 +266,11 @@ void tim_init_io_streams() {
 
 void tim_start() {
     debug_msg("Initialization started");
+    gc_init();
     tim_init_current_frame();
     tim_init_current_data_frame();
     tim_init_argument_stack();
     tim_init_value_stack();
-    gc_init();
     tim_init_io_streams();
     debug_msg("Initialization finished");
 }
