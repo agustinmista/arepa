@@ -12,13 +12,13 @@ typedef enum gc_data_t {
 
 typedef struct gc_list {
   gc_data_t type;
-  void* data;
+  void* location;
   struct gc_list* next;
-} *gc_list
+} *gc_list;
 
 typedef struct gc_data {
   long size;
-  gc_list data_list;
+  gc_list locations;
 } gc_data;
 
 #endif
@@ -50,8 +50,8 @@ void gc_startup();
 #endif
 
 // Allocation
-void malloc_closure();
-void malloc_frame();
-void malloc_closure_array(int n);
+closure_t* malloc_closure();
+frame_t    malloc_frame();
+closure_t* malloc_closure_array(long size);
 
 #endif

@@ -28,10 +28,10 @@ void tim_value_code();
 
 frame_t new_frame(long size) {
     debug_msg("Creating new frame of size %li", size);
-    frame_t frame = rts_malloc(sizeof(struct frame_t));
+    frame_t frame = malloc_frame();
     frame->length = size;
     frame->is_partial = 0;
-    frame->arguments = rts_malloc(size*sizeof(closure_t));
+    frame->arguments = malloc_closure_array(size);
     return frame;
 }
 
@@ -143,7 +143,7 @@ void tim_value_code() {
 /************************/
 
 closure_t* make_closure(void (*code)(), void* frame) {
-    closure_t* closure = rts_malloc(sizeof(closure_t));
+    closure_t* closure = malloc_closure();
     closure->code  = code;
     closure->frame = (frame_t) frame;
     set_closure_gc_none(closure);
