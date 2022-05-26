@@ -3,26 +3,24 @@
 
 #include "tim.h"
 #include "mem.h"
+#include "dump.h"
 #include "gc.h"
 
 #ifdef GC
+/**********************/
+/* location recording */
+/**********************/
+
 gc_data data_locations;
-#endif
+int gc_mark=1;
 
-void gc_startup() {
-  #ifdef GC
-  data_locations.size = 0;
-  data_locations.locations = rts_malloc(sizeof(struct gc_list));
-  #endif
-}
-
-#ifdef GC
 void add_location(gc_data_t type, void* location) {
   gc_list new_location = rts_malloc(sizeof(struct gc_list));
   new_location->type = type;
   new_location->location = location;
   new_location->next = data_locations.locations;
   data_locations.locations = new_location;
+  data_locations.size++;
 }
 
 void add_frame_location(frame_t frame) {
@@ -38,6 +36,103 @@ void add_metadata_location(tim_metadata_t metadata) {
 }
 
 /**********************/
+/* Deallocation (free)*/
+/**********************/
+
+void free_value_ptr_as_frame(gc_closure_t type, frame_t frame) {
+  switch (type)
+  {
+  case INT:
+    rts_free((Int*) frame);
+    break;
+  case DOUBLE:
+    rts_free((Double*) frame);
+    break;
+  case STRING:
+    //TODO: differentiate between static strings and dynamically allocated ones
+    rts_free((String*) frame);
+    break;
+  case BOOL:
+    rts_free((Bool*) frame);
+    break;
+  case UNIT:
+    rts_free((Unit*) frame);
+    break;
+  default:
+    break;
+  }
+}
+
+void free_closure(closure_t* closure) {
+  gc_closure_t closure_type = closure->type;
+  if (closure_type != REGULAR) {
+    free_value_ptr_as_frame(closure_type,closure->frame);
+  }
+  rts_free(closure);
+}
+
+void free_frame(frame_t frame) {
+  rts_free(frame);
+}
+
+/***********/
+/* Marking */
+/***********/
+
+// Prototypes
+void mark_closure(closure_t* closure);
+void mark_frame(frame_t frame);
+
+void gc_mark_refresh() {
+  gc_mark = (gc_mark + 1) % 100;
+  if (gc_mark <= 0) {gc_mark = 1;}
+}
+
+void mark_closure(closure_t* closure) {
+  closure->marked=gc_mark;
+  if (closure->type==REGULAR) {
+    mark_frame(closure->frame);
+  }
+}
+
+void mark_frame(frame_t frame) {
+  frame->marked=gc_mark;
+  for (long i = 0; i < frame->length; i++) {
+    mark_closure(&frame->arguments[i]);
+  }
+}
+
+void mark_tim_metadata(tim_metadata_t metadata) {
+  metadata->marked=gc_mark;
+  mark_frame(metadata->frame);
+}
+
+void mark_closure_stack (long size,stack_t stack) {
+  if (size <= 0) { return ;}
+  assert(stack);
+  mark_closure(stack->data);
+  mark_closure_stack(size-1,stack->next);
+}
+
+void mark_closure_dump(dump_t dump) {
+  assert(dump);
+  mark_closure_stack(dump->current_size,dump->current);
+  mark_tim_metadata(dump->metadata);
+  if (dump->parent != NULL) {
+    mark_closure_dump(dump->parent);
+  }
+}
+
+void mark_argument_stack() {
+  mark_closure_dump(argument_stack);
+}
+
+void mark() {
+  mark_frame(current_frame);
+  mark_frame(current_data_frame);
+  mark_argument_stack();
+  gc_mark_refresh();
+}
 #endif
 
 /***********************/
@@ -76,4 +171,11 @@ closure_t* malloc_closure_array(long size){
   }
   #endif
   return closure_array;
+}
+
+void gc_startup() {
+  #ifdef GC
+  data_locations.size = 0;
+  data_locations.locations = rts_malloc(sizeof(struct gc_list));
+  #endif
 }
