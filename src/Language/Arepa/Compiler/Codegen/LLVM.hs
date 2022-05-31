@@ -1,4 +1,4 @@
-module Language.Arepa.Compiler.Codegen
+module Language.Arepa.Compiler.Codegen.LLVM
   ( LLVMModule
   , emitLLVM
   , renderLLVM
@@ -142,7 +142,7 @@ registerExtern name = do
       whenVerbose $ debug ("The extern already had a global operand: " <> prettyPrint op)
       return op
     Nothing -> do
-      warning $ "Emitting implicit extern for " <> prettyPrint name
+      warning $ "Emitting extern for " <> prettyPrint (zDecodeName name)
       op <- IR.extern (mkBlockName name) [] voidType
       modify' $ \st -> st { cg_externs = Map.insert name op externs }
       whenVerbose $ debug ("Created a new global extern operand: " <> prettyPrint op)
@@ -165,7 +165,7 @@ registerConstructorCode tag = do
       let funName = mkConCodeName tag
       let op = mkGlobalOperand funPtrType funName
       IR.function funName [] voidType $ \[] -> do
-        callVoidRTS "tim_data" [mkTag tag, op]
+        callVoidRTS "tim_data" [mkTagV tag, op]
       modify' $ \st -> st { cg_constrs = Map.insert tag op constrs }
       whenVerbose $ debug ("Created a new global data constructor operand: " <> prettyPrint op)
       return op
@@ -452,7 +452,7 @@ emitInstr instr = do
     -- Returning a data constructor
     DataI tag -> do
       conCode <- registerConstructorCode tag
-      callVoidRTS "tim_data" [mkTag tag, conCode]
+      callVoidRTS "tim_data" [mkTagV tag, conCode]
     -- Switch statements
     SwitchI alts def -> mdo
       IR.block `named` "switch.entry"
@@ -538,8 +538,8 @@ mkBoolV b = IR.bit (if b then 1 else 0)
 mkUnitV :: Int -> LLVM.Operand
 mkUnitV n = IR.int64 (fromIntegral n)
 
-mkTag :: Int -> LLVM.Operand
-mkTag n = IR.int64 (fromIntegral n)
+mkTagV :: Int -> LLVM.Operand
+mkTagV n = IR.int64 (fromIntegral n)
 
 mkTagConstant :: Integral a => a -> Constant.Constant
 mkTagConstant n = Constant.Int 64 (fromIntegral n)

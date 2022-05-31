@@ -37,6 +37,7 @@ common common-arepa
     OverloadedLists
     OverloadedStrings
     PatternSynonyms
+    QuasiQuotes
     PolyKinds
     RecursiveDo
     ScopedTypeVariables
@@ -69,7 +70,8 @@ library arepa-lib
     Data.Stack
     Language.Arepa
     Language.Arepa.Compiler
-    Language.Arepa.Compiler.Codegen
+    Language.Arepa.Compiler.Codegen.C
+    Language.Arepa.Compiler.Codegen.LLVM
     Language.Arepa.Compiler.Error
     Language.Arepa.Compiler.Interpret
     Language.Arepa.Compiler.IO
@@ -80,7 +82,6 @@ library arepa-lib
     Language.Arepa.Compiler.Monad
     Language.Arepa.Compiler.Rename
     Language.Arepa.Compiler.Translate
-    Language.Arepa.Compiler.TypeCheck
     Language.Arepa.Prim
     Language.Arepa.Syntax
     Language.Arepa.Types
@@ -102,6 +103,7 @@ library arepa-lib
     , containers
     , directory
     , prettyprinter
+    , mainland-pretty
     , megaparsec
     , llvm-hs-pure
     , llvm-hs-pretty
@@ -111,6 +113,8 @@ library arepa-lib
     , random-strings
     , ansi-terminal
     , hashable
+    , language-c-quote
+    , srcloc
 
 
 executable arepa

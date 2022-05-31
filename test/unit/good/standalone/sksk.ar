@@ -1,4 +1,4 @@
-(module sk
+(module sksk
   (val main
     (print_int (s k s k 5 "foo")))
 

@@ -34,6 +34,7 @@ Int __prim_length_string__(String);
 String __prim_int_to_string__(Int);
 String __prim_double_to_string__(Double);
 String __prim_bool_to_string__(Bool);
+String __prim_unit_to_string__(Unit);
 
 // Int comparison operators
 Bool __prim_eq_int__(Int, Int);
