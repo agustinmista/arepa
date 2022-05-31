@@ -27,6 +27,6 @@ jobs:
         file: ./Dockerfile
         builder: ${{ steps.buildx.outputs.name }}
         push: true
-        tags: ${{ secrets.DOCKERHUB_USER }}/simplewhale:latest
-        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USER }}/simplewhale:buildcache
-        cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USER }}/simplewhale:buildcache,mode=max
+        tags: ${{ secrets.DOCKERHUB_USER }}/arepa:latest
+        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USER }}/arepa:buildcache
+        cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USER }}/arepa:buildcache,mode=max
