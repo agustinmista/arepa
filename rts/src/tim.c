@@ -25,20 +25,20 @@ closure_t* argument_closure(long argument);
 /* Utility functions */
 /*********************/
 
+void initialize_arguments_as_nil(long size, closure_t arguments[]){
+    for(long i = 0; i < size; i++) {
+        set_closure_gc_nil((&arguments[i]));
+        arguments[i].code = *tim_nil_code;
+    }
+}
+
 frame_t new_frame(long size) {
     debug_msg("Creating new frame of size %li", size);
     frame_t frame = malloc_frame();
     frame->length = size;
     frame->is_partial = 0;
-
-    // TODO: tidy up!
     closure_t* arguments = rts_malloc(size*sizeof(closure_t));
-    closure_t* argument = arguments;
-    for(long i = 0; i < size; i++) {
-        argument = &arguments[i];
-        set_closure_gc_nil(argument);
-        argument->code = *tim_nil_code;
-    }
+    initialize_arguments_as_nil(size,arguments);
     frame->arguments = arguments;
     return frame;
 }

@@ -49,20 +49,10 @@ void add_metadata_location(tim_metadata_t metadata) {
 /* Deallocation (free)*/
 /**********************/
 
-void free_frame_as_value_ptr(gc_closure_t type, frame_t frame) {
-  switch (type) {
-    case VALUE:
-      //rts_free(frame);
-      break;
-    default:
-      break;
-  }
-}
-
 void free_closure(closure_t* closure) {
   gc_closure_t closure_type = closure->type;
   if (closure_type == VALUE) {
-    free_frame_as_value_ptr(closure_type,closure->frame);
+    //rts_free(closure->frame);
   }
   rts_free(closure);
 }
@@ -244,8 +234,6 @@ void run_gc() {
   mark_refresh();
   #endif
 }
-
-
 
 /***********************/
 /* Allocation wrappers */
