@@ -52,7 +52,7 @@ void add_metadata_location(tim_metadata_t metadata) {
 void free_frame_as_value_ptr(gc_closure_t type, frame_t frame) {
   switch (type) {
     case VALUE:
-      rts_free(frame);
+      //rts_free(frame);
       break;
     default:
       break;
@@ -147,15 +147,13 @@ void mark_closure_stack (long size,stack_t stack) {
 }
 
 void mark_closure_dump(dump_t dump) {
+  if (dump == NULL) { return; }
   assert(dump);
   stack_t current_stack = dump->current;
   long stack_size = dump->current_size;
   mark_closure_stack(stack_size,current_stack);
   mark_tim_metadata(dump->metadata);
-  dump_t rest_of_the_dump = dump->parent;
-  if (rest_of_the_dump != NULL) {
-    mark_closure_dump(rest_of_the_dump);
-  }
+  return  mark_closure_dump(dump->parent);
 }
 
 void mark_argument_stack() {

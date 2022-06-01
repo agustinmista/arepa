@@ -102,7 +102,9 @@ void update_closure_code_in_metadata_frame(tim_metadata_t metadata, void (*code)
     frame_t target_frame = metadata->frame;
     long offset          = metadata->offset;
     target_frame->arguments[offset].code = code;
-    set_closure_gc_value((&(target_frame->arguments[offset])));
+    if (code == *tim_value_code) {
+        set_closure_gc_value((&(target_frame->arguments[offset])));
+    }
 }
 
 void tim_handle_partial_application() {
