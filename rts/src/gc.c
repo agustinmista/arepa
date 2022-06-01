@@ -93,6 +93,13 @@ void set_mark_closure(closure_t* closure) {
 }
 
 void mark_closure(closure_t* closure) {
+  //Closure type soundness
+  assert(closure->type !=VALUE || closure->code == *tim_value_code);
+  assert(closure->type !=NIL   || closure->code == *tim_nil_code);
+  //Closure type completeness
+  assert(closure->code != *tim_nil_code   || closure->type==NIL);
+  assert(closure->code != *tim_value_code || closure->type==VALUE);
+
   if (is_marked_closure(closure)) {return;}
   set_mark_closure(closure);
   if (closure->type==REGULAR) {
@@ -131,6 +138,8 @@ void mark_tim_metadata(tim_metadata_t metadata) {
 }
 
 void mark_closure_stack (long size,stack_t stack) {
+  // Stack size correctness
+  assert( 0 < size || stack == NULL);
   if (size <= 0) { return; }
   assert(stack);
   mark_closure(stack->data);

@@ -149,4 +149,8 @@ Bool get_bool_result();
 
 Unit get_unit_result();
 
+void tim_value_code();
+
+void tim_nil_code();
+
 #endif

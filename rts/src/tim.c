@@ -20,7 +20,6 @@ dump_t value_stack;
 /****************/
 
 closure_t* argument_closure(long argument);
-void tim_value_code();
 
 /*********************/
 /* Utility functions */
@@ -37,7 +36,8 @@ frame_t new_frame(long size) {
     closure_t* argument = arguments;
     for(long i = 0; i < size; i++) {
         argument = &arguments[i];
-        set_closure_gc_value(argument);
+        set_closure_gc_nil(argument);
+        argument->code = *tim_nil_code;
     }
     frame->arguments = arguments;
     return frame;
@@ -102,6 +102,7 @@ void update_closure_code_in_metadata_frame(tim_metadata_t metadata, void (*code)
     frame_t target_frame = metadata->frame;
     long offset          = metadata->offset;
     target_frame->arguments[offset].code = code;
+    set_closure_gc_value((&(target_frame->arguments[offset])));
 }
 
 void tim_handle_partial_application() {
@@ -160,7 +161,7 @@ closure_t* make_closure(void (*code)(), void* frame) {
 
 closure_t* tim_nil_closure() {
     closure_t* closure = make_closure(*tim_nil_code, NULL);
-    set_closure_gc_value(closure);
+    set_closure_gc_nil(closure);
     return closure;
 }
 
