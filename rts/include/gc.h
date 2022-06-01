@@ -3,7 +3,7 @@
 
 #include "tim.h"
 
-#ifdef GC
+#ifndef NO_GC
 
 typedef int Mark;
 

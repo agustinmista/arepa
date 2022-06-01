@@ -6,7 +6,7 @@
 #include "dump.h"
 #include "gc.h"
 
-#ifdef GC
+#ifndef NO_GC
 
 /*****************/
 /* Mark handling */
@@ -187,7 +187,7 @@ void sweep(){
 /* Trigger code */
 /****************/
 void run_gc() {
-  #ifdef GC
+  #ifndef NO_GC
   if (data_locations.size <= 100) {return;}
   mark();
   sweep();
@@ -216,7 +216,7 @@ tim_metadata_t malloc_tim_metadata() {
 
 void* gc_malloc(size_t size) {
   run_gc();
-  #ifdef GC
+  #ifndef NO_GC
   Mark* pointer = rts_malloc(sizeof(Mark)+size);
   pointer++;
   add_location(pointer);
@@ -227,7 +227,7 @@ void* gc_malloc(size_t size) {
 }
 
 void gc_init() {
-  #ifdef GC
+  #ifndef NO_GC
   data_locations.size = 0;
   data_locations.locations = NULL;
   #endif
