@@ -25,10 +25,10 @@ closure_t* argument_closure(long argument);
 /* Utility functions */
 /*********************/
 
-void initialize_arguments_as_nil(long size, closure_t arguments[]){
+void initialize_arguments(long size, closure_t arguments[]){
     for(long i = 0; i < size; i++) {
-        set_closure_gc_nil((&arguments[i]));
-        arguments[i].code = *tim_nil_code;
+        arguments[i].frame = NULL;
+        arguments[i].code  = *tim_nil_code;
     }
 }
 
@@ -37,8 +37,8 @@ frame_t new_frame(long size) {
     frame_t frame = malloc_frame();
     frame->length = size;
     frame->is_partial = 0;
-    closure_t* arguments = rts_malloc(size*sizeof(closure_t));
-    initialize_arguments_as_nil(size,arguments);
+    closure_t* arguments = gc_malloc(size*sizeof(closure_t));
+    initialize_arguments(size,arguments);
     frame->arguments = arguments;
     return frame;
 }
@@ -102,9 +102,6 @@ void update_closure_code_in_metadata_frame(tim_metadata_t metadata, void (*code)
     frame_t target_frame = metadata->frame;
     long offset          = metadata->offset;
     target_frame->arguments[offset].code = code;
-    if (code == *tim_value_code) {
-        set_closure_gc_value((&(target_frame->arguments[offset])));
-    }
 }
 
 void tim_handle_partial_application() {
@@ -156,69 +153,54 @@ closure_t* make_closure(void (*code)(), void* frame) {
     closure_t* closure = malloc_closure();
     closure->code  = code;
     closure->frame = (frame_t) frame;
-    set_closure_gc_regular(closure);
     debug_msg("New closure at %p with code %p and frame %p", closure, closure->code, closure->frame);
     return closure;
 }
 
 closure_t* tim_nil_closure() {
-    closure_t* closure = make_closure(*tim_nil_code, NULL);
-    set_closure_gc_nil(closure);
-    return closure;
+    return make_closure(*tim_nil_code, NULL);
 }
 
 closure_t* argument_closure(long argument) {
     debug_msg("Creating new argument closure from current frame slot $%li", argument);
     assert(argument < current_frame->length);
     closure_t* closure = &current_frame->arguments[argument];
-    closure_t* new_closure = make_closure(closure->code, closure->frame);
-    copy_closure_type(closure,new_closure);
-    return new_closure;
+    return make_closure(closure->code, closure->frame);
 }
 
 closure_t* int_closure(Int value) {
     debug_msg("Creating new int value closure for %li", value);
-    Int* int_ptr_as_frame = rts_malloc(sizeof(Int));
+    Int* int_ptr_as_frame = gc_malloc(sizeof(Int));
     *int_ptr_as_frame = value;
-    closure_t* closure = make_closure(*tim_value_code, int_ptr_as_frame);
-    set_closure_gc_value(closure);
-    return closure;
+    return make_closure(*tim_value_code, int_ptr_as_frame);
 }
 
 closure_t* double_closure(Double value) {
     debug_msg("Creating new double value closure for %f", value);
-    Double* double_ptr_as_frame = rts_malloc(sizeof(Double));
+    Double* double_ptr_as_frame = gc_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
-    closure_t* closure = make_closure(*tim_value_code, double_ptr_as_frame);
-    set_closure_gc_value(closure);
-    return closure;
+    return make_closure(*tim_value_code, double_ptr_as_frame);
 }
 
 closure_t* string_closure(String value) {
     debug_msg("Creating new string value closure for \"%s\"", value);
-    String* string_ptr_as_frame = rts_malloc(sizeof(String));
+    String* string_ptr_as_frame = gc_malloc(sizeof(String));
     *string_ptr_as_frame = value;
-    closure_t* closure = make_closure(*tim_value_code, string_ptr_as_frame);
-    set_closure_gc_value(closure);
-    return closure;
+    return make_closure(*tim_value_code, string_ptr_as_frame);
 }
 
 closure_t* bool_closure(Bool value) {
     debug_msg("Creating new bool value closure for %s", bool_str(value));
-    Bool* bool_ptr_as_frame = rts_malloc(sizeof(Bool));
+    Bool* bool_ptr_as_frame = gc_malloc(sizeof(Bool));
     *bool_ptr_as_frame = value;
-    closure_t* closure = make_closure(*tim_value_code, bool_ptr_as_frame);
-    set_closure_gc_value(closure);
-    return closure;
+    return make_closure(*tim_value_code, bool_ptr_as_frame);
 }
 
 closure_t* unit_closure(Unit value) {
     debug_msg("Creating new unit value closure for %li", value);
-    Unit* unit_ptr_as_frame = rts_malloc(sizeof(Unit));
+    Unit* unit_ptr_as_frame = gc_malloc(sizeof(Unit));
     *unit_ptr_as_frame = value;
-    closure_t* closure = make_closure(*tim_value_code, unit_ptr_as_frame);
-    set_closure_gc_value(closure);
-    return closure;
+    return make_closure(*tim_value_code, unit_ptr_as_frame);
 }
 
 closure_t* label_closure(void (*code)()) {
@@ -230,9 +212,7 @@ closure_t* con_closure(long field) {
     debug_msg("Creating new closure for current constructor field %lu", field);
     assert(field < current_data_frame->length);
     closure_t* closure = &current_data_frame->arguments[field];
-    closure_t* new_closure = make_closure(closure->code, closure->frame);
-    copy_closure_type(closure,new_closure);
-    return new_closure;
+    return make_closure(closure->code, closure->frame);
 }
 
 /*****************/
@@ -332,42 +312,42 @@ void tim_push_argument_data(long field) {
 
 void tim_push_value_int(Int value) {
     debug_msg("Pushing int %li into the value stack", value);
-    Int* ptr = rts_malloc(sizeof(Int));
+    Int* ptr = gc_malloc(sizeof(Int));
     *ptr = value;
     return dump_push(value_stack, ptr);
 }
 
 void tim_push_value_double(Double value) {
     debug_msg("Pushing double %f into the value stack", value);
-    Double* ptr = rts_malloc(sizeof(Double));
+    Double* ptr = gc_malloc(sizeof(Double));
     *ptr = value;
     return dump_push(value_stack, ptr);
 }
 
 void tim_push_value_string(String value) {
     debug_msg("Pushing string \"%s\" into the value stack", value);
-    String* ptr = rts_malloc(sizeof(String));
+    String* ptr = gc_malloc(sizeof(String));
     *ptr = value;
     return dump_push(value_stack, ptr);
 }
 
 void tim_push_value_bool(Bool value) {
     debug_msg("Pushing bool %s into the value stack", bool_str(value));
-    Bool* ptr = rts_malloc(sizeof(Bool));
+    Bool* ptr = gc_malloc(sizeof(Bool));
     *ptr = value;
     return dump_push(value_stack, ptr);
 }
 
 void tim_push_value_unit(Unit value) {
     debug_msg("Pushing unit %li into the value stack", value);
-    Unit* ptr = rts_malloc(sizeof(Unit));
+    Unit* ptr = gc_malloc(sizeof(Unit));
     *ptr = value;
     return dump_push(value_stack, ptr);
 }
 
 void tim_push_value_data(tag_t tag) {
     debug_msg("Pushing data constructor tag %lu into the value stack", tag);
-    tag_t* ptr = rts_malloc(sizeof(tag_t));
+    tag_t* ptr = gc_malloc(sizeof(tag_t));
     *ptr = tag;
     return dump_push(value_stack, ptr);
 }
