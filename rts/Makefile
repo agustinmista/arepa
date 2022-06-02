@@ -1,5 +1,5 @@
 ifeq ($(DEBUG),1)
-   EXTRA_OPTS = -g -DDEBUG -O0
+   DEBUG_OPTS = -g -DDEBUG -O0
 endif
 
 ifeq ($(NO_GC),1)
@@ -7,7 +7,7 @@ ifeq ($(NO_GC),1)
 endif
 
 CC ?= clang
-CFLAGS ?= -Wall -Wextra -Werror -O2 -Iinclude $(EXTRA_OPTS) $(GC_OPTS)
+CFLAGS ?= -Wall -Wextra -Werror -O2 -Iinclude $(DEBUG_OPTS) $(GC_OPTS)
 
 LIB_SRCS = $(wildcard src/*.c)
 LIB_OBJS = $(LIB_SRCS:.c=.o)
