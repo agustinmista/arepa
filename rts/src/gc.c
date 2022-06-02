@@ -22,14 +22,14 @@ void mark_refresh() {
 /* location recording */
 /**********************/
 
-gc_data data_locations;
+gc_data gc_state;
 
 void add_location(void* location) {
   gc_list new_location = rts_malloc(sizeof(struct gc_list));
   new_location->location = location;
-  new_location->next = data_locations.locations;
-  data_locations.locations = new_location;
-  data_locations.size++;
+  new_location->next = gc_state.locations;
+  gc_state.locations = new_location;
+  gc_state.size++;
 }
 
 /**********************/
@@ -176,10 +176,10 @@ void sweep_locations(gc_list parent, gc_list location) {
 }
 
 void sweep(){
-  if (data_locations.size == 0) {return;}
-  gc_list locations = data_locations.locations;
+  if (gc_state.size == 0) {return;}
+  gc_list locations = gc_state.locations;
   sweep_locations(locations,locations->next);
-  data_locations.size = 0;
+  gc_state.size = 0;
 }
 #endif
 
@@ -214,7 +214,7 @@ tim_metadata_t malloc_tim_metadata() {
 }
 
 void trigger_gc() {
-  if (data_locations.size <= GC_THRESHOLD) {return;}
+  if (gc_state.size <= GC_THRESHOLD) {return;}
   return gc();
 }
 
@@ -232,7 +232,7 @@ void* gc_malloc(size_t size) {
 
 void gc_init() {
   #ifndef NO_GC
-  data_locations.size = 0;
-  data_locations.locations = NULL;
+  gc_state.size = 0;
+  gc_state.locations = NULL;
   #endif
 }
