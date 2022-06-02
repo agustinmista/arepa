@@ -20,14 +20,9 @@ import Language.TIM.Syntax
 
 readArepaSourceFile :: MonadArepa m => m Text
 readArepaSourceFile = do
-  infile <- lookupCompilerOption optInput
-  case infile of
-    Nothing -> do
-      whenVerbose $ debug "Reading arepa source from stdin"
-      readStdin
-    Just path -> do
-      whenVerbose $ debug ("Reading arepa source file " <> prettyPrint path)
-      readFromFile path
+  path <- lookupCompilerOption optInput
+  whenVerbose $ debug ("Reading arepa source file " <> prettyPrint path)
+  readFromFile path
 
 readExtraTIMCodeStores :: MonadArepa m => m [CodeStore]
 readExtraTIMCodeStores = do
@@ -36,36 +31,29 @@ readExtraTIMCodeStores = do
     let timPath = mkTIMFilePath extraFile
     whenVerbose $ debug ("Loading TIM code file " <> prettyPrint timPath)
     text <- readFromFile timPath
-    return (read (Text.unpack text))
+    return (decodeCodeStore text)
 
-writeTIMCodeStore :: MonadArepa m => CodeStore -> m ()
-writeTIMCodeStore store = do
-  timPath <- compiledTIMPath
-  whenVerbose $ debug ("Writing compiled TIM code to " <> prettyPrint timPath)
-  writeToFile timPath (Text.pack (show store))
-
-writeLLVMModule :: MonadArepa m => Text -> m ()
-writeLLVMModule text = do
-  llvmPath <- compiledLLVMPath
-  whenVerbose $ debug ("Writing compiled llvm to " <> prettyPrint llvmPath)
-  writeToFile llvmPath text
+writeCompiledFile :: MonadArepa m => FilePath -> Text -> m ()
+writeCompiledFile path text = do
+  whenVerbose $ debug ("Writing compiled file " <> prettyPrint path)
+  writeToFile path text
 
 ----------------------------------------
 -- Running clang
 ----------------------------------------
 
-rtsSrc :: FilePath
-rtsSrc = "rts" </> "src"
+rtsSourceDir :: FilePath
+rtsSourceDir = "rts" </> "src"
 
-rtsInclude :: FilePath
-rtsInclude = "rts" </> "include"
+rtsIncludeDir :: FilePath
+rtsIncludeDir = "rts" </> "include"
 
-readRtsSrcDir :: MonadArepa m => m [FilePath]
-readRtsSrcDir = do
-  files <- liftIO (listDirectory rtsSrc)
+readRTSSourceDir :: MonadArepa m => m [FilePath]
+readRTSSourceDir = do
+  files <- liftIO (listDirectory rtsSourceDir)
   let c_files = filter ((".c" ==) . takeExtension) files
   whenVerbose $ dump "Found RTS source files" c_files
-  return [ rtsSrc </> c_file | c_file <- c_files ]
+  return [ rtsSourceDir </> c_file | c_file <- c_files ]
 
 runClang :: MonadArepa m => [String] ->  m ()
 runClang args = do
@@ -76,32 +64,84 @@ runClang args = do
 
 mkClangArgs :: MonadArepa m => m [String]
 mkClangArgs = do
-  rtsFiles   <- readRtsSrcDir
-  extraFiles <- lookupCompilerOption optInclude
-  optLevel   <- lookupCompilerOption optOptimize
-  dbgFlag    <- lookupCompilerOption optDebug
-  llvmPath   <- compiledLLVMPath
-  binPath    <- compiledBinaryPath
-  return $
-    rtsFiles <>
-    (mkLLVMFilePath <$> extraFiles) <>
-    [ "-DDEBUG" | dbgFlag ] <>
-    [ llvmPath
-    , "-Wno-override-module"
-    , "-I", rtsInclude
-    , "-O" <> show optLevel
-    , "-o", binPath
-    ]
+  -- RTS stuff
+  rtsSourceFiles <- readRTSSourceDir
+  let rtsIncludeFlags = [ "-I", rtsIncludeDir ]
+  -- Optimization flags
+  optLevel <- lookupCompilerOption optOptimize
+  let optFlag = [ "-O" <> show optLevel ]
+  -- Binary debug flags
+  dbgEnabled <- lookupCompilerOption optDebug
+  let dbgFlag = [ "-DDEBUG" | dbgEnabled ]
+  -- Binary output flags
+  binPath <- compiledBinaryPath
+  let binOutputFlag = [ "-o", binPath ]
+  -- Build command based on backend
+  lookupCompilerOption optBackend >>= \case
+    C -> do
+      -- Current file
+      headerFile <- compiledHPath
+      let includeFlag = [ "-I", headerFile ]
+      sourceFile <- compiledCPath
+      -- Extra files
+      extraFiles <- lookupCompilerOption optInclude
+      let extraSourceFiles = fmap mkCFilePath extraFiles
+      let extraIncludeFlags = [ "-I." | not (null extraFiles) ]
+      return $
+        -- Source files
+        rtsSourceFiles <> [ sourceFile ] <> extraSourceFiles <>
+        -- Include flags
+        rtsIncludeFlags <> includeFlag <> extraIncludeFlags <>
+        -- Other flags
+        dbgFlag <> optFlag <>
+        -- Output flag
+        binOutputFlag
+    LLVM -> do
+      -- Current file
+      sourceFile <- compiledLLVMPath
+      -- Extra files
+      extraFiles <- lookupCompilerOption optInclude
+      let extraSourceFiles = fmap mkLLVMFilePath extraFiles
+      -- LLVM-specif flags
+      let overrideFlag = [ "-Wno-override-module" ]
+      return $
+        -- Source files
+        rtsSourceFiles <> [ sourceFile ] <> extraSourceFiles <>
+        -- Include flags
+        rtsIncludeFlags <>
+        -- Other flags
+        dbgFlag <> optFlag <> overrideFlag <>
+        -- Output flag
+        binOutputFlag
 
 ----------------------------------------
 -- File path manipulations
 ----------------------------------------
+
+-- Changing file extensions
+
+mkArepaFilePath :: FilePath -> FilePath
+mkArepaFilePath = flip replaceExtension "ar"
+
+mkHFilePath :: FilePath -> FilePath
+mkHFilePath = flip replaceExtension "h"
+
+mkCFilePath :: FilePath -> FilePath
+mkCFilePath = flip replaceExtension "c"
 
 mkLLVMFilePath :: FilePath -> FilePath
 mkLLVMFilePath = flip replaceExtension "ll"
 
 mkTIMFilePath :: FilePath -> FilePath
 mkTIMFilePath = flip replaceExtension "tim"
+
+-- Returning the filepaths associated to the current target file
+
+compiledHPath :: MonadArepa m => m FilePath
+compiledHPath = compiledSourceFilePath mkHFilePath
+
+compiledCPath :: MonadArepa m => m FilePath
+compiledCPath = compiledSourceFilePath mkCFilePath
 
 compiledLLVMPath :: MonadArepa m => m FilePath
 compiledLLVMPath = compiledSourceFilePath mkLLVMFilePath
@@ -111,10 +151,8 @@ compiledTIMPath  = compiledSourceFilePath mkTIMFilePath
 
 compiledSourceFilePath :: MonadArepa m => (FilePath -> FilePath) -> m FilePath
 compiledSourceFilePath f = do
-  input <- lookupCompilerOption optInput
-  return (f (fromMaybe "stdin" input))
+  f <$> lookupCompilerOption optInput
 
 compiledBinaryPath :: MonadArepa m => m FilePath
 compiledBinaryPath = do
-  output <- lookupCompilerOption optOutput
-  return (fromMaybe "a.out" output)
+  fromMaybe "a.out" <$> lookupCompilerOption optOutput

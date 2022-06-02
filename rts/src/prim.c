@@ -53,6 +53,10 @@ String __prim_bool_to_string__(Bool x) {
     return (String) bool_str(x);
 }
 
+String __prim_unit_to_string__(Unit x) {
+    return (String) unit_str;
+}
+
 // Int comparison operators
 Bool __prim_eq_int__(Int x, Int y) { return x == y; }
 Bool __prim_le_int__(Int x, Int y) { return x <= y; }

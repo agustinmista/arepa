@@ -8,6 +8,6 @@ main :: IO ()
 main = do
   goodTests <- loadGoodTests
   defaultMain $
-    testGroup "all tests" [
+    testGroup "all" [
       goodTests
     ]

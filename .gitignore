@@ -29,6 +29,11 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
+# C stuff (but not the RTS)
+lib/*.h
+lib/*.c
+test/**/*.h
+test/**/*.c
 # LLVM stuff
 *.ll
 # Arepa stuff

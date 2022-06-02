@@ -7,7 +7,6 @@ module Control.Monad.Compiler
   , handleCompilerError
   , printCompilerError
   , lookupCompilerOption
-  , readStdin
   , readFromFile
   , writeStderr
   , writeStdout
@@ -96,9 +95,6 @@ lookupCompilerOption = asks
 
 compilerIO :: MonadCompiler err opt m => IO a -> m a
 compilerIO = liftIO
-
-readStdin :: MonadCompiler err opt m => m Text
-readStdin = compilerIO Text.getContents
 
 readFromFile :: MonadCompiler err opt m => FilePath -> m Text
 readFromFile path = compilerIO (Text.readFile path)

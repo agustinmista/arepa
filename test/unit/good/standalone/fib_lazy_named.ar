@@ -1,4 +1,4 @@
-(module fib_lazy
+(module fib_lazy_named
 
   (val main
     (print_int (! fibs 12)))

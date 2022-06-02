@@ -1,0 +1,11 @@
+(module echo
+  (val main (run_io echo))
+
+  (val echo
+    (>>= io_read_line
+      (lambda (line)
+        (if (equals line "exit")
+            (return unit)
+            (>> (io_print_string line) echo)))))
+
+)
