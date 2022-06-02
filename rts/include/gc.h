@@ -17,10 +17,16 @@ typedef struct gc_data {
   gc_list locations;
 } gc_data;
 
+#define GC_THRESHOLD  100
+#define GC_MARK_BOUND 100
+
 #endif
 
 // Startup
 void gc_init();
+
+// GC call
+void gc();
 
 // Allocation
 closure_t*     malloc_closure();

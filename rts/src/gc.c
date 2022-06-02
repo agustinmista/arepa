@@ -14,7 +14,7 @@
 Mark gc_mark=1;
 
 void mark_refresh() {
-  gc_mark = (gc_mark + 1) % 100;
+  gc_mark = (gc_mark + 1) % GC_MARK_BOUND;
   if (gc_mark <= 0) {gc_mark = 1;}
 }
 
@@ -186,9 +186,8 @@ void sweep(){
 /*****************/
 /* Trigger code */
 /****************/
-void run_gc() {
+void gc() {
   #ifndef NO_GC
-  if (data_locations.size <= 100) {return;}
   mark();
   sweep();
   mark_refresh();
@@ -214,9 +213,14 @@ tim_metadata_t malloc_tim_metadata() {
   return metadata;
 }
 
+void trigger_gc() {
+  if (data_locations.size <= GC_THRESHOLD) {return;}
+  return gc();
+}
+
 void* gc_malloc(size_t size) {
-  run_gc();
   #ifndef NO_GC
+  trigger_gc();
   Mark* pointer = rts_malloc(sizeof(Mark)+size);
   pointer++;
   add_location(pointer);
