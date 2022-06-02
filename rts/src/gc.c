@@ -198,21 +198,6 @@ void gc() {
 /* Allocation wrappers */
 /***********************/
 
-frame_t malloc_frame() {
-  frame_t frame = gc_malloc(sizeof(struct frame_t));
-  return frame;
-}
-
-closure_t* malloc_closure() {
-  closure_t* closure = gc_malloc(sizeof(closure_t));
-  return closure;
-}
-
-tim_metadata_t malloc_tim_metadata() {
-  tim_metadata_t metadata = gc_malloc(sizeof(struct tim_metadata_t));
-  return metadata;
-}
-
 void trigger_gc() {
   if (gc_state.size <= GC_THRESHOLD) {return;}
   return gc();

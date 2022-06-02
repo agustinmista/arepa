@@ -34,7 +34,7 @@ void initialize_arguments(long size, closure_t arguments[]){
 
 frame_t new_frame(long size) {
     debug_msg("Creating new frame of size %li", size);
-    frame_t frame = malloc_frame();
+    frame_t frame = gc_malloc(sizeof(struct frame_t));
     frame->length = size;
     frame->is_partial = 0;
     closure_t* arguments = gc_malloc(size*sizeof(closure_t));
@@ -150,7 +150,7 @@ void tim_value_code() {
 /************************/
 
 closure_t* make_closure(void (*code)(), void* frame) {
-    closure_t* closure = malloc_closure();
+    closure_t* closure = gc_malloc(sizeof(closure_t));
     closure->code  = code;
     closure->frame = (frame_t) frame;
     debug_msg("New closure at %p with code %p and frame %p", closure, closure->code, closure->frame);
@@ -476,7 +476,7 @@ void tim_move_data(long offset, long field) {
 }
 
 void tim_marker_push(long offset) {
-    tim_metadata_t metadata = malloc_tim_metadata();
+    tim_metadata_t metadata = gc_malloc(sizeof(struct tim_metadata_t));
     metadata->offset = offset;
     metadata->frame  = current_frame;
     dump_freeze(argument_stack, metadata);

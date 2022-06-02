@@ -29,9 +29,6 @@ void gc_init();
 void gc();
 
 // Allocation
-closure_t*     malloc_closure();
-frame_t        malloc_frame();
-tim_metadata_t malloc_tim_metadata();
-void*          gc_malloc(size_t size);
+void* gc_malloc(size_t size);
 
 #endif
