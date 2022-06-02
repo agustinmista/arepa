@@ -19,13 +19,13 @@ dump_t value_stack;
 /* Declarations */
 /****************/
 
-closure_t* argument_closure(long argument);
+closure_t argument_closure(long argument);
 
 /*********************/
 /* Utility functions */
 /*********************/
 
-void initialize_arguments(long size, closure_t arguments[]){
+void initialize_arguments(long size, closure_t arguments){
     for(long i = 0; i < size; i++) {
         arguments[i].frame = NULL;
         arguments[i].code  = *tim_nil_code;
@@ -37,7 +37,7 @@ frame_t new_frame(long size) {
     frame_t frame = gc_malloc(sizeof(struct frame_t));
     frame->length = size;
     frame->is_partial = 0;
-    closure_t* arguments = gc_malloc(size*sizeof(closure_t));
+    closure_t arguments = gc_malloc(size*sizeof(struct closure_t));
     initialize_arguments(size,arguments);
     frame->arguments = arguments;
     return frame;
@@ -55,8 +55,8 @@ void copy_n_stack_arguments_to_frame(long n, frame_t frame, stack_t stack) {
     assert(frame != current_frame); // Sanity check!
     for (int i = 0; i < n; i++) {
         assert(stack);
-        closure_t* closure = (closure_t*) stack_peek(stack);
-        rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
+        closure_t closure = (closure_t) stack_peek(stack);
+        rts_memcpy(&frame->arguments[i], closure, sizeof(struct closure_t));
         stack = stack->next;
     }
 }
@@ -66,20 +66,20 @@ void move_n_stack_arguments_to_frame(long n, frame_t frame) {
     assert(n <= argument_stack->current_size);
     assert(frame != current_frame); // Sanity check!
     for (int i = 0; i < n; i++){
-        closure_t* closure = (closure_t*) dump_pop(argument_stack);
-        rts_memcpy(&frame->arguments[i], closure, sizeof(closure_t));
+        closure_t closure = (closure_t) dump_pop(argument_stack);
+        rts_memcpy(&frame->arguments[i], closure, sizeof(struct closure_t));
     }
 }
 
-void tim_enter_closure(closure_t *closure) {
+void tim_enter_closure(closure_t closure) {
     debug_msg("Entering closure %p with code at %p and frame at %p", &closure, closure->code, closure->frame);
     current_frame = closure->frame;
     return closure->code();
 }
 
-void tim_update_closure(long offset, closure_t *closure) {
+void tim_update_closure(long offset, closure_t closure) {
     debug_msg("Copying closure %p to current frame slot $%li at %p", closure, offset, &current_frame->arguments[offset]);
-    rts_memcpy(&current_frame->arguments[offset], closure, sizeof(closure_t));
+    rts_memcpy(&current_frame->arguments[offset], closure, sizeof(struct closure_t));
 }
 
 void tim_populate_partial_arguments() {
@@ -116,7 +116,7 @@ void tim_handle_partial_application() {
 
 void return_to_continuation() {
     debug_msg("Returning the topmost closure in the argument stack");
-    closure_t* top_closure = (closure_t*) dump_pop(argument_stack);
+    closure_t top_closure = (closure_t) dump_pop(argument_stack);
     current_frame = top_closure->frame;
     return top_closure->code();
 }
@@ -149,69 +149,69 @@ void tim_value_code() {
 /* Closure construction */
 /************************/
 
-closure_t* make_closure(void (*code)(), void* frame) {
-    closure_t* closure = gc_malloc(sizeof(closure_t));
+closure_t make_closure(void (*code)(), void* frame) {
+    closure_t closure = gc_malloc(sizeof(struct closure_t));
     closure->code  = code;
     closure->frame = (frame_t) frame;
     debug_msg("New closure at %p with code %p and frame %p", closure, closure->code, closure->frame);
     return closure;
 }
 
-closure_t* tim_nil_closure() {
+closure_t tim_nil_closure() {
     return make_closure(*tim_nil_code, NULL);
 }
 
-closure_t* argument_closure(long argument) {
+closure_t argument_closure(long argument) {
     debug_msg("Creating new argument closure from current frame slot $%li", argument);
     assert(argument < current_frame->length);
-    closure_t* closure = &current_frame->arguments[argument];
+    closure_t closure = &current_frame->arguments[argument];
     return make_closure(closure->code, closure->frame);
 }
 
-closure_t* int_closure(Int value) {
+closure_t int_closure(Int value) {
     debug_msg("Creating new int value closure for %li", value);
     Int* int_ptr_as_frame = gc_malloc(sizeof(Int));
     *int_ptr_as_frame = value;
     return make_closure(*tim_value_code, int_ptr_as_frame);
 }
 
-closure_t* double_closure(Double value) {
+closure_t double_closure(Double value) {
     debug_msg("Creating new double value closure for %f", value);
     Double* double_ptr_as_frame = gc_malloc(sizeof(Double));
     *double_ptr_as_frame = value;
     return make_closure(*tim_value_code, double_ptr_as_frame);
 }
 
-closure_t* string_closure(String value) {
+closure_t string_closure(String value) {
     debug_msg("Creating new string value closure for \"%s\"", value);
     String* string_ptr_as_frame = gc_malloc(sizeof(String));
     *string_ptr_as_frame = value;
     return make_closure(*tim_value_code, string_ptr_as_frame);
 }
 
-closure_t* bool_closure(Bool value) {
+closure_t bool_closure(Bool value) {
     debug_msg("Creating new bool value closure for %s", bool_str(value));
     Bool* bool_ptr_as_frame = gc_malloc(sizeof(Bool));
     *bool_ptr_as_frame = value;
     return make_closure(*tim_value_code, bool_ptr_as_frame);
 }
 
-closure_t* unit_closure(Unit value) {
+closure_t unit_closure(Unit value) {
     debug_msg("Creating new unit value closure for %li", value);
     Unit* unit_ptr_as_frame = gc_malloc(sizeof(Unit));
     *unit_ptr_as_frame = value;
     return make_closure(*tim_value_code, unit_ptr_as_frame);
 }
 
-closure_t* label_closure(void (*code)()) {
+closure_t label_closure(void (*code)()) {
     debug_msg("Creating new label closure for code at %p", code);
     return make_closure(code, current_frame);
 }
 
-closure_t* con_closure(long field) {
+closure_t con_closure(long field) {
     debug_msg("Creating new closure for current constructor field %lu", field);
     assert(field < current_data_frame->length);
-    closure_t* closure = &current_data_frame->arguments[field];
+    closure_t closure = &current_data_frame->arguments[field];
     return make_closure(closure->code, closure->frame);
 }
 

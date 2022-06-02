@@ -63,12 +63,12 @@ int is_marked_location(void* ptr) {
   return *location == gc_mark;
 }
 
-int is_regular_closure(closure_t* closure) {
+int is_regular_closure(closure_t closure) {
   return closure->code != *tim_value_code &&
          closure->code != *tim_nil_code;
 }
 
-void mark_frame_in_closure(closure_t* closure) {
+void mark_frame_in_closure(closure_t closure) {
   if (is_regular_closure(closure)) {
       mark_frame(closure->frame);
     } else {
@@ -85,7 +85,7 @@ void mark_frame(frame_t frame) {
   }
 }
 
-void mark_closure(closure_t* closure) {
+void mark_closure(closure_t closure) {
   if (is_marked_location(closure)) { return; }
   mark_location(closure);
   mark_frame_in_closure(closure);

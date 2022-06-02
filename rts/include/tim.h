@@ -16,7 +16,7 @@ typedef struct frame_t {
 typedef struct closure_t {
   frame_t frame;
   void (*code)();
-} closure_t;
+} *closure_t;
 
 typedef struct tim_metadata_t {
   int offset;
