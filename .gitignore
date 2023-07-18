@@ -1,8 +1,8 @@
 # These three rules work together to ignore any file
 # without extension (used for test binaries)
-*
-!*/
-!*.*
+# *
+# !*/
+# !*.*
 # C stuff
 *.gch
 # Haskell stuff

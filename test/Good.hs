@@ -44,9 +44,8 @@ mkGoldenTests extraFiles arepaFiles = do
     let goldenFile = replaceExtension arepaFile "golden"
     return $
       testGroup name [
-        goldenVsString "compiler-c"    goldenFile (runCompilerHook    C    extraFiles arepaFile),
-        goldenVsString "compiler-llvm" goldenFile (runCompilerHook    LLVM extraFiles arepaFile),
-        goldenVsString "interpreter"   goldenFile (runInterpreterHook      extraFiles arepaFile)
+        goldenVsString "compiler"      goldenFile (runCompilerHook    extraFiles arepaFile),
+        goldenVsString "interpreter"   goldenFile (runInterpreterHook extraFiles arepaFile)
       ]
 
 ----------------------------------------
@@ -72,8 +71,8 @@ runInterpreterHook extraFiles arepaFile = do
   removeFileIfExists stdoutFile
   return (fromString output)
 
-runCompilerHook :: BackendOpt -> [FilePath] -> FilePath -> IO ByteString
-runCompilerHook backend extraFiles arepaFile = do
+runCompilerHook :: [FilePath] -> FilePath -> IO ByteString
+runCompilerHook extraFiles arepaFile = do
   mapM_ runDependencyPrecompiler extraFiles
   let binFile  = replaceExtension arepaFile "elf"
   tmpFiles <- runArepa'
@@ -81,8 +80,7 @@ runCompilerHook backend extraFiles arepaFile = do
       optInput = arepaFile,
       optInclude = extraFiles,
       optOutput = Just binFile,
-      optStrict = null extraFiles,
-      optBackend = backend
+      optStrict = null extraFiles
     }
     (runFrontend >>= runBackend)
   let stdinFile = replaceExtension arepaFile "stdin"
@@ -109,11 +107,11 @@ runDependencyPrecompiler extraFile = do
       store <- runFrontend
       let tim_text = encodeCodeStore store
       (h_text, c_text) <- renderC =<< emitC store
-      ll_text <- renderLLVM =<< emitLLVM store
+      -- ll_text <- renderLLVM =<< emitLLVM store
       writeCompiledFile tim_path tim_text
       writeCompiledFile h_path  h_text
       writeCompiledFile c_path  c_text
-      writeCompiledFile ll_path ll_text
+      -- writeCompiledFile ll_path ll_text
 
 -- Common precompiler/frontend/backend
 
@@ -128,23 +126,14 @@ runFrontend = do
 
 runBackend :: MonadArepa m => CodeStore -> m [FilePath]
 runBackend store = do
-  lookupCompilerOption optBackend >>= \case
-    C -> do
-      tim_path <- compiledTIMPath
-      h_path <- compiledHPath
-      c_path <- compiledCPath
-      (h_text, c_text) <- renderC =<< emitC store
-      writeCompiledFile h_path h_text
-      writeCompiledFile c_path c_text
-      runClang =<< mkClangArgs
-      return [tim_path, h_path, c_path]
-    LLVM -> do
-      tim_path <- compiledTIMPath
-      ll_path <- compiledLLVMPath
-      ll_text <- renderLLVM =<< emitLLVM store
-      writeCompiledFile ll_path ll_text
-      runClang =<< mkClangArgs
-      return [tim_path, ll_path]
+  tim_path <- compiledTIMPath
+  h_path <- compiledHPath
+  c_path <- compiledCPath
+  (h_text, c_text) <- renderC =<< emitC store
+  writeCompiledFile h_path h_text
+  writeCompiledFile c_path c_text
+  runClang =<< mkClangArgs
+  return [tim_path, h_path, c_path]
 
 ----------------------------------------
 -- Utilities

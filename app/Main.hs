@@ -69,23 +69,14 @@ interpret store = do
 
 codegen :: MonadArepa m => CodeStore -> m ()
 codegen store = do
-  backend <- lookupCompilerOption optBackend
-  case backend of
-    C -> do
-      cmod <- emitC store
-      (h_text, c_text) <- renderC cmod
-      whenDump CG $ dump "Emitted C header" h_text
-      h_path <- compiledHPath
-      writeCompiledFile h_path h_text
-      whenDump CG $ dump "Emitted C code"   c_text
-      c_path <- compiledCPath
-      writeCompiledFile c_path c_text
-    LLVM -> do
-      llvm <- emitLLVM store
-      text <- renderLLVM llvm
-      whenDump CG $ dump "Emitted LLVM code" text
-      path <- compiledLLVMPath
-      writeCompiledFile path text
+  cmod <- emitC store
+  (h_text, c_text) <- renderC cmod
+  whenDump CG $ dump "Emitted C header" h_text
+  h_path <- compiledHPath
+  writeCompiledFile h_path h_text
+  whenDump CG $ dump "Emitted C code"   c_text
+  c_path <- compiledCPath
+  writeCompiledFile c_path c_text
 
 link :: MonadArepa m => m ()
 link = unlessM hasLinkingDisabled $ do

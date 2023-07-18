@@ -18,7 +18,6 @@ data ArepaOpts = ArepaOpts {
   optStrict :: Bool,
   optEmitMain :: Bool,
   optInclude :: [FilePath],
-  optBackend :: BackendOpt,
   optDebug :: Bool,
   optInteractive :: Bool
 } deriving (Show, Read, Eq, Ord)
@@ -38,14 +37,9 @@ defaultOpts :: ArepaOpts = ArepaOpts {
   optStrict = False,
   optEmitMain = False,
   optInclude = [],
-  optBackend = LLVM,
   optDebug = False,
   optInteractive = False
 }
-
--- Compiler backend
-data BackendOpt = C | LLVM
-  deriving (Show, Read, Eq, Ord)
 
 -- Dump options
 data DumpOpt = AST | PPR | LINT | RENAME | LIFT | TIM | CG

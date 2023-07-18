@@ -76,43 +76,23 @@ mkClangArgs = do
   -- Binary output flags
   binPath <- compiledBinaryPath
   let binOutputFlag = [ "-o", binPath ]
-  -- Build command based on backend
-  lookupCompilerOption optBackend >>= \case
-    C -> do
-      -- Current file
-      headerFile <- compiledHPath
-      let includeFlag = [ "-I", headerFile ]
-      sourceFile <- compiledCPath
-      -- Extra files
-      extraFiles <- lookupCompilerOption optInclude
-      let extraSourceFiles = fmap mkCFilePath extraFiles
-      let extraIncludeFlags = [ "-I." | not (null extraFiles) ]
-      return $
-        -- Source files
-        rtsSourceFiles <> [ sourceFile ] <> extraSourceFiles <>
-        -- Include flags
-        rtsIncludeFlags <> includeFlag <> extraIncludeFlags <>
-        -- Other flags
-        dbgFlag <> optFlag <>
-        -- Output flag
-        binOutputFlag
-    LLVM -> do
-      -- Current file
-      sourceFile <- compiledLLVMPath
-      -- Extra files
-      extraFiles <- lookupCompilerOption optInclude
-      let extraSourceFiles = fmap mkLLVMFilePath extraFiles
-      -- LLVM-specif flags
-      let overrideFlag = [ "-Wno-override-module" ]
-      return $
-        -- Source files
-        rtsSourceFiles <> [ sourceFile ] <> extraSourceFiles <>
-        -- Include flags
-        rtsIncludeFlags <>
-        -- Other flags
-        dbgFlag <> optFlag <> overrideFlag <>
-        -- Output flag
-        binOutputFlag
+  -- Current file
+  headerFile <- compiledHPath
+  let includeFlag = [ "-I", headerFile ]
+  sourceFile <- compiledCPath
+  -- Extra files
+  extraFiles <- lookupCompilerOption optInclude
+  let extraSourceFiles = fmap mkCFilePath extraFiles
+  let extraIncludeFlags = [ "-I." | not (null extraFiles) ]
+  return $
+    -- Source files
+    rtsSourceFiles <> [ sourceFile ] <> extraSourceFiles <>
+    -- Include flags
+    rtsIncludeFlags <> includeFlag <> extraIncludeFlags <>
+    -- Other flags
+    dbgFlag <> optFlag <>
+    -- Output flag
+    binOutputFlag
 
 ----------------------------------------
 -- File path manipulations

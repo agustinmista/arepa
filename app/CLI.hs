@@ -52,12 +52,12 @@ cliOpts = ArepaOpts <$>
   strOption (
     long "stdin" <>
     value "/dev/stdin" <>
-    help "Interpret the input instead of compiling it"
+    help "Set the interpreter's stdin (defaults to /dev/stdin)"
   ) <*>
   strOption (
     long "stdout" <>
     value "/dev/stdout" <>
-    help "Interpret the input instead of compiling it"
+    help "Set the interpreter's stdout (defaults to /dev/stdout)"
   ) <*>
   strOption (
     long "entry" <>
@@ -88,13 +88,6 @@ cliOpts = ArepaOpts <$>
     metavar "PATH" <>
     help "Include extra LLVM/C files during linking"
   ) <*>
-  backendOpt (
-    long "backend" <>
-    short 'b' <>
-    metavar "BACKEND" <>
-    value LLVM <>
-    help "Use a specific backend (i.e., c or llvm)"
-  ) <*>
   switch (
     long "debug" <>
     short 'D' <>
@@ -110,15 +103,6 @@ optionalStr = optional . strOption
 
 manyStr :: Mod OptionFields FilePath -> OptParse.Parser [FilePath]
 manyStr = many . strOption
-
-backendOpt :: Mod OptionFields BackendOpt -> OptParse.Parser BackendOpt
-backendOpt = option backendReader
-  where
-    backendReader = eitherReader $ \s -> do
-      case s of
-        "c"    -> Right C
-        "llvm" -> Right LLVM
-        _      -> Left ("invalid backend option " <> s)
 
 dumpOpts :: Mod OptionFields DumpOpt -> OptParse.Parser [DumpOpt]
 dumpOpts desc = many (option dumpReader desc)
